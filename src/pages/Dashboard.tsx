@@ -1,0 +1,81 @@
+import { useMemo } from 'react'
+import { useTasks } from '../hooks/useTasks'
+import StatsCard from '../components/dashboard/StatsCard'
+import RecentTasks from '../components/dashboard/RecentTasks'
+
+export default function Dashboard() {
+  const { tasks, categories, loading } = useTasks()
+
+  const stats = useMemo(() => {
+    const totalTasks = tasks.length
+    const completedTasks = tasks.filter(t => t.completed).length
+    const activeTasks = totalTasks - completedTasks
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const overdueTasks = tasks.filter(task => {
+      if (task.completed || !task.dueDate) return false
+      const dueDate = new Date(task.dueDate)
+      dueDate.setHours(0, 0, 0, 0)
+      return dueDate < today
+    }).length
+
+    return {
+      total: totalTasks,
+      completed: completedTasks,
+      active: activeTasks,
+      overdue: overdueTasks,
+    }
+  }, [tasks])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-gray-600 dark:text-gray-400">読み込み中...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">ダッシュボード</h1>
+
+      {/* 統計カード */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatsCard
+          title="全タスク"
+          value={stats.total}
+          icon="📋"
+          color="blue"
+        />
+        <StatsCard
+          title="未完了"
+          value={stats.active}
+          icon="⏳"
+          color="yellow"
+        />
+        <StatsCard
+          title="完了"
+          value={stats.completed}
+          icon="✅"
+          color="green"
+        />
+        <StatsCard
+          title="期限切れ"
+          value={stats.overdue}
+          icon="⚠️"
+          color="red"
+        />
+      </div>
+
+      {/* 最近のタスク */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+          最近のタスク
+        </h2>
+        <RecentTasks tasks={tasks} categories={categories} />
+      </div>
+    </div>
+  )
+}
+
