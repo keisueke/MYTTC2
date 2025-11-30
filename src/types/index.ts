@@ -19,6 +19,11 @@ export interface Task {
   repeatConfig?: RepeatConfig
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  // 時間計測関連
+  startTime?: string // ISO date string (開始時刻)
+  endTime?: string // ISO date string (終了時刻)
+  elapsedTime?: number // 経過時間（秒）
+  isRunning?: boolean // 現在実行中かどうか
 }
 
 export interface RepeatConfig {

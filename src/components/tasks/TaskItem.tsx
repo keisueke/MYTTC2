@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Task } from '../../types'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -7,7 +8,24 @@ interface TaskItemProps {
   onToggle: (id: string) => void
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
+  onStartTimer: (id: string) => void
+  onStopTimer: (id: string) => void
+  onResetTimer: (id: string) => void
   getCategoryName?: (categoryId?: string) => string
+}
+
+/**
+ * 秒数を時間表示に変換（HH:MM:SS形式）
+ */
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+  
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 const priorityColors = {
@@ -22,8 +40,44 @@ const priorityLabels = {
   high: '高',
 }
 
-export default function TaskItem({ task, onToggle, onEdit, onDelete, getCategoryName }: TaskItemProps) {
+export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, onResetTimer, getCategoryName }: TaskItemProps) {
   const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date()
+  
+  // リアルタイムでタイマーを更新
+  const [currentElapsed, setCurrentElapsed] = useState<number>(0)
+  
+  useEffect(() => {
+    if (task.isRunning && task.startTime) {
+      const interval = setInterval(() => {
+        const now = new Date().getTime()
+        const start = new Date(task.startTime!).getTime()
+        const elapsed = Math.floor((now - start) / 1000)
+        const totalElapsed = (task.elapsedTime || 0) + elapsed
+        setCurrentElapsed(totalElapsed)
+      }, 1000)
+      
+      return () => clearInterval(interval)
+    } else {
+      setCurrentElapsed(task.elapsedTime || 0)
+    }
+  }, [task.isRunning, task.startTime, task.elapsedTime])
+  
+  const handleStartTimer = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onStartTimer(task.id)
+  }
+  
+  const handleStopTimer = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onStopTimer(task.id)
+  }
+  
+  const handleResetTimer = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm('タイマーをリセットしますか？')) {
+      onResetTimer(task.id)
+    }
+  }
   
   return (
     <div
@@ -84,10 +138,59 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, getCategory
               📅 {format(new Date(task.dueDate), 'yyyy/MM/dd', { locale: ja })}
             </span>
           )}
+          
+          {/* タイマー表示 */}
+          {!task.completed && (
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-mono ${
+                task.isRunning 
+                  ? 'text-green-600 dark:text-green-400 font-bold' 
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                ⏱️ {formatTime(currentElapsed)}
+              </span>
+              {task.isRunning && (
+                <span className="text-xs text-green-600 dark:text-green-400 animate-pulse">
+                  ●
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
       
       <div className="flex items-center gap-1">
+        {/* タイマーコントロール */}
+        {!task.completed && (
+          <>
+            {task.isRunning ? (
+              <button
+                onClick={handleStopTimer}
+                className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
+                title="タイマーを停止"
+              >
+                ⏸️
+              </button>
+            ) : (
+              <button
+                onClick={handleStartTimer}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
+                title="タイマーを開始"
+              >
+                ▶️
+              </button>
+            )}
+            {(task.elapsedTime || 0) > 0 && !task.isRunning && (
+              <button
+                onClick={handleResetTimer}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+                title="タイマーをリセット"
+              >
+                🔄
+              </button>
+            )}
+          </>
+        )}
         <button
           onClick={() => onEdit(task)}
           className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"

@@ -8,12 +8,15 @@ interface TaskListProps {
   onToggle: (id: string) => void
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
+  onStartTimer: (id: string) => void
+  onStopTimer: (id: string) => void
+  onResetTimer: (id: string) => void
 }
 
 type FilterType = 'all' | 'active' | 'completed'
 type SortType = 'dueDate' | 'priority' | 'createdAt' | 'title'
 
-export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete }: TaskListProps) {
+export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, onResetTimer }: TaskListProps) {
   const [filter, setFilter] = useState<FilterType>('all')
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
@@ -160,6 +163,9 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
               onToggle={onToggle}
               onEdit={onEdit}
               onDelete={onDelete}
+              onStartTimer={onStartTimer}
+              onStopTimer={onStopTimer}
+              onResetTimer={onResetTimer}
               getCategoryName={getCategoryName}
             />
           ))}

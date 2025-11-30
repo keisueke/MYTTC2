@@ -71,6 +71,42 @@ export function useTasks() {
     }
   }, [])
 
+  // タスクのタイマーを開始
+  const startTaskTimer = useCallback((id: string) => {
+    try {
+      const updatedTask = taskService.startTaskTimer(id)
+      setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      return updatedTask
+    } catch (error) {
+      console.error('Failed to start task timer:', error)
+      throw error
+    }
+  }, [])
+
+  // タスクのタイマーを停止
+  const stopTaskTimer = useCallback((id: string) => {
+    try {
+      const updatedTask = taskService.stopTaskTimer(id)
+      setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      return updatedTask
+    } catch (error) {
+      console.error('Failed to stop task timer:', error)
+      throw error
+    }
+  }, [])
+
+  // タスクのタイマーをリセット
+  const resetTaskTimer = useCallback((id: string) => {
+    try {
+      const updatedTask = taskService.resetTaskTimer(id)
+      setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      return updatedTask
+    } catch (error) {
+      console.error('Failed to reset task timer:', error)
+      throw error
+    }
+  }, [])
+
   // カテゴリを追加
   const addCategory = useCallback((category: Omit<Category, 'id' | 'createdAt'>) => {
     try {
@@ -116,6 +152,9 @@ export function useTasks() {
     updateTask,
     deleteTask,
     toggleTaskCompletion,
+    startTaskTimer,
+    stopTaskTimer,
+    resetTaskTimer,
     addCategory,
     updateCategory,
     deleteCategory,

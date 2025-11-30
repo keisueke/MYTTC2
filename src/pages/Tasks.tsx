@@ -14,6 +14,9 @@ export default function Tasks() {
     updateTask,
     deleteTask,
     toggleTaskCompletion,
+    startTaskTimer,
+    stopTaskTimer,
+    resetTaskTimer,
   } = useTasks()
   
   const [showForm, setShowForm] = useState(false)
@@ -116,6 +119,9 @@ export default function Tasks() {
           onToggle={handleToggle}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onStartTimer={startTaskTimer}
+          onStopTimer={stopTaskTimer}
+          onResetTimer={resetTaskTimer}
         />
       )}
     </div>
