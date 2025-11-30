@@ -1,5 +1,3 @@
-import { Task } from '../../types'
-
 interface StatsCardProps {
   title: string
   value: number

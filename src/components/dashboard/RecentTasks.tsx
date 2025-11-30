@@ -22,8 +22,6 @@ const priorityLabels = {
 }
 
 export default function RecentTasks({ tasks, maxItems = 5 }: RecentTasksProps) {
-  const categoryMap = new Map<string, string>()
-  
   const recentTasks = tasks
     .filter(task => !task.completed)
     .sort((a, b) => {

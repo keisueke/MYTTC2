@@ -131,6 +131,10 @@ export default function Settings() {
     }
   }
 
+  const handleExport = () => {
+    exportTasks(tasks, categories)
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
