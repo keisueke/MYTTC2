@@ -16,7 +16,6 @@ export default function Tasks() {
     toggleTaskCompletion,
     startTaskTimer,
     stopTaskTimer,
-    resetTaskTimer,
   } = useTasks()
   
   const [showForm, setShowForm] = useState(false)
@@ -89,7 +88,7 @@ export default function Tasks() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">タスク一覧</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">今日のタスク</h1>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
@@ -121,7 +120,6 @@ export default function Tasks() {
           onDelete={handleDelete}
           onStartTimer={startTaskTimer}
           onStopTimer={stopTaskTimer}
-          onResetTimer={resetTaskTimer}
         />
       )}
     </div>

@@ -127,7 +127,7 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
 }
 
 /**
- * GitHubにデータを保存
+ * GitHubにデータを保存（ファイルが存在しない場合は作成）
  */
 export async function saveDataToGitHub(
   config: GitHubConfig,
@@ -135,13 +135,28 @@ export async function saveDataToGitHub(
   sha?: string
 ): Promise<void> {
   const content = JSON.stringify(data, null, 2)
-  await saveFileContent(
-    config,
-    config.dataPath,
-    content,
-    `Update tasks data - ${new Date().toISOString()}`,
-    sha
-  )
+  const message = sha 
+    ? `Update tasks data - ${new Date().toISOString()}`
+    : `Create tasks data file - ${new Date().toISOString()}`
+  
+  try {
+    await saveFileContent(
+      config,
+      config.dataPath,
+      content,
+      message,
+      sha
+    )
+  } catch (error) {
+    if (error instanceof GitHubApiError) {
+      throw new GitHubApiError(
+        `データの保存に失敗しました: ${error.message}`,
+        error.status,
+        error.response
+      )
+    }
+    throw error
+  }
 }
 
 /**

@@ -8,7 +8,21 @@ interface TaskFormProps {
   onCancel: () => void
 }
 
+/**
+ * ISO文字列をローカル時間のdatetime-local形式に変換
+ */
+function toLocalDateTime(isoString: string): string {
+  const date = new Date(isoString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskFormProps) {
+  const isCompleted = task?.completed || false
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
   const [priority, setPriority] = useState<Priority>(task?.priority || 'medium')
@@ -23,6 +37,13 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
   )
   const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>(task?.repeatConfig?.daysOfWeek || [])
   const [repeatDayOfMonth, setRepeatDayOfMonth] = useState(task?.repeatConfig?.dayOfMonth || 1)
+  // 開始・終了時間
+  const [startTime, setStartTime] = useState(
+    task?.startTime ? toLocalDateTime(task.startTime) : ''
+  )
+  const [endTime, setEndTime] = useState(
+    task?.endTime ? toLocalDateTime(task.endTime) : ''
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -37,6 +58,8 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
       setRepeatEndDate(task.repeatConfig?.endDate ? new Date(task.repeatConfig.endDate).toISOString().split('T')[0] : '')
       setRepeatDaysOfWeek(task.repeatConfig?.daysOfWeek || [])
       setRepeatDayOfMonth(task.repeatConfig?.dayOfMonth || 1)
+      setStartTime(task.startTime ? toLocalDateTime(task.startTime) : '')
+      setEndTime(task.endTime ? toLocalDateTime(task.endTime) : '')
     }
   }, [task])
 
@@ -75,7 +98,7 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
       }
     }
 
-    onSubmit({
+    const submitData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim() || undefined,
       completed: task?.completed || false,
@@ -84,29 +107,137 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
       categoryId: categoryId || undefined,
       repeatPattern,
       repeatConfig,
-    })
+    }
+    
+    // 完了したタスクの場合、開始・終了時間、優先順位、カテゴリを更新可能
+    if (isCompleted) {
+      const newStartTime = startTime ? new Date(startTime).toISOString() : undefined
+      const newEndTime = endTime ? new Date(endTime).toISOString() : undefined
+      
+      submitData.startTime = newStartTime
+      submitData.endTime = newEndTime
+      submitData.priority = priority
+      submitData.categoryId = categoryId || undefined
+      
+      // 開始時間と終了時間の両方がある場合、経過時間を再計算
+      if (newStartTime && newEndTime) {
+        const start = new Date(newStartTime).getTime()
+        const end = new Date(newEndTime).getTime()
+        const elapsed = Math.floor((end - start) / 1000)
+        submitData.elapsedTime = elapsed > 0 ? elapsed : 0
+      } else if (newStartTime || newEndTime) {
+        // 片方しかない場合は、既存の経過時間を保持
+        submitData.elapsedTime = task?.elapsedTime || 0
+      }
+    }
+    
+    onSubmit(submitData)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          タイトル <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.title ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="タスクのタイトルを入力"
-        />
-        {errors.title && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
-        )}
-      </div>
+      {isCompleted ? (
+        <>
+          {/* 完了したタスク: 開始・終了時間、優先順位、カテゴリを編集可能 */}
+          <div className="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg border border-yellow-200 dark:border-yellow-800 mb-4">
+            <p className="text-sm text-yellow-800 dark:text-yellow-300 mb-4">
+              このタスクは完了しています。開始時間、終了時間、優先順位、カテゴリを編集できます。
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  開始時間
+                </label>
+                <input
+                  id="startTime"
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  終了時間
+                </label>
+                <input
+                  id="endTime"
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  優先度
+                </label>
+                <select
+                  id="priority"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as Priority)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="low">低</option>
+                  <option value="medium">中</option>
+                  <option value="high">高</option>
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  カテゴリ
+                </label>
+                <select
+                  id="category"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                >
+                  <option value="">カテゴリなし</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* 読み取り専用でタスク情報を表示 */}
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <p><strong>タイトル:</strong> {title}</p>
+            {description && <p><strong>説明:</strong> {description}</p>}
+            {dueDate && <p><strong>期限:</strong> {new Date(dueDate).toLocaleDateString('ja-JP')}</p>}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* 未完了タスク: 通常の編集フォーム */}
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              タイトル <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+                errors.title ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="タスクのタイトルを入力"
+            />
+            {errors.title && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
+            )}
+          </div>
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -268,6 +399,8 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
             />
           </div>
         </div>
+      )}
+        </>
       )}
 
       <div className="flex justify-end gap-2 pt-4">

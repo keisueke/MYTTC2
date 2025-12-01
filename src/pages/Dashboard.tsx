@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useTasks } from '../hooks/useTasks'
 import StatsCard from '../components/dashboard/StatsCard'
 import RecentTasks from '../components/dashboard/RecentTasks'
+import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 
 export default function Dashboard() {
   const { tasks, categories, loading } = useTasks()
+  const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
 
   const stats = useMemo(() => {
     const totalTasks = tasks.length
@@ -66,6 +68,38 @@ export default function Dashboard() {
           icon="⚠️"
           color="red"
         />
+      </div>
+
+      {/* 作業時間チャート */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            作業時間分析
+          </h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTimePeriod('week')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timePeriod === 'week'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              週間
+            </button>
+            <button
+              onClick={() => setTimePeriod('month')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timePeriod === 'month'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              月間
+            </button>
+          </div>
+        </div>
+        <CategoryTimeChart tasks={tasks} categories={categories} period={timePeriod} />
       </div>
 
       {/* 最近のタスク */}

@@ -72,6 +72,21 @@ export function useGitHub() {
       const data = await githubApi.loadDataFromGitHub(config)
       // ローカルストレージに保存
       taskService.saveData(data)
+      
+      // ファイルが存在しなかった場合（空データが返された場合）、
+      // 初回同期として空のファイルを作成
+      try {
+        // ファイルが存在するか確認
+        await githubApi.getFileSha(config, config.dataPath)
+      } catch (err) {
+        // ファイルが存在しない場合は、空のデータでファイルを作成
+        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
+          await githubApi.saveDataToGitHub(config, data)
+        } else {
+          throw err
+        }
+      }
+      
       return data
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
@@ -96,17 +111,20 @@ export function useGitHub() {
       const localData = taskService.loadData()
       
       // SHAハッシュを取得（競合回避）
+      // ファイルが存在しない場合はundefinedが返される（新規作成）
       let sha: string | undefined
       try {
         sha = await githubApi.getFileSha(config, config.dataPath)
       } catch (err) {
-        // ファイルが存在しない場合は無視
-        if (!(err instanceof githubApi.GitHubApiError && err.status === 404)) {
+        // ファイルが存在しない場合（404）は新規作成として処理
+        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
+          sha = undefined // 新規作成
+        } else {
           throw err
         }
       }
 
-      // GitHubに保存
+      // GitHubに保存（ファイルが存在しない場合は新規作成）
       await githubApi.saveDataToGitHub(config, localData, sha)
       
       // 最終同期時刻を更新

@@ -10,7 +10,6 @@ interface TaskItemProps {
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
   onStopTimer: (id: string) => void
-  onResetTimer: (id: string) => void
   getCategoryName?: (categoryId?: string) => string
 }
 
@@ -40,7 +39,7 @@ const priorityLabels = {
   high: '高',
 }
 
-export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, onResetTimer, getCategoryName }: TaskItemProps) {
+export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, getCategoryName }: TaskItemProps) {
   const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date()
   
   // リアルタイムでタイマーを更新
@@ -70,13 +69,6 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
   const handleStopTimer = (e: React.MouseEvent) => {
     e.stopPropagation()
     onStopTimer(task.id)
-  }
-  
-  const handleResetTimer = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (confirm('タイマーをリセットしますか？')) {
-      onResetTimer(task.id)
-    }
   }
   
   return (
@@ -139,13 +131,13 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
             </span>
           )}
           
-          {/* タイマー表示 */}
+          {/* タイマー表示 - 未完了タスク */}
           {!task.completed && (
-            <div className="flex items-center gap-2">
-              <span className={`text-xs font-mono ${
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+              <span className={`text-sm font-mono font-semibold ${
                 task.isRunning 
-                  ? 'text-green-600 dark:text-green-400 font-bold' 
-                  : 'text-gray-500 dark:text-gray-400'
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-gray-700 dark:text-gray-300'
               }`}>
                 ⏱️ {formatTime(currentElapsed)}
               </span>
@@ -156,18 +148,27 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
               )}
             </div>
           )}
+          
+          {/* 経過時間表示 - 完了したタスク */}
+          {task.completed && (task.elapsedTime || 0) > 0 && (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+              <span className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-300">
+                ⏱️ {formatTime(task.elapsedTime || 0)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
       
       <div className="flex items-center gap-1">
-        {/* タイマーコントロール */}
+        {/* タイマーコントロール - 未完了タスクのみ表示 */}
         {!task.completed && (
           <>
             {task.isRunning ? (
               <button
                 onClick={handleStopTimer}
                 className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
-                title="タイマーを停止"
+                title="タイマーを停止（タスクを完了）"
               >
                 ⏸️
               </button>
@@ -180,31 +181,37 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
                 ▶️
               </button>
             )}
-            {(task.elapsedTime || 0) > 0 && !task.isRunning && (
-              <button
-                onClick={handleResetTimer}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
-                title="タイマーをリセット"
-              >
-                🔄
-              </button>
-            )}
           </>
         )}
-        <button
-          onClick={() => onEdit(task)}
-          className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
-          title="編集"
-        >
-          ✏️
-        </button>
-        <button
-          onClick={() => onDelete(task.id)}
-          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
-          title="削除"
-        >
-          🗑️
-        </button>
+        {/* 完了したタスクは編集・削除ボタンを非表示 */}
+        {!task.completed && (
+          <>
+            <button
+              onClick={() => onEdit(task)}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+              title="編集"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => onDelete(task.id)}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+              title="削除"
+            >
+              🗑️
+            </button>
+          </>
+        )}
+        {/* 完了したタスクは時間編集ボタンのみ表示 */}
+        {task.completed && (
+          <button
+            onClick={() => onEdit(task)}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+            title="開始・終了時間を編集"
+          >
+            ⏰
+          </button>
+        )}
       </div>
     </div>
   )

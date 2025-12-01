@@ -155,7 +155,7 @@ export function startTaskTimer(id: string): Task {
 }
 
 /**
- * タスクのタイマーを停止
+ * タスクのタイマーを停止（タスクを完了にする）
  */
 export function stopTaskTimer(id: string): Task {
   const data = loadData()
@@ -165,20 +165,25 @@ export function stopTaskTimer(id: string): Task {
     throw new Error(`Task with id ${id} not found`)
   }
   
-  if (!task.isRunning || !task.startTime) {
-    return task
-  }
-  
   const endTime = new Date().toISOString()
-  const elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
-  const totalElapsed = (task.elapsedTime || 0) + elapsed
-  
-  return updateTask(id, {
+  let updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {
+    completed: true,
     isRunning: false,
     endTime,
-    elapsedTime: totalElapsed,
-    startTime: undefined,
-  })
+  }
+  
+  // タイマーが実行中の場合、経過時間を計算
+  if (task.isRunning && task.startTime) {
+    const elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
+    const totalElapsed = (task.elapsedTime || 0) + elapsed
+    updates.elapsedTime = totalElapsed
+    // 開始時間は保持する（完了後も編集可能にするため）
+  } else if (!task.startTime) {
+    // タイマーが開始されていない場合でも、終了時間を記録
+    updates.startTime = endTime // 開始時間がない場合は終了時間を開始時間として記録
+  }
+  
+  return updateTask(id, updates)
 }
 
 /**

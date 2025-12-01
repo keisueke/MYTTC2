@@ -10,13 +10,12 @@ interface TaskListProps {
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
   onStopTimer: (id: string) => void
-  onResetTimer: (id: string) => void
 }
 
 type FilterType = 'all' | 'active' | 'completed'
 type SortType = 'dueDate' | 'priority' | 'createdAt' | 'title'
 
-export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, onResetTimer }: TaskListProps) {
+export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete, onStartTimer, onStopTimer }: TaskListProps) {
   const [filter, setFilter] = useState<FilterType>('all')
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
@@ -34,9 +33,26 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
   }
 
   const filteredAndSortedTasks = useMemo(() => {
-    let filtered = [...tasks]
+    // 今日の日付を取得（時刻を0時0分0秒にリセット）
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayEnd = new Date(today)
+    todayEnd.setHours(23, 59, 59, 999)
 
-    // フィルタリング
+    // 今日のタスクをフィルタリング（完了・未完了関係なく）
+    // - 期限が今日または今日以前のタスク
+    // - 期限がないタスク
+    let filtered = tasks.filter(task => {
+      // 期限がないタスクは含める
+      if (!task.dueDate) return true
+      
+      // 期限が今日または今日以前のタスクを含める
+      const dueDate = new Date(task.dueDate)
+      dueDate.setHours(0, 0, 0, 0)
+      return dueDate <= today
+    })
+
+    // 状態フィルタリング
     if (filter === 'active') {
       filtered = filtered.filter(t => !t.completed)
     } else if (filter === 'completed') {
@@ -148,10 +164,17 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
         </div>
       </div>
 
+      {/* 今日の日付表示 */}
+      <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+        <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
+          📅 {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })} のタスク
+        </p>
+      </div>
+
       {/* タスク一覧 */}
       {filteredAndSortedTasks.length === 0 ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <p className="text-lg">タスクがありません</p>
+          <p className="text-lg">今日のタスクがありません</p>
           <p className="text-sm mt-2">新しいタスクを作成してください</p>
         </div>
       ) : (
@@ -165,7 +188,6 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
               onDelete={onDelete}
               onStartTimer={onStartTimer}
               onStopTimer={onStopTimer}
-              onResetTimer={onResetTimer}
               getCategoryName={getCategoryName}
             />
           ))}
