@@ -1,4 +1,4 @@
-import { Task, Category, AppData } from '../types'
+import { Task, Project, Mode, Tag, AppData } from '../types'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -18,7 +18,9 @@ export function loadData(): AppData {
   // デフォルトデータを返す
   return {
     tasks: [],
-    categories: [],
+    projects: [],
+    modes: [],
+    tags: [],
   }
 }
 
@@ -99,32 +101,6 @@ export function deleteTask(id: string): void {
 }
 
 /**
- * タスクの完了状態を切り替える
- */
-export function toggleTaskCompletion(id: string): Task {
-  const data = loadData()
-  const task = data.tasks.find(t => t.id === id)
-  
-  if (!task) {
-    throw new Error(`Task with id ${id} not found`)
-  }
-  
-  // 完了時にタイマーを停止
-  const updates: Partial<Omit<Task, 'id' | 'createdAt'>> = { completed: !task.completed }
-  if (!task.completed && task.isRunning) {
-    updates.isRunning = false
-    if (task.startTime) {
-      const endTime = new Date().toISOString()
-      const elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
-      updates.endTime = endTime
-      updates.elapsedTime = (task.elapsedTime || 0) + elapsed
-    }
-  }
-  
-  return updateTask(id, updates)
-}
-
-/**
  * タスクのタイマーを開始
  */
 export function startTaskTimer(id: string): Task {
@@ -133,10 +109,6 @@ export function startTaskTimer(id: string): Task {
   
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
-  }
-  
-  if (task.completed) {
-    throw new Error('完了したタスクのタイマーは開始できません')
   }
   
   // 他の実行中のタスクを停止
@@ -155,7 +127,7 @@ export function startTaskTimer(id: string): Task {
 }
 
 /**
- * タスクのタイマーを停止（タスクを完了にする）
+ * タスクのタイマーを停止
  */
 export function stopTaskTimer(id: string): Task {
   const data = loadData()
@@ -167,7 +139,6 @@ export function stopTaskTimer(id: string): Task {
   
   const endTime = new Date().toISOString()
   let updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {
-    completed: true,
     isRunning: false,
     endTime,
   }
@@ -177,7 +148,7 @@ export function stopTaskTimer(id: string): Task {
     const elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
     const totalElapsed = (task.elapsedTime || 0) + elapsed
     updates.elapsedTime = totalElapsed
-    // 開始時間は保持する（完了後も編集可能にするため）
+    // 開始時間は保持する
   } else if (!task.startTime) {
     // タイマーが開始されていない場合でも、終了時間を記録
     updates.startTime = endTime // 開始時間がない場合は終了時間を開始時間として記録
@@ -199,69 +170,233 @@ export function resetTaskTimer(id: string): Task {
 }
 
 /**
- * カテゴリを取得する
+ * プロジェクトを取得する
  */
-export function getCategories(): Category[] {
+export function getProjects(): Project[] {
   const data = loadData()
-  return data.categories
+  return data.projects || []
 }
 
 /**
- * カテゴリを追加する
+ * プロジェクトを追加する
  */
-export function addCategory(category: Omit<Category, 'id' | 'createdAt'>): Category {
+export function addProject(project: Omit<Project, 'id' | 'createdAt'>): Project {
   const data = loadData()
-  const newCategory: Category = {
-    ...category,
+  const newProject: Project = {
+    ...project,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
   
-  data.categories.push(newCategory)
+  if (!data.projects) {
+    data.projects = []
+  }
+  data.projects.push(newProject)
   saveData(data)
-  return newCategory
+  return newProject
 }
 
 /**
- * カテゴリを更新する
+ * プロジェクトを更新する
  */
-export function updateCategory(id: string, updates: Partial<Omit<Category, 'id' | 'createdAt'>>): Category {
+export function updateProject(id: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>): Project {
   const data = loadData()
-  const categoryIndex = data.categories.findIndex(c => c.id === id)
+  if (!data.projects) {
+    data.projects = []
+  }
+  const projectIndex = data.projects.findIndex(p => p.id === id)
   
-  if (categoryIndex === -1) {
-    throw new Error(`Category with id ${id} not found`)
+  if (projectIndex === -1) {
+    throw new Error(`Project with id ${id} not found`)
   }
   
-  const updatedCategory: Category = {
-    ...data.categories[categoryIndex],
+  const updatedProject: Project = {
+    ...data.projects[projectIndex],
     ...updates,
   }
   
-  data.categories[categoryIndex] = updatedCategory
+  data.projects[projectIndex] = updatedProject
   saveData(data)
-  return updatedCategory
+  return updatedProject
 }
 
 /**
- * カテゴリを削除する
+ * プロジェクトを削除する
  */
-export function deleteCategory(id: string): void {
+export function deleteProject(id: string): void {
   const data = loadData()
-  const categoryIndex = data.categories.findIndex(c => c.id === id)
+  if (!data.projects) {
+    return
+  }
+  const projectIndex = data.projects.findIndex(p => p.id === id)
   
-  if (categoryIndex === -1) {
-    throw new Error(`Category with id ${id} not found`)
+  if (projectIndex === -1) {
+    throw new Error(`Project with id ${id} not found`)
   }
   
-  // カテゴリを使用しているタスクのcategoryIdをクリア
+  // プロジェクトを使用しているタスクのprojectIdをクリア
   data.tasks.forEach(task => {
-    if (task.categoryId === id) {
-      task.categoryId = undefined
+    if (task.projectId === id) {
+      task.projectId = undefined
     }
   })
   
-  data.categories.splice(categoryIndex, 1)
+  data.projects.splice(projectIndex, 1)
+  saveData(data)
+}
+
+/**
+ * モードを取得する
+ */
+export function getModes(): Mode[] {
+  const data = loadData()
+  return data.modes || []
+}
+
+/**
+ * モードを追加する
+ */
+export function addMode(mode: Omit<Mode, 'id' | 'createdAt'>): Mode {
+  const data = loadData()
+  const newMode: Mode = {
+    ...mode,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+  }
+  
+  if (!data.modes) {
+    data.modes = []
+  }
+  data.modes.push(newMode)
+  saveData(data)
+  return newMode
+}
+
+/**
+ * モードを更新する
+ */
+export function updateMode(id: string, updates: Partial<Omit<Mode, 'id' | 'createdAt'>>): Mode {
+  const data = loadData()
+  if (!data.modes) {
+    data.modes = []
+  }
+  const modeIndex = data.modes.findIndex(m => m.id === id)
+  
+  if (modeIndex === -1) {
+    throw new Error(`Mode with id ${id} not found`)
+  }
+  
+  const updatedMode: Mode = {
+    ...data.modes[modeIndex],
+    ...updates,
+  }
+  
+  data.modes[modeIndex] = updatedMode
+  saveData(data)
+  return updatedMode
+}
+
+/**
+ * モードを削除する
+ */
+export function deleteMode(id: string): void {
+  const data = loadData()
+  if (!data.modes) {
+    return
+  }
+  const modeIndex = data.modes.findIndex(m => m.id === id)
+  
+  if (modeIndex === -1) {
+    throw new Error(`Mode with id ${id} not found`)
+  }
+  
+  // モードを使用しているタスクのmodeIdをクリア
+  data.tasks.forEach(task => {
+    if (task.modeId === id) {
+      task.modeId = undefined
+    }
+  })
+  
+  data.modes.splice(modeIndex, 1)
+  saveData(data)
+}
+
+/**
+ * タグを取得する
+ */
+export function getTags(): Tag[] {
+  const data = loadData()
+  return data.tags || []
+}
+
+/**
+ * タグを追加する
+ */
+export function addTag(tag: Omit<Tag, 'id' | 'createdAt'>): Tag {
+  const data = loadData()
+  const newTag: Tag = {
+    ...tag,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+  }
+  
+  if (!data.tags) {
+    data.tags = []
+  }
+  data.tags.push(newTag)
+  saveData(data)
+  return newTag
+}
+
+/**
+ * タグを更新する
+ */
+export function updateTag(id: string, updates: Partial<Omit<Tag, 'id' | 'createdAt'>>): Tag {
+  const data = loadData()
+  if (!data.tags) {
+    data.tags = []
+  }
+  const tagIndex = data.tags.findIndex(t => t.id === id)
+  
+  if (tagIndex === -1) {
+    throw new Error(`Tag with id ${id} not found`)
+  }
+  
+  const updatedTag: Tag = {
+    ...data.tags[tagIndex],
+    ...updates,
+  }
+  
+  data.tags[tagIndex] = updatedTag
+  saveData(data)
+  return updatedTag
+}
+
+/**
+ * タグを削除する
+ */
+export function deleteTag(id: string): void {
+  const data = loadData()
+  if (!data.tags) {
+    return
+  }
+  const tagIndex = data.tags.findIndex(t => t.id === id)
+  
+  if (tagIndex === -1) {
+    throw new Error(`Tag with id ${id} not found`)
+  }
+  
+  // タグを使用しているタスクのtagIdsから削除
+  data.tasks.forEach(task => {
+    if (task.tagIds && task.tagIds.includes(id)) {
+      task.tagIds = task.tagIds.filter(tagId => tagId !== id)
+      if (task.tagIds.length === 0) {
+        task.tagIds = undefined
+      }
+    }
+  })
+  
+  data.tags.splice(tagIndex, 1)
   saveData(data)
 }
 

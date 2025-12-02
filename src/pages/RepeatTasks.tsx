@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Task } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import TaskList from '../components/tasks/TaskList'
 import TaskForm from '../components/tasks/TaskForm'
 
-export default function Tasks() {
+export default function RepeatTasks() {
   const {
     tasks,
     projects,
@@ -20,6 +20,11 @@ export default function Tasks() {
   
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
+
+  // 繰り返しが設定されているタスクのみをフィルタリング
+  const repeatTasks = useMemo(() => {
+    return tasks.filter(task => task.repeatPattern !== 'none')
+  }, [tasks])
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     addTask(taskData)
@@ -53,30 +58,32 @@ export default function Tasks() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600 dark:text-gray-400">読み込み中...</p>
+        <div className="text-gray-500 dark:text-gray-400">読み込み中...</div>
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">今日のタスク</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          🔁 繰り返しタスク
+        </h1>
         {!showForm && (
           <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => {
+              setEditingTask(undefined)
+              setShowForm(true)
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            + 新しいタスク
+            + 新規タスク
           </button>
         )}
       </div>
 
       {showForm ? (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            {editingTask ? 'タスクを編集' : '新しいタスクを作成'}
-          </h2>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
           <TaskForm
             task={editingTask}
             tasks={tasks}
@@ -88,16 +95,26 @@ export default function Tasks() {
           />
         </div>
       ) : (
-        <TaskList
-          tasks={tasks}
-          projects={projects}
-          modes={modes}
-          tags={tags}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onStartTimer={startTaskTimer}
-          onStopTimer={stopTaskTimer}
-        />
+        <>
+          {repeatTasks.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
+              <p className="text-gray-500 dark:text-gray-400">
+                繰り返しが設定されているタスクはありません
+              </p>
+            </div>
+          ) : (
+            <TaskList
+              tasks={repeatTasks}
+              projects={projects}
+              modes={modes}
+              tags={tags}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onStartTimer={startTaskTimer}
+              onStopTimer={stopTaskTimer}
+            />
+          )}
+        </>
       )}
     </div>
   )

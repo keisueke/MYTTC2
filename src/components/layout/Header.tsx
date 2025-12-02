@@ -1,8 +1,29 @@
+import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+
 interface HeaderProps {
   onMenuClick: () => void
 }
 
 export default function Header({ onMenuClick }: HeaderProps) {
+  const navigate = useNavigate()
+
+  const handleLogoClick = () => {
+    navigate('/')
+  }
+
+  // baseパスを考慮した画像パス（一度だけ計算）
+  const logoPath = useMemo(() => {
+    // Viteのpublicフォルダ内のファイルは常にルートパスでアクセス可能
+    // ただし、baseパスが設定されている場合はそれも考慮
+    const pathname = window.location.pathname
+    // /MYTTC2/で始まる場合はbaseパスを考慮
+    if (pathname.startsWith('/MYTTC2/')) {
+      return '/MYTTC2/logo.png'
+    }
+    return '/logo.png'
+  }, [])
+
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="px-6 py-4 flex items-center gap-4">
@@ -25,9 +46,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
             />
           </svg>
         </button>
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-          タスク管理
-        </h2>
+        <button
+          onClick={handleLogoClick}
+          className="flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+          aria-label="ホームに戻る"
+        >
+          <img
+            src={logoPath}
+            alt="MyTCC"
+            className="h-8 w-auto"
+          />
+        </button>
       </div>
     </header>
   )

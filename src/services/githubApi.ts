@@ -119,7 +119,9 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
       // ファイルが存在しない場合は空のデータを返す
       return {
         tasks: [],
-        categories: [],
+        projects: [],
+        modes: [],
+        tags: [],
       }
     }
     throw error

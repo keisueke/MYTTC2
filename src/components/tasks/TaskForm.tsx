@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Task, Priority, RepeatPattern, Category, RepeatConfig } from '../../types'
+import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig } from '../../types'
 
 interface TaskFormProps {
   task?: Task
-  categories: Category[]
+  tasks: Task[] // 過去の実績時間を計算するために必要
+  projects: Project[]
+  modes: Mode[]
+  tags: Tag[]
   onSubmit: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void
   onCancel: () => void
 }
@@ -21,15 +24,80 @@ function toLocalDateTime(isoString: string): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
-export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskFormProps) {
-  const isCompleted = task?.completed || false
+/**
+ * 過去の類似タイトルのタスクを検索
+ * タイトルが部分一致するタスクを検索してリストを返す
+ */
+function findSimilarTasks(tasks: Task[], title: string, currentTaskId?: string): Task[] {
+  if (!title.trim()) {
+    return []
+  }
+  
+  const titleLower = title.trim().toLowerCase()
+  const titleWords = titleLower.split(/\s+/).filter(w => w.length > 0)
+  
+  // 現在編集中のタスクを除外
+  const pastTasks = tasks.filter(t => t.id !== currentTaskId)
+  
+  if (pastTasks.length === 0) {
+    return []
+  }
+  
+  // タイトルが部分一致するタスクを検索
+  // 1. 完全一致を優先
+  let matchedTasks = pastTasks.filter(t => 
+    t.title.toLowerCase() === titleLower
+  )
+  
+  // 2. 完全一致がない場合、タイトルに含まれるキーワードで部分一致
+  if (matchedTasks.length === 0 && titleWords.length > 0) {
+    matchedTasks = pastTasks.filter(t => {
+      const taskTitleLower = t.title.toLowerCase()
+      // 入力されたタイトルの単語のうち、50%以上が含まれている場合
+      const matchedWords = titleWords.filter(word => taskTitleLower.includes(word))
+      return matchedWords.length >= Math.ceil(titleWords.length * 0.5)
+    })
+  }
+  
+  // 3. それでも見つからない場合、タイトルが部分的に含まれている場合
+  if (matchedTasks.length === 0) {
+    matchedTasks = pastTasks.filter(t => {
+      const taskTitleLower = t.title.toLowerCase()
+      // 入力されたタイトルの一部が含まれている、または逆に含まれている
+      return taskTitleLower.includes(titleLower) || titleLower.includes(taskTitleLower)
+    })
+  }
+  
+  // 作成日が新しい順にソート（最大5件）
+  return matchedTasks
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5)
+}
+
+/**
+ * 過去の類似タイトルのタスクの平均実績時間を計算（分単位）
+ */
+function calculateAverageElapsedTime(tasks: Task[], title: string, currentTaskId?: string): number | null {
+  const similarTasks = findSimilarTasks(tasks, title, currentTaskId)
+  const tasksWithElapsedTime = similarTasks.filter(t => 
+    t.elapsedTime !== undefined && t.elapsedTime > 0
+  )
+  
+  if (tasksWithElapsedTime.length === 0) {
+    return null
+  }
+  
+  // 秒を分に変換して平均を計算
+  const totalMinutes = tasksWithElapsedTime.reduce((sum, t) => sum + Math.floor((t.elapsedTime || 0) / 60), 0)
+  return Math.round(totalMinutes / tasksWithElapsedTime.length)
+}
+
+export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit, onCancel }: TaskFormProps) {
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
-  const [priority, setPriority] = useState<Priority>(task?.priority || 'medium')
-  const [dueDate, setDueDate] = useState(
-    task?.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
-  )
-  const [categoryId, setCategoryId] = useState(task?.categoryId || '')
+  const [projectId, setProjectId] = useState(task?.projectId || '')
+  const [modeId, setModeId] = useState(task?.modeId || '')
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(task?.tagIds || [])
   const [repeatPattern, setRepeatPattern] = useState<RepeatPattern>(task?.repeatPattern || 'none')
   const [repeatInterval, setRepeatInterval] = useState(task?.repeatConfig?.interval || 1)
   const [repeatEndDate, setRepeatEndDate] = useState(
@@ -44,15 +112,51 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
   const [endTime, setEndTime] = useState(
     task?.endTime ? toLocalDateTime(task.endTime) : ''
   )
+  // 予定時間（分）
+  const [estimatedTime, setEstimatedTime] = useState<number | ''>(task?.estimatedTime || '')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  
+  // 過去の類似タスクを検索
+  const similarTasks = title.trim() 
+    ? findSimilarTasks(tasks, title.trim(), task?.id)
+    : []
+  
+  // 過去の実績時間を計算
+  const averageElapsedTime = similarTasks.length > 0
+    ? calculateAverageElapsedTime(tasks, title.trim(), task?.id)
+    : null
+  
+  // 類似タスクを選択したときにフォームに反映
+  const handleSelectSimilarTask = (similarTask: Task) => {
+    // タイトルを設定
+    setTitle(similarTask.title)
+    
+    // 予定時間を設定（実績時間がある場合はそれを分に変換、なければ既存の予定時間）
+    if (similarTask.elapsedTime && similarTask.elapsedTime > 0) {
+      setEstimatedTime(Math.floor(similarTask.elapsedTime / 60))
+    } else if (similarTask.estimatedTime) {
+      setEstimatedTime(similarTask.estimatedTime)
+    }
+    
+    // プロジェクト、モード、タグを設定
+    if (similarTask.projectId) {
+      setProjectId(similarTask.projectId)
+    }
+    if (similarTask.modeId) {
+      setModeId(similarTask.modeId)
+    }
+    if (similarTask.tagIds && similarTask.tagIds.length > 0) {
+      setSelectedTagIds(similarTask.tagIds)
+    }
+  }
 
   useEffect(() => {
     if (task) {
       setTitle(task.title)
       setDescription(task.description || '')
-      setPriority(task.priority)
-      setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '')
-      setCategoryId(task.categoryId || '')
+      setProjectId(task.projectId || '')
+      setModeId(task.modeId || '')
+      setSelectedTagIds(task.tagIds || [])
       setRepeatPattern(task.repeatPattern || 'none')
       setRepeatInterval(task.repeatConfig?.interval || 1)
       setRepeatEndDate(task.repeatConfig?.endDate ? new Date(task.repeatConfig.endDate).toISOString().split('T')[0] : '')
@@ -60,6 +164,7 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
       setRepeatDayOfMonth(task.repeatConfig?.dayOfMonth || 1)
       setStartTime(task.startTime ? toLocalDateTime(task.startTime) : '')
       setEndTime(task.endTime ? toLocalDateTime(task.endTime) : '')
+      setEstimatedTime(task.estimatedTime || '')
     }
   }, [task])
 
@@ -98,37 +203,30 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
       }
     }
 
+    const newStartTime = startTime ? new Date(startTime).toISOString() : undefined
+    const newEndTime = endTime ? new Date(endTime).toISOString() : undefined
+    
     const submitData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim() || undefined,
-      completed: task?.completed || false,
-      priority,
-      dueDate: dueDate || undefined,
-      categoryId: categoryId || undefined,
+      projectId: projectId || undefined,
+      modeId: modeId || undefined,
+      tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
       repeatPattern,
       repeatConfig,
+      startTime: newStartTime,
+      endTime: newEndTime,
+      estimatedTime: estimatedTime !== '' ? (typeof estimatedTime === 'number' ? estimatedTime : parseInt(String(estimatedTime)) || undefined) : undefined,
     }
     
-    // 完了したタスクの場合、開始・終了時間、優先順位、カテゴリを更新可能
-    if (isCompleted) {
-      const newStartTime = startTime ? new Date(startTime).toISOString() : undefined
-      const newEndTime = endTime ? new Date(endTime).toISOString() : undefined
-      
-      submitData.startTime = newStartTime
-      submitData.endTime = newEndTime
-      submitData.priority = priority
-      submitData.categoryId = categoryId || undefined
-      
-      // 開始時間と終了時間の両方がある場合、経過時間を再計算
-      if (newStartTime && newEndTime) {
-        const start = new Date(newStartTime).getTime()
-        const end = new Date(newEndTime).getTime()
-        const elapsed = Math.floor((end - start) / 1000)
-        submitData.elapsedTime = elapsed > 0 ? elapsed : 0
-      } else if (newStartTime || newEndTime) {
-        // 片方しかない場合は、既存の経過時間を保持
-        submitData.elapsedTime = task?.elapsedTime || 0
-      }
+    // 開始時間と終了時間の両方がある場合、経過時間を再計算
+    if (newStartTime && newEndTime) {
+      const start = new Date(newStartTime).getTime()
+      const end = new Date(newEndTime).getTime()
+      const elapsed = Math.floor((end - start) / 1000)
+      submitData.elapsedTime = elapsed > 0 ? elapsed : (task?.elapsedTime || 0)
+    } else if (task?.elapsedTime !== undefined) {
+      submitData.elapsedTime = task.elapsedTime
     }
     
     onSubmit(submitData)
@@ -136,108 +234,125 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {isCompleted ? (
-        <>
-          {/* 完了したタスク: 開始・終了時間、優先順位、カテゴリを編集可能 */}
-          <div className="p-4 bg-yellow-50 dark:bg-yellow-900 rounded-lg border border-yellow-200 dark:border-yellow-800 mb-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-300 mb-4">
-              このタスクは完了しています。開始時間、終了時間、優先順位、カテゴリを編集できます。
-            </p>
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  開始時間
-                </label>
-                <input
-                  id="startTime"
-                  type="datetime-local"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
+      <div>
+        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          タイトル <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="title"
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+            errors.title ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="タスクのタイトルを入力"
+        />
+        {errors.title && (
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
+        )}
+        {averageElapsedTime !== null && (
+          <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">
+            💡 過去の平均実績時間: {averageElapsedTime}分
+          </p>
+        )}
+      </div>
+
+      {/* 類似タスクの候補 */}
+      {similarTasks.length > 0 && (
+        <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+            📋 似ている過去のタスク（クリックで情報を自動入力）
+          </p>
+          <div className="space-y-2">
+            {similarTasks.map((similarTask) => {
+              const elapsedMinutes = similarTask.elapsedTime 
+                ? Math.floor(similarTask.elapsedTime / 60)
+                : null
+              const estimatedMinutes = similarTask.estimatedTime || null
+              const project = projects.find(p => p.id === similarTask.projectId)
+              const mode = modes.find(m => m.id === similarTask.modeId)
+              const taskTags = similarTask.tagIds 
+                ? tags.filter(t => similarTask.tagIds!.includes(t.id))
+                : []
               
-              <div>
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  終了時間
-                </label>
-                <input
-                  id="endTime"
-                  type="datetime-local"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  優先度
-                </label>
-                <select
-                  id="priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as Priority)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              return (
+                <button
+                  key={similarTask.id}
+                  type="button"
+                  onClick={() => handleSelectSimilarTask(similarTask)}
+                  className="w-full text-left p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md transition-all"
                 >
-                  <option value="low">低</option>
-                  <option value="medium">中</option>
-                  <option value="high">高</option>
-                </select>
-              </div>
-              
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  カテゴリ
-                </label>
-                <select
-                  id="category"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="">カテゴリなし</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                        {similarTask.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {elapsedMinutes !== null && (
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            ⏱️ 実績: {elapsedMinutes}分
+                          </span>
+                        )}
+                        {estimatedMinutes !== null && (
+                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            ⏰ 予定: {estimatedMinutes}分
+                          </span>
+                        )}
+                        {project && (
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded">
+                            {project.name}
+                          </span>
+                        )}
+                        {mode && (
+                          <span 
+                            className="text-xs px-2 py-0.5 rounded text-white"
+                            style={mode.color ? { backgroundColor: mode.color } : { backgroundColor: '#6366F1' }}
+                          >
+                            {mode.name}
+                          </span>
+                        )}
+                        {taskTags.map(tag => (
+                          <span 
+                            key={tag.id}
+                            className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-blue-600 dark:text-blue-400 text-sm">選択</span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          
-          {/* 読み取り専用でタスク情報を表示 */}
-          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <p><strong>タイトル:</strong> {title}</p>
-            {description && <p><strong>説明:</strong> {description}</p>}
-            {dueDate && <p><strong>期限:</strong> {new Date(dueDate).toLocaleDateString('ja-JP')}</p>}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* 未完了タスク: 通常の編集フォーム */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              タイトル <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                errors.title ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="タスクのタイトルを入力"
-            />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
-            )}
-          </div>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="estimatedTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          予定時間（分）
+        </label>
+        <input
+          id="estimatedTime"
+          type="number"
+          min="0"
+          value={estimatedTime}
+          onChange={(e) => {
+            const value = e.target.value
+            setEstimatedTime(value === '' ? '' : parseInt(value) || 0)
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          placeholder="予定時間を分で入力（例: 30）"
+        />
+        {averageElapsedTime !== null && estimatedTime === '' && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            過去の平均実績時間（{averageElapsedTime}分）を参考に設定できます
+          </p>
+        )}
+      </div>
 
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -255,52 +370,100 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            優先度
+          <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            開始時間
           </label>
-          <select
-            id="priority"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as Priority)}
+          <input
+            id="startTime"
+            type="datetime-local"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          >
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
-          </select>
+          />
         </div>
 
         <div>
-          <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            期限
+          <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            終了時間
           </label>
           <input
-            id="dueDate"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            id="endTime"
+            type="datetime-local"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           />
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="project" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            プロジェクト
+          </label>
+          <select
+            id="project"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          >
+            <option value="">プロジェクトなし</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            モード
+          </label>
+          <select
+            id="mode"
+            value={modeId}
+            onChange={(e) => setModeId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          >
+            <option value="">モードなし</option>
+            {modes.map((mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div>
-        <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          カテゴリ
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          タグ
         </label>
-        <select
-          id="category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        >
-          <option value="">カテゴリなし</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => {
+                const newTagIds = selectedTagIds.includes(tag.id)
+                  ? selectedTagIds.filter(id => id !== tag.id)
+                  : [...selectedTagIds, tag.id]
+                setSelectedTagIds(newTagIds)
+              }}
+              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                selectedTagIds.includes(tag.id)
+                  ? tag.color
+                    ? 'text-white'
+                    : 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+              style={selectedTagIds.includes(tag.id) && tag.color ? { backgroundColor: tag.color } : {}}
+            >
+              {tag.name}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       <div>
@@ -399,8 +562,6 @@ export default function TaskForm({ task, categories, onSubmit, onCancel }: TaskF
             />
           </div>
         </div>
-      )}
-        </>
       )}
 
       <div className="flex justify-end gap-2 pt-4">

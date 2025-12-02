@@ -1,13 +1,17 @@
-import { useMemo } from 'react'
-import { Task, Category } from '../../types'
+import { useState, useMemo } from 'react'
+import { Task, Project, Mode, Tag } from '../../types'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
 interface CategoryTimeChartProps {
   tasks: Task[]
-  categories: Category[]
+  projects: Project[]
+  modes: Mode[]
+  tags: Tag[]
   period: 'week' | 'month'
 }
+
+type AnalysisType = 'project' | 'mode' | 'tag'
 
 // デフォルトカラー（カテゴリーに色が設定されていない場合）
 const defaultColors = [
@@ -33,12 +37,43 @@ function formatHours(seconds: number): string {
   return `${minutes}m`
 }
 
-export default function CategoryTimeChart({ tasks, categories, period }: CategoryTimeChartProps) {
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, Category>()
-    categories.forEach(cat => map.set(cat.id, cat))
-    return map
-  }, [categories])
+export default function CategoryTimeChart({ tasks, projects, modes, tags, period }: CategoryTimeChartProps) {
+  const [analysisType, setAnalysisType] = useState<AnalysisType>('project')
+  
+  const getItemMap = useMemo(() => {
+    if (analysisType === 'project') {
+      const map = new Map<string, Project>()
+      projects.forEach(p => map.set(p.id, p))
+      return map
+    } else if (analysisType === 'mode') {
+      const map = new Map<string, Mode>()
+      modes.forEach(m => map.set(m.id, m))
+      return map
+    } else {
+      const map = new Map<string, Tag>()
+      tags.forEach(t => map.set(t.id, t))
+      return map
+    }
+  }, [analysisType, projects, modes, tags])
+  
+  const getItemId = (task: Task): string | undefined => {
+    if (analysisType === 'project') return task.projectId
+    if (analysisType === 'mode') return task.modeId
+    // タグの場合は最初のタグIDを使用（複数タグがある場合）
+    return task.tagIds && task.tagIds.length > 0 ? task.tagIds[0] : undefined
+  }
+  
+  const getItemName = (itemId: string | undefined): string => {
+    if (!itemId) return '未設定'
+    const item = getItemMap.get(itemId)
+    return item?.name || '不明'
+  }
+  
+  const getItemColor = (itemId: string | undefined): string => {
+    if (!itemId) return '#9CA3AF'
+    const item = getItemMap.get(itemId)
+    return item?.color || defaultColors[parseInt(itemId, 36) % defaultColors.length]
+  }
 
   // 期間の開始日と終了日を計算
   const { startDate, endDate } = useMemo(() => {
@@ -72,9 +107,9 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
     // 週間の場合：日別×カテゴリー別に集計
     const dailyTimes = new Map<string, Map<string, number>>() // 日付 -> カテゴリー -> 時間
     
-    // 完了したタスクで、期間内に完了したものを集計
+    // 終了時間があるタスクで、期間内に完了したものを集計
     const completedTasks = tasks.filter(task => {
-      if (!task.completed || !task.endTime) return false
+      if (!task.endTime) return false
       const endTime = new Date(task.endTime)
       return endTime >= startDate && endTime <= endDate
     })
@@ -83,14 +118,14 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
       if (!task.endTime) return
       const endTime = new Date(task.endTime)
       const dateKey = format(endTime, 'yyyy-MM-dd')
-      const categoryId = task.categoryId || 'uncategorized'
+      const itemId = getItemId(task) || 'unset'
       const elapsed = task.elapsedTime || 0
       
       if (!dailyTimes.has(dateKey)) {
         dailyTimes.set(dateKey, new Map())
       }
       const dayMap = dailyTimes.get(dateKey)!
-      dayMap.set(categoryId, (dayMap.get(categoryId) || 0) + elapsed)
+      dayMap.set(itemId, (dayMap.get(itemId) || 0) + elapsed)
     })
     
     return dailyTimes
@@ -104,17 +139,17 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
     
     const times = new Map<string, number>()
     
-    // 完了したタスクで、期間内に完了したものを集計
+    // 終了時間があるタスクで、期間内に完了したものを集計
     const completedTasks = tasks.filter(task => {
-      if (!task.completed || !task.endTime) return false
+      if (!task.endTime) return false
       const endTime = new Date(task.endTime)
       return endTime >= startDate && endTime <= endDate
     })
     
     completedTasks.forEach(task => {
-      const categoryId = task.categoryId || 'uncategorized'
+      const itemId = getItemId(task) || 'unset'
       const elapsed = task.elapsedTime || 0
-      times.set(categoryId, (times.get(categoryId) || 0) + elapsed)
+      times.set(itemId, (times.get(itemId) || 0) + elapsed)
     })
     
     return times
@@ -134,21 +169,18 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
       days.push({ date, dateKey, label })
     }
     
-    // 全カテゴリーを取得
-    const allCategories = new Set<string>()
+    // 全アイテムを取得
+    const allItems = new Set<string>()
     dailyCategoryTimes.forEach(dayMap => {
-      dayMap.forEach((_, categoryId) => allCategories.add(categoryId))
+      dayMap.forEach((_, itemId) => allItems.add(itemId))
     })
     
-    // カテゴリー情報を取得
-    const categoryInfo = new Map<string, { name: string; color: string }>()
-    allCategories.forEach(categoryId => {
-      const category = categoryId === 'uncategorized'
-        ? { id: 'uncategorized', name: 'カテゴリなし', color: undefined }
-        : categoryMap.get(categoryId)
-      categoryInfo.set(categoryId, {
-        name: category?.name || '不明',
-        color: category?.color || defaultColors[parseInt(categoryId, 36) % defaultColors.length],
+    // アイテム情報を取得
+    const itemInfo = new Map<string, { name: string; color: string }>()
+    allItems.forEach(itemId => {
+      itemInfo.set(itemId, {
+        name: getItemName(itemId === 'unset' ? undefined : itemId),
+        color: getItemColor(itemId === 'unset' ? undefined : itemId),
       })
     })
     
@@ -157,12 +189,12 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
       const dayMap = dailyCategoryTimes.get(day.dateKey) || new Map()
       const dayTotal = Array.from(dayMap.values()).reduce((sum, time) => sum + time, 0)
       
-      // カテゴリー別のデータを配列に変換
-      const categories = Array.from(dayMap.entries())
-        .map(([categoryId, time]) => ({
-          categoryId,
-          categoryName: categoryInfo.get(categoryId)?.name || '不明',
-          color: categoryInfo.get(categoryId)?.color || '#999',
+      // アイテム別のデータを配列に変換
+      const items = Array.from(dayMap.entries())
+        .map(([itemId, time]) => ({
+          itemId,
+          itemName: itemInfo.get(itemId)?.name || '不明',
+          color: itemInfo.get(itemId)?.color || '#999',
           time,
         }))
         .sort((a, b) => b.time - a.time) // 時間の多い順にソート
@@ -170,32 +202,26 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
       return {
         ...day,
         total: dayTotal,
-        categories,
+        items,
       }
     })
-  }, [dailyCategoryTimes, startDate, categoryMap])
+  }, [dailyCategoryTimes, startDate, getItemName, getItemColor])
 
-  // 月間用：カテゴリー情報と時間を結合してソート
+  // 月間用：アイテム情報と時間を結合してソート
   const monthlyChartData = useMemo(() => {
     if (!categoryTimes) return null
     
     const data = Array.from(categoryTimes.entries())
-      .map(([categoryId, time]) => {
-        const category = categoryId === 'uncategorized' 
-          ? { id: 'uncategorized', name: 'カテゴリなし', color: undefined }
-          : categoryMap.get(categoryId)
-        
-        return {
-          categoryId,
-          categoryName: category?.name || '不明',
-          color: category?.color || defaultColors[parseInt(categoryId, 36) % defaultColors.length],
-          time,
-        }
-      })
+      .map(([itemId, time]) => ({
+        itemId,
+        itemName: getItemName(itemId === 'unset' ? undefined : itemId),
+        color: getItemColor(itemId === 'unset' ? undefined : itemId),
+        time,
+      }))
       .sort((a, b) => b.time - a.time) // 時間の多い順にソート
     
     return data
-  }, [categoryTimes, categoryMap])
+  }, [categoryTimes, getItemName, getItemColor])
 
   // 最大時間を取得（週間用：各日の最大値、月間用：合計時間）
   const maxTime = useMemo(() => {
@@ -247,6 +273,38 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
             {dateRange}
           </p>
         </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAnalysisType('project')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              analysisType === 'project'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            プロジェクト
+          </button>
+          <button
+            onClick={() => setAnalysisType('mode')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              analysisType === 'mode'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            モード
+          </button>
+          <button
+            onClick={() => setAnalysisType('tag')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              analysisType === 'tag'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            タグ
+          </button>
+        </div>
       </div>
       
       {period === 'week' && weeklyChartData ? (
@@ -267,20 +325,20 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
                   <div key={day.dateKey} className="flex-1 flex flex-col items-center gap-1 h-full">
                     {/* 日別の積み上げバー */}
                     <div className="relative w-full flex flex-col justify-end" style={{ height: `${dayHeightPercentage}%` }}>
-                      {day.categories.map((category, index) => {
-                        const categoryPercentage = day.total > 0 ? (category.time / day.total) * 100 : 0
-                        const previousPercentage = day.categories
+                      {day.items.map((item, index) => {
+                        const itemPercentage = day.total > 0 ? (item.time / day.total) * 100 : 0
+                        const previousPercentage = day.items
                           .slice(0, index)
-                          .reduce((sum, c) => sum + (day.total > 0 ? (c.time / day.total) * 100 : 0), 0)
+                          .reduce((sum, i) => sum + (day.total > 0 ? (i.time / day.total) * 100 : 0), 0)
                         
                         return (
                           <div
-                            key={category.categoryId}
+                            key={item.itemId}
                             className="absolute left-0 right-0 transition-all duration-500 ease-out rounded-t"
                             style={{
                               bottom: `${previousPercentage}%`,
-                              height: `${categoryPercentage}%`,
-                              backgroundColor: category.color,
+                              height: `${itemPercentage}%`,
+                              backgroundColor: item.color,
                               opacity: 0.85,
                               borderTop: index > 0 ? '1px solid rgba(255,255,255,0.3)' : 'none',
                             }}
@@ -306,34 +364,23 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
             </div>
           </div>
           
-          {/* 凡例（全カテゴリー） */}
+          {/* 凡例（全アイテム） */}
           {(() => {
-            const allCategories = new Set<string>()
+            const allItems = new Set<string>()
             weeklyChartData.forEach(day => {
-              day.categories.forEach(c => allCategories.add(c.categoryId))
-            })
-            
-            const categoryInfo = new Map<string, { name: string; color: string }>()
-            allCategories.forEach(categoryId => {
-              const category = categoryId === 'uncategorized'
-                ? { id: 'uncategorized', name: 'カテゴリなし', color: undefined }
-                : categoryMap.get(categoryId)
-              categoryInfo.set(categoryId, {
-                name: category?.name || '不明',
-                color: category?.color || defaultColors[parseInt(categoryId, 36) % defaultColors.length],
-              })
+              day.items.forEach(i => allItems.add(i.itemId))
             })
             
             return (
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                {Array.from(categoryInfo.entries()).map(([categoryId, info]) => (
-                  <div key={categoryId} className="flex items-center gap-2">
+                {Array.from(allItems).map((itemId) => (
+                  <div key={itemId} className="flex items-center gap-2">
                     <div
                       className="w-4 h-4 rounded"
-                      style={{ backgroundColor: info.color }}
+                      style={{ backgroundColor: getItemColor(itemId === 'unset' ? undefined : itemId) }}
                     ></div>
                     <span className="text-xs text-gray-600 dark:text-gray-400">
-                      {info.name}
+                      {getItemName(itemId === 'unset' ? undefined : itemId)}
                     </span>
                   </div>
                 ))}
@@ -358,14 +405,14 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
                     {monthlyChartData.map((data, index) => {
                       const totalTime = monthlyChartData.reduce((sum, d) => sum + d.time, 0)
                       const percentage = totalTime > 0 ? (data.time / totalTime) * 100 : 0
-                      // 前のカテゴリーまでの累積割合を計算
+                      // 前のアイテムまでの累積割合を計算
                       const previousPercentage = monthlyChartData
                         .slice(0, index)
                         .reduce((sum, d) => sum + (totalTime > 0 ? (d.time / totalTime) * 100 : 0), 0)
                       
                       return (
                         <div
-                          key={data.categoryId}
+                          key={data.itemId}
                           className="absolute left-0 right-0 transition-all duration-500 ease-out"
                           style={{
                             bottom: `${previousPercentage}%`,
@@ -411,13 +458,13 @@ export default function CategoryTimeChart({ tasks, categories, period }: Categor
           {/* 凡例 */}
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             {monthlyChartData?.map((data) => (
-              <div key={data.categoryId} className="flex items-center gap-2">
+              <div key={data.itemId} className="flex items-center gap-2">
                 <div
                   className="w-4 h-4 rounded"
                   style={{ backgroundColor: data.color }}
                 ></div>
                 <span className="text-xs text-gray-600 dark:text-gray-400">
-                  {data.categoryName}: {formatHours(data.time)}
+                  {data.itemName}: {formatHours(data.time)}
                 </span>
               </div>
             ))}

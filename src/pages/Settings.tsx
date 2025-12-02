@@ -1,19 +1,35 @@
 import { useState } from 'react'
-import { Category, GitHubConfig } from '../types'
+import { Project, Mode, Tag, GitHubConfig } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { loadData } from '../services/taskService'
 import { exportTasks } from '../utils/export'
-import CategoryList from '../components/categories/CategoryList'
-import CategoryForm from '../components/categories/CategoryForm'
+import { generateTestData } from '../utils/testData'
+import ProjectList from '../components/projects/ProjectList'
+import ProjectForm from '../components/projects/ProjectForm'
+import ModeList from '../components/modes/ModeList'
+import ModeForm from '../components/modes/ModeForm'
+import TagList from '../components/tags/TagList'
+import TagForm from '../components/tags/TagForm'
+
+type TabType = 'project' | 'mode' | 'tag'
 
 export default function Settings() {
   const {
     tasks,
-    categories,
-    addCategory,
-    updateCategory,
-    deleteCategory,
+    projects,
+    modes,
+    tags,
+    addProject,
+    updateProject,
+    deleteProject,
+    addMode,
+    updateMode,
+    deleteMode,
+    addTag,
+    updateTag,
+    deleteTag,
+    addTask,
     refresh,
   } = useTasks()
   
@@ -28,8 +44,11 @@ export default function Settings() {
     validateConfig,
   } = useGitHub()
   
+  const [activeTab, setActiveTab] = useState<TabType>('project')
   const [showForm, setShowForm] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | undefined>(undefined)
+  const [editingProject, setEditingProject] = useState<Project | undefined>(undefined)
+  const [editingMode, setEditingMode] = useState<Mode | undefined>(undefined)
+  const [editingTag, setEditingTag] = useState<Tag | undefined>(undefined)
   const [showGitHubForm, setShowGitHubForm] = useState(!githubConfig)
   const [githubToken, setGitHubToken] = useState(githubConfig?.token || '')
   const [githubOwner, setGitHubOwner] = useState(githubConfig?.owner || '')
@@ -37,33 +56,86 @@ export default function Settings() {
   const [githubDataPath, setGitHubDataPath] = useState(githubConfig?.dataPath || 'data/tasks.json')
   const [validating, setValidating] = useState(false)
 
-  const handleCreateCategory = (categoryData: Omit<Category, 'id' | 'createdAt'>) => {
-    addCategory(categoryData)
+  const handleCreateProject = (projectData: Omit<Project, 'id' | 'createdAt'>) => {
+    addProject(projectData)
     setShowForm(false)
+    setEditingProject(undefined)
   }
 
-  const handleUpdateCategory = (categoryData: Omit<Category, 'id' | 'createdAt'>) => {
-    if (editingCategory) {
-      updateCategory(editingCategory.id, categoryData)
-      setEditingCategory(undefined)
+  const handleUpdateProject = (projectData: Omit<Project, 'id' | 'createdAt'>) => {
+    if (editingProject) {
+      updateProject(editingProject.id, projectData)
+      setEditingProject(undefined)
       setShowForm(false)
     }
   }
 
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category)
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project)
     setShowForm(true)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm('このカテゴリを削除しますか？関連するタスクのカテゴリは解除されます。')) {
-      deleteCategory(id)
+  const handleDeleteProject = (id: string) => {
+    if (confirm('このプロジェクトを削除しますか？関連するタスクのプロジェクトは解除されます。')) {
+      deleteProject(id)
+    }
+  }
+
+  const handleCreateMode = (modeData: Omit<Mode, 'id' | 'createdAt'>) => {
+    addMode(modeData)
+    setShowForm(false)
+    setEditingMode(undefined)
+  }
+
+  const handleUpdateMode = (modeData: Omit<Mode, 'id' | 'createdAt'>) => {
+    if (editingMode) {
+      updateMode(editingMode.id, modeData)
+      setEditingMode(undefined)
+      setShowForm(false)
+    }
+  }
+
+  const handleEditMode = (mode: Mode) => {
+    setEditingMode(mode)
+    setShowForm(true)
+  }
+
+  const handleDeleteMode = (id: string) => {
+    if (confirm('このモードを削除しますか？関連するタスクのモードは解除されます。')) {
+      deleteMode(id)
+    }
+  }
+
+  const handleCreateTag = (tagData: Omit<Tag, 'id' | 'createdAt'>) => {
+    addTag(tagData)
+    setShowForm(false)
+    setEditingTag(undefined)
+  }
+
+  const handleUpdateTag = (tagData: Omit<Tag, 'id' | 'createdAt'>) => {
+    if (editingTag) {
+      updateTag(editingTag.id, tagData)
+      setEditingTag(undefined)
+      setShowForm(false)
+    }
+  }
+
+  const handleEditTag = (tag: Tag) => {
+    setEditingTag(tag)
+    setShowForm(true)
+  }
+
+  const handleDeleteTag = (id: string) => {
+    if (confirm('このタグを削除しますか？関連するタスクのタグは解除されます。')) {
+      deleteTag(id)
     }
   }
 
   const handleCancel = () => {
     setShowForm(false)
-    setEditingCategory(undefined)
+    setEditingProject(undefined)
+    setEditingMode(undefined)
+    setEditingTag(undefined)
   }
 
   const handleSaveGitHubConfig = async () => {
@@ -132,53 +204,200 @@ export default function Settings() {
   }
 
   const handleExport = () => {
-    exportTasks(tasks, categories)
+    exportTasks(tasks, projects, modes, tags)
+  }
+
+  const handleGenerateTestData = () => {
+    if (!confirm('テストデータを追加しますか？既存のデータは保持されます。')) {
+      return
+    }
+
+    try {
+      const testData = generateTestData()
+
+      // プロジェクトを追加
+      const createdProjects: Project[] = []
+      testData.projects.forEach(project => {
+        // 既に同じ名前のプロジェクトが存在するかチェック
+        if (!projects.find(p => p.name === project.name)) {
+          createdProjects.push(addProject(project))
+        }
+      })
+
+      // モードを追加
+      const createdModes: Mode[] = []
+      testData.modes.forEach(mode => {
+        if (!modes.find(m => m.name === mode.name)) {
+          createdModes.push(addMode(mode))
+        }
+      })
+
+      // タグを追加
+      const createdTags: Tag[] = []
+      testData.tags.forEach(tag => {
+        if (!tags.find(t => t.name === tag.name)) {
+          createdTags.push(addTag(tag))
+        }
+      })
+
+      // タスクを追加（プロジェクト、モード、タグをランダムに割り当て）
+      testData.tasks.forEach((task, index) => {
+        const taskWithRelations = {
+          ...task,
+          projectId: createdProjects.length > 0 
+            ? createdProjects[index % createdProjects.length]?.id 
+            : undefined,
+          modeId: createdModes.length > 0 
+            ? createdModes[index % createdModes.length]?.id 
+            : undefined,
+          tagIds: createdTags.length > 0 
+            ? [createdTags[index % createdTags.length]?.id].filter(Boolean) as string[]
+            : undefined,
+        }
+        addTask(taskWithRelations)
+      })
+
+      refresh()
+      alert(`テストデータを追加しました:\n- プロジェクト: ${createdProjects.length}個\n- モード: ${createdModes.length}個\n- タグ: ${createdTags.length}個\n- タスク: ${testData.tasks.length}個`)
+    } catch (error) {
+      alert(`テストデータの追加に失敗しました: ${error}`)
+    }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">設定</h1>
-        <button
-          onClick={handleExport}
-          className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-        >
-          📥 タスクをエクスポート
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleGenerateTestData}
+            className="px-4 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            🧪 テストデータを追加
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            📥 タスクをエクスポート
+          </button>
+        </div>
       </div>
       
       <div className="space-y-6">
-        {/* カテゴリ管理 */}
+        {/* プロジェクト・モード・タグ管理 */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">カテゴリ管理</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">プロジェクト・モード・タグ管理</h2>
             {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
                 className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                + 新しいカテゴリ
+                + 新規作成
               </button>
             )}
+          </div>
+
+          {/* タブ */}
+          <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => {
+                setActiveTab('project')
+                setShowForm(false)
+                setEditingProject(undefined)
+              }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'project'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              プロジェクト
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('mode')
+                setShowForm(false)
+                setEditingMode(undefined)
+              }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'mode'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              モード
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('tag')
+                setShowForm(false)
+                setEditingTag(undefined)
+              }}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'tag'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              タグ
+            </button>
           </div>
 
           {showForm ? (
             <div className="mb-4">
               <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">
-                {editingCategory ? 'カテゴリを編集' : '新しいカテゴリを作成'}
+                {activeTab === 'project' && (editingProject ? 'プロジェクトを編集' : '新しいプロジェクトを作成')}
+                {activeTab === 'mode' && (editingMode ? 'モードを編集' : '新しいモードを作成')}
+                {activeTab === 'tag' && (editingTag ? 'タグを編集' : '新しいタグを作成')}
               </h3>
-              <CategoryForm
-                category={editingCategory}
-                onSubmit={editingCategory ? handleUpdateCategory : handleCreateCategory}
-                onCancel={handleCancel}
-              />
+              {activeTab === 'project' && (
+                <ProjectForm
+                  project={editingProject}
+                  onSubmit={editingProject ? handleUpdateProject : handleCreateProject}
+                  onCancel={handleCancel}
+                />
+              )}
+              {activeTab === 'mode' && (
+                <ModeForm
+                  mode={editingMode}
+                  onSubmit={editingMode ? handleUpdateMode : handleCreateMode}
+                  onCancel={handleCancel}
+                />
+              )}
+              {activeTab === 'tag' && (
+                <TagForm
+                  tag={editingTag}
+                  onSubmit={editingTag ? handleUpdateTag : handleCreateTag}
+                  onCancel={handleCancel}
+                />
+              )}
             </div>
           ) : (
-            <CategoryList
-              categories={categories}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+            <>
+              {activeTab === 'project' && (
+                <ProjectList
+                  projects={projects}
+                  onEdit={handleEditProject}
+                  onDelete={handleDeleteProject}
+                />
+              )}
+              {activeTab === 'mode' && (
+                <ModeList
+                  modes={modes}
+                  onEdit={handleEditMode}
+                  onDelete={handleDeleteMode}
+                />
+              )}
+              {activeTab === 'tag' && (
+                <TagList
+                  tags={tags}
+                  onEdit={handleEditTag}
+                  onDelete={handleDeleteTag}
+                />
+              )}
+            </>
           )}
         </div>
 

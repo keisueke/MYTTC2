@@ -1,7 +1,4 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { Category } from '../../types'
-import { getCategories } from '../../services/taskService'
 
 interface SidebarProps {
   isOpen: boolean
@@ -10,26 +7,6 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
-  const [categories, setCategories] = useState<Category[]>([])
-
-  useEffect(() => {
-    // カテゴリ一覧を読み込む
-    setCategories(getCategories())
-    
-    // LocalStorageの変更を監視（簡易的な実装）
-    const handleStorageChange = () => {
-      setCategories(getCategories())
-    }
-    
-    // カスタムイベントで更新を通知（taskServiceから発火）
-    window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('mytcc2:dataChanged', handleStorageChange)
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('mytcc2:dataChanged', handleStorageChange)
-    }
-  }, [])
 
   // ナビゲーションクリック時にメニューを閉じる
   const handleNavClick = () => {
@@ -39,6 +16,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navItems = [
     { path: '/', label: 'ホーム', icon: '🏠' },
     { path: '/tasks', label: 'タスク', icon: '📋' },
+    { path: '/repeat-tasks', label: '繰り返しタスク', icon: '🔁' },
     { path: '/settings', label: '設定', icon: '⚙️' },
   ]
 
@@ -91,31 +69,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </Link>
           ))}
         </nav>
-        
-        {/* カテゴリ一覧 */}
-        {categories.length > 0 && (
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              カテゴリ
-            </h2>
-            <div className="space-y-1">
-              {categories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-center gap-2 px-2 py-1 text-sm text-gray-600 dark:text-gray-400"
-                >
-                  {category.color && (
-                    <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: category.color }}
-                    />
-                  )}
-                  <span className="truncate">{category.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </aside>
     </>
   )

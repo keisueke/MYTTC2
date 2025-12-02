@@ -76,30 +76,11 @@ export function calculateNextDueDate(
 
 /**
  * 完了した繰り返しタスクから次のタスクを生成する
+ * 期限がないため、繰り返しタスクの生成は無効化されています
  */
-export function generateNextRepeatTask(task: Task): Task | null {
-  if (task.repeatPattern === 'none' || !task.dueDate || !task.repeatConfig) {
-    return null
-  }
-
-  const nextDueDate = calculateNextDueDate(
-    task.dueDate,
-    task.repeatPattern,
-    task.repeatConfig
-  )
-
-  if (!nextDueDate) {
-    return null
-  }
-
-  return {
-    ...task,
-    id: crypto.randomUUID(),
-    completed: false,
-    dueDate: nextDueDate,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
+export function generateNextRepeatTask(_task: Task): Task | null {
+  // 期限がないため、繰り返しタスクは生成しない
+  return null
 }
 
 /**

@@ -1,85 +1,45 @@
 import { useState, useMemo } from 'react'
-import { Task, Priority, Category } from '../../types'
+import { Task, Project, Mode, Tag } from '../../types'
 import TaskItem from './TaskItem'
 
 interface TaskListProps {
   tasks: Task[]
-  categories: Category[]
-  onToggle: (id: string) => void
+  projects: Project[]
+  modes: Mode[]
+  tags: Tag[]
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
   onStopTimer: (id: string) => void
 }
 
-type FilterType = 'all' | 'active' | 'completed'
-type SortType = 'dueDate' | 'priority' | 'createdAt' | 'title'
+type SortType = 'createdAt' | 'title'
 
-export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete, onStartTimer, onStopTimer }: TaskListProps) {
-  const [filter, setFilter] = useState<FilterType>('all')
+export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelete, onStartTimer, onStopTimer }: TaskListProps) {
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
-  const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('all')
-
-  const categoryMap = useMemo(() => {
-    const map = new Map<string, string>()
-    categories.forEach(cat => map.set(cat.id, cat.name))
-    return map
-  }, [categories])
-
-  const getCategoryName = (categoryId?: string): string => {
-    if (!categoryId) return ''
-    return categoryMap.get(categoryId) || ''
-  }
+  const [projectFilter, setProjectFilter] = useState<string>('all')
+  const [modeFilter, setModeFilter] = useState<string>('all')
+  const [tagFilter, setTagFilter] = useState<string>('all')
 
   const filteredAndSortedTasks = useMemo(() => {
-    // 今日の日付を取得（時刻を0時0分0秒にリセット）
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayEnd = new Date(today)
-    todayEnd.setHours(23, 59, 59, 999)
+    // すべてのタスクを表示（今日中にやるタスクのみ）
+    let filtered = [...tasks]
 
-    // 今日のタスクをフィルタリング（完了・未完了関係なく）
-    // - 期限が今日または今日以前のタスク
-    // - 期限がないタスク
-    let filtered = tasks.filter(task => {
-      // 期限がないタスクは含める
-      if (!task.dueDate) return true
-      
-      // 期限が今日または今日以前のタスクを含める
-      const dueDate = new Date(task.dueDate)
-      dueDate.setHours(0, 0, 0, 0)
-      return dueDate <= today
-    })
-
-    // 状態フィルタリング
-    if (filter === 'active') {
-      filtered = filtered.filter(t => !t.completed)
-    } else if (filter === 'completed') {
-      filtered = filtered.filter(t => t.completed)
+    if (projectFilter !== 'all') {
+      filtered = filtered.filter(t => t.projectId === projectFilter)
     }
 
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(t => t.priority === priorityFilter)
+    if (modeFilter !== 'all') {
+      filtered = filtered.filter(t => t.modeId === modeFilter)
     }
 
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(t => t.categoryId === categoryFilter)
+    if (tagFilter !== 'all') {
+      filtered = filtered.filter(t => t.tagIds && t.tagIds.includes(tagFilter))
     }
 
     // ソート
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'dueDate':
-          if (!a.dueDate && !b.dueDate) return 0
-          if (!a.dueDate) return 1
-          if (!b.dueDate) return -1
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-        
-        case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 }
-          return priorityOrder[b.priority] - priorityOrder[a.priority]
-        
         case 'title':
           return a.title.localeCompare(b.title, 'ja')
         
@@ -90,57 +50,62 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
     })
 
     return filtered
-  }, [tasks, filter, priorityFilter, categoryFilter, sortBy])
+  }, [tasks, projectFilter, modeFilter, tagFilter, sortBy])
 
   return (
     <div className="space-y-4">
       {/* フィルタとソート */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              状態
+              プロジェクト
             </label>
             <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterType)}
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="all">すべて</option>
-              <option value="active">未完了</option>
-              <option value="completed">完了</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              優先度
+              モード
             </label>
             <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')}
+              value={modeFilter}
+              onChange={(e) => setModeFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="all">すべて</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
+              {modes.map((mode) => (
+                <option key={mode.id} value={mode.id}>
+                  {mode.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              カテゴリ
+              タグ
             </label>
             <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="all">すべて</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
                 </option>
               ))}
             </select>
@@ -156,8 +121,6 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="createdAt">作成日（新しい順）</option>
-              <option value="dueDate">期限</option>
-              <option value="priority">優先度</option>
               <option value="title">タイトル</option>
             </select>
           </div>
@@ -183,12 +146,13 @@ export default function TaskList({ tasks, categories, onToggle, onEdit, onDelete
             <TaskItem
               key={task.id}
               task={task}
-              onToggle={onToggle}
+              projects={projects}
+              modes={modes}
+              tags={tags}
               onEdit={onEdit}
               onDelete={onDelete}
               onStartTimer={onStartTimer}
               onStopTimer={onStopTimer}
-              getCategoryName={getCategoryName}
             />
           ))}
         </div>

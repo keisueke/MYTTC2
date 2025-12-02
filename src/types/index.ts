@@ -1,5 +1,3 @@
-export type Priority = 'low' | 'medium' | 'high'
-
 export type RepeatPattern = 
   | 'none'
   | 'daily'
@@ -11,10 +9,9 @@ export interface Task {
   id: string
   title: string
   description?: string
-  completed: boolean
-  priority: Priority
-  dueDate?: string // ISO date string
-  categoryId?: string
+  projectId?: string
+  modeId?: string
+  tagIds?: string[] // 複数選択可能
   repeatPattern: RepeatPattern
   repeatConfig?: RepeatConfig
   createdAt: string // ISO date string
@@ -24,6 +21,7 @@ export interface Task {
   endTime?: string // ISO date string (終了時刻)
   elapsedTime?: number // 経過時間（秒）
   isRunning?: boolean // 現在実行中かどうか
+  estimatedTime?: number // 予定時間（分）
 }
 
 export interface RepeatConfig {
@@ -33,6 +31,28 @@ export interface RepeatConfig {
   dayOfMonth?: number // 1-31 月次繰り返しの場合
 }
 
+export interface Project {
+  id: string
+  name: string
+  color?: string
+  createdAt: string
+}
+
+export interface Mode {
+  id: string
+  name: string
+  color?: string
+  createdAt: string
+}
+
+export interface Tag {
+  id: string
+  name: string
+  color?: string
+  createdAt: string
+}
+
+// 後方互換性のため残す（削除予定）
 export interface Category {
   id: string
   name: string
@@ -49,7 +69,11 @@ export interface GitHubConfig {
 
 export interface AppData {
   tasks: Task[]
-  categories: Category[]
+  projects: Project[]
+  modes: Mode[]
+  tags: Tag[]
+  // 後方互換性のため残す（削除予定）
+  categories?: Category[]
   lastSynced?: string
 }
 

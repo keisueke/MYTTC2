@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Task } from '../../types'
-import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
+import { Task, Project, Mode, Tag } from '../../types'
 
 interface TaskItemProps {
   task: Task
-  onToggle: (id: string) => void
+  projects: Project[]
+  modes: Mode[]
+  tags: Tag[]
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
   onStopTimer: (id: string) => void
-  getCategoryName?: (categoryId?: string) => string
 }
 
 /**
@@ -27,20 +26,10 @@ function formatTime(seconds: number): string {
   return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-const priorityColors = {
-  low: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-  medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  high: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-}
-
-const priorityLabels = {
-  low: '低',
-  medium: '中',
-  high: '高',
-}
-
-export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTimer, onStopTimer, getCategoryName }: TaskItemProps) {
-  const isOverdue = task.dueDate && !task.completed && new Date(task.dueDate) < new Date()
+export default function TaskItem({ task, projects, modes, tags, onEdit, onDelete, onStartTimer, onStopTimer }: TaskItemProps) {
+  const project = task.projectId ? projects.find(p => p.id === task.projectId) : undefined
+  const mode = task.modeId ? modes.find(m => m.id === task.modeId) : undefined
+  const taskTags = task.tagIds ? tags.filter(t => task.tagIds!.includes(t.id)) : []
   
   // リアルタイムでタイマーを更新
   const [currentElapsed, setCurrentElapsed] = useState<number>(0)
@@ -72,30 +61,11 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
   }
   
   return (
-    <div
-      className={`flex items-start gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border ${
-        task.completed
-          ? 'border-gray-200 dark:border-gray-700 opacity-60'
-          : 'border-gray-300 dark:border-gray-600'
-      } ${isOverdue ? 'border-red-300 dark:border-red-700' : ''}`}
-    >
-      <input
-        type="checkbox"
-        checked={task.completed}
-        onChange={() => onToggle(task.id)}
-        className="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-      />
-      
+    <div className="flex items-start gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <h3
-              className={`font-medium ${
-                task.completed
-                  ? 'line-through text-gray-500 dark:text-gray-400'
-                  : 'text-gray-900 dark:text-white'
-              }`}
-            >
+            <h3 className="font-medium text-gray-900 dark:text-white">
               {task.title}
             </h3>
             {task.description && (
@@ -107,111 +77,123 @@ export default function TaskItem({ task, onToggle, onEdit, onDelete, onStartTime
         </div>
         
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <span
-            className={`px-2 py-1 text-xs font-medium rounded ${priorityColors[task.priority]}`}
+          {/* プロジェクト・モード・タグをボタン形式で表示 */}
+          <button
+            type="button"
+            className={`px-2 py-1 text-xs rounded transition-colors ${
+              project
+                ? project.color
+                  ? 'text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500'
+            }`}
+            style={project?.color ? { backgroundColor: project.color } : {}}
+            disabled
           >
-            {priorityLabels[task.priority]}
-          </span>
+            プロジェクト
+          </button>
           
-          {task.categoryId && getCategoryName && (
-            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded">
-              {getCategoryName(task.categoryId)}
-            </span>
-          )}
-          
-          {task.dueDate && (
-            <span
-              className={`text-xs ${
-                isOverdue
-                  ? 'text-red-600 dark:text-red-400 font-medium'
-                  : 'text-gray-500 dark:text-gray-400'
+          {project && (
+            <button
+              type="button"
+              className={`px-2 py-1 text-xs rounded ${
+                project.color ? 'text-white' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
               }`}
+              style={project.color ? { backgroundColor: project.color } : {}}
+              disabled
             >
-              📅 {format(new Date(task.dueDate), 'yyyy/MM/dd', { locale: ja })}
+              {project.name}
+            </button>
+          )}
+          
+          {mode && (
+            <button
+              type="button"
+              className={`px-2 py-1 text-xs rounded ${
+                mode.color ? 'text-white' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+              }`}
+              style={mode.color ? { backgroundColor: mode.color } : {}}
+              disabled
+            >
+              {mode.name}
+            </button>
+          )}
+          
+          {taskTags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              className={`px-2 py-1 text-xs rounded ${
+                tag.color ? 'text-white' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+              }`}
+              style={tag.color ? { backgroundColor: tag.color } : {}}
+              disabled
+            >
+              {tag.name}
+            </button>
+          ))}
+          
+          {task.tagIds && task.tagIds.length === 0 && (
+            <button
+              type="button"
+              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-500 rounded"
+              disabled
+            >
+              タグ
+            </button>
+          )}
+          
+          {/* タイマー表示 */}
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+            <span className={`text-sm font-mono font-semibold ${
+              task.isRunning 
+                ? 'text-green-600 dark:text-green-400' 
+                : 'text-gray-700 dark:text-gray-300'
+            }`}>
+              ⏱️ {formatTime(currentElapsed)}
             </span>
-          )}
-          
-          {/* タイマー表示 - 未完了タスク */}
-          {!task.completed && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
-              <span className={`text-sm font-mono font-semibold ${
-                task.isRunning 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-gray-700 dark:text-gray-300'
-              }`}>
-                ⏱️ {formatTime(currentElapsed)}
+            {task.isRunning && (
+              <span className="text-xs text-green-600 dark:text-green-400 animate-pulse">
+                ●
               </span>
-              {task.isRunning && (
-                <span className="text-xs text-green-600 dark:text-green-400 animate-pulse">
-                  ●
-                </span>
-              )}
-            </div>
-          )}
-          
-          {/* 経過時間表示 - 完了したタスク */}
-          {task.completed && (task.elapsedTime || 0) > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
-              <span className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-300">
-                ⏱️ {formatTime(task.elapsedTime || 0)}
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
       
       <div className="flex items-center gap-1">
-        {/* タイマーコントロール - 未完了タスクのみ表示 */}
-        {!task.completed && (
-          <>
-            {task.isRunning ? (
-              <button
-                onClick={handleStopTimer}
-                className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
-                title="タイマーを停止（タスクを完了）"
-              >
-                ⏸️
-              </button>
-            ) : (
-              <button
-                onClick={handleStartTimer}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
-                title="タイマーを開始"
-              >
-                ▶️
-              </button>
-            )}
-          </>
-        )}
-        {/* 完了したタスクは編集・削除ボタンを非表示 */}
-        {!task.completed && (
-          <>
-            <button
-              onClick={() => onEdit(task)}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
-              title="編集"
-            >
-              ✏️
-            </button>
-            <button
-              onClick={() => onDelete(task.id)}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
-              title="削除"
-            >
-              🗑️
-            </button>
-          </>
-        )}
-        {/* 完了したタスクは時間編集ボタンのみ表示 */}
-        {task.completed && (
+        {/* タイマーコントロール */}
+        {task.isRunning ? (
           <button
-            onClick={() => onEdit(task)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
-            title="開始・終了時間を編集"
+            onClick={handleStopTimer}
+            className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
+            title="タイマーを停止"
           >
-            ⏰
+            ⏸️
+          </button>
+        ) : (
+          <button
+            onClick={handleStartTimer}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900 rounded transition-colors"
+            title="タイマーを開始"
+          >
+            ▶️
           </button>
         )}
+        <button
+          onClick={() => onEdit(task)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+          title="編集"
+        >
+          ✏️
+        </button>
+        <button
+          onClick={() => onDelete(task.id)}
+          className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+          title="削除"
+        >
+          🗑️
+        </button>
       </div>
     </div>
   )
