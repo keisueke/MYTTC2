@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -7,6 +7,8 @@ export function useTasks() {
   const [projects, setProjects] = useState<Project[]>([])
   const [modes, setModes] = useState<Mode[]>([])
   const [tags, setTags] = useState<Tag[]>([])
+  const [wishes, setWishes] = useState<Wish[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -16,6 +18,8 @@ export function useTasks() {
       setProjects(taskService.getProjects())
       setModes(taskService.getModes())
       setTags(taskService.getTags())
+      setWishes(taskService.getWishes())
+      setGoals(taskService.getGoals())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -208,11 +212,83 @@ export function useTasks() {
     }
   }, [])
 
+  // Wishを追加
+  const addWish = useCallback((wish: Omit<Wish, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newWish = taskService.addWish(wish)
+      setWishes(prev => [...prev, newWish])
+      return newWish
+    } catch (error) {
+      console.error('Failed to add wish:', error)
+      throw error
+    }
+  }, [])
+
+  // Wishを更新
+  const updateWish = useCallback((id: string, updates: Partial<Omit<Wish, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedWish = taskService.updateWish(id, updates)
+      setWishes(prev => prev.map(w => w.id === id ? updatedWish : w))
+      return updatedWish
+    } catch (error) {
+      console.error('Failed to update wish:', error)
+      throw error
+    }
+  }, [])
+
+  // Wishを削除
+  const deleteWish = useCallback((id: string) => {
+    try {
+      taskService.deleteWish(id)
+      setWishes(prev => prev.filter(w => w.id !== id))
+    } catch (error) {
+      console.error('Failed to delete wish:', error)
+      throw error
+    }
+  }, [])
+
+  // Goalを追加
+  const addGoal = useCallback((goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newGoal = taskService.addGoal(goal)
+      setGoals(prev => [...prev, newGoal])
+      return newGoal
+    } catch (error) {
+      console.error('Failed to add goal:', error)
+      throw error
+    }
+  }, [])
+
+  // Goalを更新
+  const updateGoal = useCallback((id: string, updates: Partial<Omit<Goal, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedGoal = taskService.updateGoal(id, updates)
+      setGoals(prev => prev.map(g => g.id === id ? updatedGoal : g))
+      return updatedGoal
+    } catch (error) {
+      console.error('Failed to update goal:', error)
+      throw error
+    }
+  }, [])
+
+  // Goalを削除
+  const deleteGoal = useCallback((id: string) => {
+    try {
+      taskService.deleteGoal(id)
+      setGoals(prev => prev.filter(g => g.id !== id))
+    } catch (error) {
+      console.error('Failed to delete goal:', error)
+      throw error
+    }
+  }, [])
+
   return {
     tasks,
     projects,
     modes,
     tags,
+    wishes,
+    goals,
     loading,
     addTask,
     updateTask,
@@ -229,6 +305,12 @@ export function useTasks() {
     addTag,
     updateTag,
     deleteTag,
+    addWish,
+    updateWish,
+    deleteWish,
+    addGoal,
+    updateGoal,
+    deleteGoal,
     refresh: loadData,
   }
 }

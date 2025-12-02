@@ -16,7 +16,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navItems = [
     { path: '/', label: 'ホーム', icon: '🏠' },
     { path: '/tasks', label: 'タスク', icon: '📋' },
-    { path: '/repeat-tasks', label: '繰り返しタスク', icon: '🔁' },
+    { path: '/repeat-tasks', label: 'ルーティン', icon: '🔁' },
+    { path: '/wish-list', label: 'Wishリスト', icon: '⭐' },
     { path: '/settings', label: '設定', icon: '⚙️' },
   ]
 

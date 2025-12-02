@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, AppData } from '../types'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -21,6 +21,8 @@ export function loadData(): AppData {
     projects: [],
     modes: [],
     tags: [],
+    wishes: [],
+    goals: [],
   }
 }
 
@@ -397,6 +399,148 @@ export function deleteTag(id: string): void {
   })
   
   data.tags.splice(tagIndex, 1)
+  saveData(data)
+}
+
+/**
+ * Wishを取得する
+ */
+export function getWishes(): Wish[] {
+  const data = loadData()
+  return data.wishes || []
+}
+
+/**
+ * Wishを追加する
+ */
+export function addWish(wish: Omit<Wish, 'id' | 'createdAt' | 'updatedAt'>): Wish {
+  const data = loadData()
+  const newWish: Wish = {
+    ...wish,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  if (!data.wishes) {
+    data.wishes = []
+  }
+  data.wishes.push(newWish)
+  saveData(data)
+  return newWish
+}
+
+/**
+ * Wishを更新する
+ */
+export function updateWish(id: string, updates: Partial<Omit<Wish, 'id' | 'createdAt'>>): Wish {
+  const data = loadData()
+  if (!data.wishes) {
+    data.wishes = []
+  }
+  const wishIndex = data.wishes.findIndex(w => w.id === id)
+  
+  if (wishIndex === -1) {
+    throw new Error(`Wish with id ${id} not found`)
+  }
+  
+  const updatedWish: Wish = {
+    ...data.wishes[wishIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.wishes[wishIndex] = updatedWish
+  saveData(data)
+  return updatedWish
+}
+
+/**
+ * Wishを削除する
+ */
+export function deleteWish(id: string): void {
+  const data = loadData()
+  if (!data.wishes) {
+    return
+  }
+  const wishIndex = data.wishes.findIndex(w => w.id === id)
+  
+  if (wishIndex === -1) {
+    throw new Error(`Wish with id ${id} not found`)
+  }
+  
+  data.wishes.splice(wishIndex, 1)
+  saveData(data)
+}
+
+/**
+ * Goalを取得する
+ */
+export function getGoals(): Goal[] {
+  const data = loadData()
+  return data.goals || []
+}
+
+/**
+ * Goalを追加する
+ */
+export function addGoal(goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>): Goal {
+  const data = loadData()
+  const newGoal: Goal = {
+    ...goal,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  if (!data.goals) {
+    data.goals = []
+  }
+  data.goals.push(newGoal)
+  saveData(data)
+  return newGoal
+}
+
+/**
+ * Goalを更新する
+ */
+export function updateGoal(id: string, updates: Partial<Omit<Goal, 'id' | 'createdAt'>>): Goal {
+  const data = loadData()
+  if (!data.goals) {
+    data.goals = []
+  }
+  const goalIndex = data.goals.findIndex(g => g.id === id)
+  
+  if (goalIndex === -1) {
+    throw new Error(`Goal with id ${id} not found`)
+  }
+  
+  const updatedGoal: Goal = {
+    ...data.goals[goalIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.goals[goalIndex] = updatedGoal
+  saveData(data)
+  return updatedGoal
+}
+
+/**
+ * Goalを削除する
+ */
+export function deleteGoal(id: string): void {
+  const data = loadData()
+  if (!data.goals) {
+    return
+  }
+  const goalIndex = data.goals.findIndex(g => g.id === id)
+  
+  if (goalIndex === -1) {
+    throw new Error(`Goal with id ${id} not found`)
+  }
+  
+  data.goals.splice(goalIndex, 1)
   saveData(data)
 }
 

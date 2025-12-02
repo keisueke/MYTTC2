@@ -67,11 +67,46 @@ export interface GitHubConfig {
   dataPath: string // デフォルト: 'data/tasks.json'
 }
 
+export interface Wish {
+  id: string
+  title: string
+  description?: string
+  projectId?: string
+  modeId?: string
+  tagIds?: string[]
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
+export type GoalCategory = 
+  | 'social-contribution' // 社会貢献
+  | 'family' // 家族
+  | 'relationships' // 人間関係
+  | 'hobby' // 趣味
+  | 'work' // 仕事
+  | 'finance' // ファイナンス
+  | 'health' // 健康
+  | 'intelligence' // 知性
+  | 'other' // その他
+
+export interface Goal {
+  id: string
+  year: number // 年度（年）
+  category: GoalCategory
+  title: string
+  description?: string
+  progress?: number // 進捗率（0-100）
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
 export interface AppData {
   tasks: Task[]
   projects: Project[]
   modes: Mode[]
   tags: Tag[]
+  wishes?: Wish[] // wishリスト
+  goals?: Goal[] // 目標リスト
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string
