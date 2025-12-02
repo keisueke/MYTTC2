@@ -67,7 +67,7 @@ export default function RepeatTasks() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          🔁 繰り返しタスク
+          🔁 ルーティン
         </h1>
         {!showForm && (
           <button
@@ -99,7 +99,7 @@ export default function RepeatTasks() {
           {repeatTasks.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
               <p className="text-gray-500 dark:text-gray-400">
-                繰り返しが設定されているタスクはありません
+                ルーティンが設定されているタスクはありません
               </p>
             </div>
           ) : (
