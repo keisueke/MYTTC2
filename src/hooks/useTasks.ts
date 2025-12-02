@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag, Wish, Goal } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -9,6 +9,7 @@ export function useTasks() {
   const [tags, setTags] = useState<Tag[]>([])
   const [wishes, setWishes] = useState<Wish[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -20,6 +21,7 @@ export function useTasks() {
       setTags(taskService.getTags())
       setWishes(taskService.getWishes())
       setGoals(taskService.getGoals())
+      setMemos(taskService.getMemos())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -66,6 +68,29 @@ export function useTasks() {
       throw error
     }
   }, [])
+
+  // タスクをコピー
+  const copyTask = useCallback((id: string) => {
+    try {
+      const newTask = taskService.copyTask(id)
+      setTasks(prev => [...prev, newTask])
+      return newTask
+    } catch (error) {
+      console.error('Failed to copy task:', error)
+      throw error
+    }
+  }, [])
+
+  // タスクの順番を移動（ドラッグ&ドロップ用）
+  const moveTaskToPosition = useCallback((taskId: string, newIndex: number, filteredTaskIds: string[]) => {
+    try {
+      taskService.moveTaskToPosition(taskId, newIndex, filteredTaskIds)
+      loadData() // 順番が変わったので全体を再読み込み
+    } catch (error) {
+      console.error('Failed to move task:', error)
+      throw error
+    }
+  }, [loadData])
 
 
   // タスクのタイマーを開始
@@ -282,6 +307,41 @@ export function useTasks() {
     }
   }, [])
 
+  // Memoを追加
+  const addMemo = useCallback((memo: Omit<Memo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newMemo = taskService.addMemo(memo)
+      setMemos(prev => [...prev, newMemo])
+      return newMemo
+    } catch (error) {
+      console.error('Failed to add memo:', error)
+      throw error
+    }
+  }, [])
+
+  // Memoを更新
+  const updateMemo = useCallback((id: string, updates: Partial<Omit<Memo, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedMemo = taskService.updateMemo(id, updates)
+      setMemos(prev => prev.map(m => m.id === id ? updatedMemo : m))
+      return updatedMemo
+    } catch (error) {
+      console.error('Failed to update memo:', error)
+      throw error
+    }
+  }, [])
+
+  // Memoを削除
+  const deleteMemo = useCallback((id: string) => {
+    try {
+      taskService.deleteMemo(id)
+      setMemos(prev => prev.filter(m => m.id !== id))
+    } catch (error) {
+      console.error('Failed to delete memo:', error)
+      throw error
+    }
+  }, [])
+
   return {
     tasks,
     projects,
@@ -293,6 +353,8 @@ export function useTasks() {
     addTask,
     updateTask,
     deleteTask,
+    copyTask,
+    moveTaskToPosition,
     startTaskTimer,
     stopTaskTimer,
     resetTaskTimer,
@@ -311,6 +373,10 @@ export function useTasks() {
     addGoal,
     updateGoal,
     deleteGoal,
+    memos,
+    addMemo,
+    updateMemo,
+    deleteMemo,
     refresh: loadData,
   }
 }

@@ -19,7 +19,6 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
   const [tagFilter, setTagFilter] = useState<string>('')
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
 
-  // フィルタリングとソート
   const filteredAndSortedWishes = useMemo(() => {
     let filtered = wishes
 
@@ -33,7 +32,6 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
       filtered = filtered.filter(w => w.tagIds?.includes(tagFilter))
     }
 
-    // ソート
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'title') {
         return a.title.localeCompare(b.title, 'ja')
@@ -50,18 +48,18 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
   const getTag = (id: string) => tags.find(t => t.id === id)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* フィルター */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="card-industrial p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               プロジェクト
             </label>
             <select
               value={projectFilter}
               onChange={(e) => setProjectFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white border-gray-300"
+              className="input-industrial w-full"
             >
               <option value="">すべて</option>
               {projects.map(project => (
@@ -73,13 +71,13 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               モード
             </label>
             <select
               value={modeFilter}
               onChange={(e) => setModeFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white border-gray-300"
+              className="input-industrial w-full"
             >
               <option value="">すべて</option>
               {modes.map(mode => (
@@ -91,13 +89,13 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               タグ
             </label>
             <select
               value={tagFilter}
               onChange={(e) => setTagFilter(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white border-gray-300"
+              className="input-industrial w-full"
             >
               <option value="">すべて</option>
               {tags.map(tag => (
@@ -109,13 +107,13 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               並び替え
             </label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortType)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white border-gray-300"
+              className="input-industrial w-full"
             >
               <option value="createdAt">作成日</option>
               <option value="title">タイトル</option>
@@ -126,14 +124,14 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
 
       {/* リスト */}
       {filteredAndSortedWishes.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
-          <p className="text-gray-500 dark:text-gray-400">
+        <div className="card-industrial p-8 text-center">
+          <p className="font-display text-sm text-[var(--color-text-tertiary)]">
             {wishes.length === 0 ? 'wishリストは空です' : '条件に一致するwishがありません'}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredAndSortedWishes.map(wish => {
+          {filteredAndSortedWishes.map((wish, index) => {
             const project = getProject(wish.projectId)
             const mode = getMode(wish.modeId)
             const wishTags = wish.tagIds?.map(id => getTag(id)).filter(Boolean) || []
@@ -141,60 +139,67 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
             return (
               <div
                 key={wish.id}
-                className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                className="card-industrial p-5 transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up"
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] mb-2">
                       {wish.title}
                     </h3>
                     {wish.description && (
-                      <p className="text-gray-600 dark:text-gray-400 mb-3 whitespace-pre-wrap">
+                      <p className="text-sm text-[var(--color-text-secondary)] mb-3 whitespace-pre-wrap">
                         {wish.description}
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       {project && (
-                        <span className="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                          📁 {project.name}
+                        <span className="tag-industrial">
+                          {project.name}
                         </span>
                       )}
                       {mode && (
                         <span
-                          className="px-2 py-1 text-xs rounded text-white"
-                          style={{ backgroundColor: mode.color || '#6B7280' }}
+                          className="tag-industrial"
+                          style={mode.color ? { backgroundColor: mode.color, borderColor: mode.color, color: '#0c0c0c' } : {}}
                         >
-                          🎯 {mode.name}
+                          {mode.name}
                         </span>
                       )}
                       {wishTags.map(tag => tag && (
                         <span
                           key={tag.id}
-                          className="px-2 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          className="tag-industrial"
+                          style={tag.color ? { borderColor: tag.color, color: tag.color } : {}}
                         >
                           #{tag.name}
                         </span>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      作成: {new Date(wish.createdAt).toLocaleString('ja-JP')}
+                    <p className="font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-muted)]">
+                      Created: {new Date(wish.createdAt).toLocaleDateString('ja-JP')}
                     </p>
                   </div>
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex items-center gap-1.5">
                     {onConvertToTask && (
                       <button
                         onClick={() => onConvertToTask(wish)}
-                        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10 transition-all"
                         title="タスクに変換"
                       >
-                        📋
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
                       </button>
                     )}
                     <button
                       onClick={() => onEdit(wish)}
-                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-all"
+                      title="編集"
                     >
-                      編集
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
                     </button>
                     <button
                       onClick={() => {
@@ -202,9 +207,12 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
                           onDelete(wish.id)
                         }
                       }}
-                      className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-all"
+                      title="削除"
                     >
-                      削除
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -216,4 +224,3 @@ export default function WishList({ wishes, projects, modes, tags, onEdit, onDele
     </div>
   )
 }
-

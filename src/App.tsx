@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import RepeatTasks from './pages/RepeatTasks'
 import WishListPage from './pages/WishList'
+import Goals from './pages/Goals'
+import Memo from './pages/Memo'
 import Settings from './pages/Settings'
 
 // GitHub Pages用のbaseパス（本番環境では/MYTTC2/、開発環境では/）
@@ -27,6 +29,8 @@ function App() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/repeat-tasks" element={<RepeatTasks />} />
           <Route path="/wish-list" element={<WishListPage />} />
+          <Route path="/goals" element={<Goals />} />
+          <Route path="/memo" element={<Memo />} />
           <Route path="/settings" element={<Settings />} />
           {/* 未定義のパスはHomeにリダイレクト */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -70,35 +70,53 @@ export default function WishListPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">読み込み中...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-display text-xs tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+            Loading...
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          ⭐ Wishリスト
-        </h1>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
+        <div>
+          <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
+            Wish List
+          </p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+            Wishリスト
+          </h1>
+        </div>
         {!showForm && (
           <button
             onClick={() => {
               setEditingWish(undefined)
               setShowForm(true)
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-industrial-primary"
           >
-            + 新規Wish
+            新規
           </button>
         )}
       </div>
 
       {showForm ? (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            {editingWish ? 'Wishを編集' : '新しいWishを作成'}
-          </h2>
+        <div className="card-industrial p-6 animate-scale-in">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+            <div>
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                {editingWish ? 'Edit Wish' : 'New Wish'}
+              </p>
+              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                {editingWish ? 'Wishを編集' : '新しいWishを作成'}
+              </h2>
+            </div>
+          </div>
           <WishForm
             wish={editingWish}
             projects={projects}
@@ -122,4 +140,3 @@ export default function WishListPage() {
     </div>
   )
 }
-

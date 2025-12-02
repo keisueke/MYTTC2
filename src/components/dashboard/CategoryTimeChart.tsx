@@ -248,14 +248,14 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
 
   if (!hasData) {
     return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        <p className="text-sm font-medium mb-2">
+      <div className="text-center py-8">
+        <p className="font-display text-sm font-medium text-[var(--color-text-secondary)] mb-2">
           {period === 'week' ? '週間' : '月間'}作業時間
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+        <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-4">
           {dateRange}
         </p>
-        <p className="text-sm">
+        <p className="font-display text-sm text-[var(--color-text-tertiary)]">
           作業時間データがありません
         </p>
       </div>
@@ -266,40 +266,40 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
             {period === 'week' ? '週間' : '月間'}作業時間
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-1">
             {dateRange}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setAnalysisType('project')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
               analysisType === 'project'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             プロジェクト
           </button>
           <button
             onClick={() => setAnalysisType('mode')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
               analysisType === 'mode'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             モード
           </button>
           <button
             onClick={() => setAnalysisType('tag')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+            className={`px-3 py-1 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
               analysisType === 'tag'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             タグ
@@ -313,7 +313,7 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
           <div className="relative h-64 w-full">
             {/* 背景グリッド */}
             <div className="absolute inset-0 flex items-end">
-              <div className="w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"></div>
+              <div className="w-full h-full bg-[var(--color-bg-tertiary)] rounded-lg border border-[var(--color-border)]"></div>
             </div>
             
             {/* 日別の棒グラフ */}
@@ -349,11 +349,11 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
                     
                     {/* 日付ラベル */}
                     <div className="text-center mt-2">
-                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      <div className="font-display text-xs font-medium text-[var(--color-text-primary)]">
                         {day.label}
                       </div>
                       {day.total > 0 && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <div className="font-display text-xs text-[var(--color-text-secondary)] mt-1">
                           {formatHours(day.total)}
                         </div>
                       )}
@@ -372,14 +372,14 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
             })
             
             return (
-              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
                 {Array.from(allItems).map((itemId) => (
                   <div key={itemId} className="flex items-center gap-2">
                     <div
                       className="w-4 h-4 rounded"
                       style={{ backgroundColor: getItemColor(itemId === 'unset' ? undefined : itemId) }}
                     ></div>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-display text-xs text-[var(--color-text-secondary)]">
                       {getItemName(itemId === 'unset' ? undefined : itemId)}
                     </span>
                   </div>
@@ -394,7 +394,7 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
           <div className="relative h-64 w-full">
             {/* 背景グリッド */}
             <div className="absolute inset-0 flex items-end">
-              <div className="w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"></div>
+              <div className="w-full h-full bg-[var(--color-bg-tertiary)] rounded-lg border border-[var(--color-border)]"></div>
             </div>
             
             {/* 積み上げバー */}
@@ -448,7 +448,7 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
             {/* 合計時間表示（バーの上） */}
             {monthlyChartData && monthlyChartData.reduce((sum, d) => sum + d.time, 0) > 0 && (
               <div className="absolute -top-8 left-0 right-0 text-center">
-                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                <span className="font-display text-sm font-bold text-[var(--color-text-primary)]">
                   合計: {formatHours(monthlyChartData.reduce((sum, d) => sum + d.time, 0))}
                 </span>
               </div>
@@ -456,14 +456,14 @@ export default function CategoryTimeChart({ tasks, projects, modes, tags, period
           </div>
           
           {/* 凡例 */}
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
             {monthlyChartData?.map((data) => (
               <div key={data.itemId} className="flex items-center gap-2">
                 <div
                   className="w-4 h-4 rounded"
                   style={{ backgroundColor: data.color }}
                 ></div>
-                <span className="text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-display text-xs text-[var(--color-text-secondary)]">
                   {data.itemName}: {formatHours(data.time)}
                 </span>
               </div>

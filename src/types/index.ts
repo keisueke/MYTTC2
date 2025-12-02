@@ -22,6 +22,8 @@ export interface Task {
   elapsedTime?: number // 経過時間（秒）
   isRunning?: boolean // 現在実行中かどうか
   estimatedTime?: number // 予定時間（分）
+  completedAt?: string // ISO date string (完了時刻)
+  order?: number // 表示順序
 }
 
 export interface RepeatConfig {
@@ -96,6 +98,16 @@ export interface Goal {
   title: string
   description?: string
   progress?: number // 進捗率（0-100）
+  parentGoalId?: string // 親目標のID（細分化された目標の場合）
+  position?: number // 曼荼羅チャートでの位置（0-8、0が中央、1-8が周囲）
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
+export interface Memo {
+  id: string
+  title: string
+  content: string
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
 }
@@ -107,6 +119,7 @@ export interface AppData {
   tags: Tag[]
   wishes?: Wish[] // wishリスト
   goals?: Goal[] // 目標リスト
+  memos?: Memo[] // メモリスト
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

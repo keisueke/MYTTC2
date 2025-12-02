@@ -14,6 +14,8 @@ export default function Tasks() {
     addTask,
     updateTask,
     deleteTask,
+    copyTask,
+    moveTaskToPosition,
     startTaskTimer,
     stopTaskTimer,
   } = useTasks()
@@ -53,19 +55,32 @@ export default function Tasks() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600 dark:text-gray-400">読み込み中...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-display text-xs tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+            Loading...
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">今日のタスク</h1>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
+        <div>
+          <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
+            Tasks
+          </p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+            今日のタスク
+          </h1>
+        </div>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-industrial-primary"
           >
             + 新しいタスク
           </button>
@@ -73,10 +88,17 @@ export default function Tasks() {
       </div>
 
       {showForm ? (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-            {editingTask ? 'タスクを編集' : '新しいタスクを作成'}
-          </h2>
+        <div className="card-industrial p-6 animate-scale-in">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+            <div>
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                {editingTask ? 'Edit Task' : 'New Task'}
+              </p>
+              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                {editingTask ? 'タスクを編集' : '新しいタスクを作成'}
+              </h2>
+            </div>
+          </div>
           <TaskForm
             task={editingTask}
             tasks={tasks}
@@ -97,6 +119,8 @@ export default function Tasks() {
           onDelete={handleDelete}
           onStartTimer={startTaskTimer}
           onStopTimer={stopTaskTimer}
+          onCopy={copyTask}
+          onMoveTask={moveTaskToPosition}
         />
       )}
     </div>

@@ -9,8 +9,8 @@ interface ProjectListProps {
 export default function ProjectList({ projects, onEdit, onDelete }: ProjectListProps) {
   if (projects.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        <p className="text-sm">プロジェクトがありません</p>
+      <div className="text-center py-8">
+        <p className="font-display text-sm text-[var(--color-text-tertiary)]">プロジェクトがありません</p>
       </div>
     )
   }
@@ -20,7 +20,7 @@ export default function ProjectList({ projects, onEdit, onDelete }: ProjectListP
       {projects.map((project) => (
         <div
           key={project.id}
-          className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="card-industrial p-3 flex items-center justify-between group"
         >
           <div className="flex items-center gap-2">
             {project.color && (
@@ -29,25 +29,29 @@ export default function ProjectList({ projects, onEdit, onDelete }: ProjectListP
                 style={{ backgroundColor: project.color }}
               />
             )}
-            <span className="text-gray-900 dark:text-white font-medium">
+            <span className="font-display text-sm font-medium text-[var(--color-text-primary)]">
               {project.name}
             </span>
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onEdit(project)}
-              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 rounded transition-colors"
+              className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-all"
               title="編集"
             >
-              ✏️
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </button>
             <button
               onClick={() => onDelete(project.id)}
-              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+              className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-all"
               title="削除"
             >
-              🗑️
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
         </div>

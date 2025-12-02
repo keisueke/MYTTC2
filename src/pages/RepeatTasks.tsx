@@ -14,6 +14,8 @@ export default function RepeatTasks() {
     addTask,
     updateTask,
     deleteTask,
+    copyTask,
+    moveTaskToPosition,
     startTaskTimer,
     stopTaskTimer,
   } = useTasks()
@@ -58,24 +60,35 @@ export default function RepeatTasks() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">読み込み中...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-display text-xs tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+            Loading...
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          🔁 ルーティン
-        </h1>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
+        <div>
+          <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
+            Routine
+          </p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+            🔁 ルーティン
+          </h1>
+        </div>
         {!showForm && (
           <button
             onClick={() => {
               setEditingTask(undefined)
               setShowForm(true)
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn-industrial-primary"
           >
             + 新規タスク
           </button>
@@ -83,7 +96,17 @@ export default function RepeatTasks() {
       </div>
 
       {showForm ? (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="card-industrial p-6 animate-scale-in">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+            <div>
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                {editingTask ? 'Edit Task' : 'New Task'}
+              </p>
+              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                {editingTask ? 'タスクを編集' : '新しいタスクを作成'}
+              </h2>
+            </div>
+          </div>
           <TaskForm
             task={editingTask}
             tasks={tasks}
@@ -97,8 +120,8 @@ export default function RepeatTasks() {
       ) : (
         <>
           {repeatTasks.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg border border-gray-200 dark:border-gray-700 text-center">
-              <p className="text-gray-500 dark:text-gray-400">
+            <div className="card-industrial p-8 text-center">
+              <p className="font-display text-sm text-[var(--color-text-tertiary)]">
                 ルーティンが設定されているタスクはありません
               </p>
             </div>
@@ -112,6 +135,8 @@ export default function RepeatTasks() {
               onDelete={handleDelete}
               onStartTimer={startTaskTimer}
               onStopTimer={stopTaskTimer}
+              onCopy={copyTask}
+              onMoveTask={moveTaskToPosition}
             />
           )}
         </>

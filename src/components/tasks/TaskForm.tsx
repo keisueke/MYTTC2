@@ -235,24 +235,24 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          タイトル <span className="text-red-500">*</span>
+        <label htmlFor="title" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+          タイトル <span className="text-[var(--color-error)]">*</span>
         </label>
         <input
           id="title"
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-            errors.title ? 'border-red-500' : 'border-gray-300'
+          className={`input-industrial w-full ${
+            errors.title ? 'border-[var(--color-error)]' : ''
           }`}
           placeholder="タスクのタイトルを入力"
         />
         {errors.title && (
-          <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
+          <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.title}</p>
         )}
         {averageElapsedTime !== null && (
-          <p className="mt-1 text-sm text-blue-600 dark:text-blue-400">
+          <p className="mt-1 font-display text-xs text-[var(--color-secondary)]">
             💡 過去の平均実績時間: {averageElapsedTime}分
           </p>
         )}
@@ -260,8 +260,8 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
 
       {/* 類似タスクの候補 */}
       {similarTasks.length > 0 && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-2">
+        <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
+          <p className="font-display text-xs font-medium text-[var(--color-secondary)] mb-2">
             📋 似ている過去のタスク（クリックで情報を自動入力）
           </p>
           <div className="space-y-2">
@@ -281,33 +281,33 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
                   key={similarTask.id}
                   type="button"
                   onClick={() => handleSelectSimilarTask(similarTask)}
-                  className="w-full text-left p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md transition-all"
+                  className="w-full text-left card-industrial p-3 hover:border-[var(--color-secondary)] transition-all"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                      <p className="font-display text-sm font-medium text-[var(--color-text-primary)]">
                         {similarTask.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {elapsedMinutes !== null && (
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                          <span className="font-display text-xs text-[var(--color-text-secondary)]">
                             ⏱️ 実績: {elapsedMinutes}分
                           </span>
                         )}
                         {estimatedMinutes !== null && (
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                          <span className="font-display text-xs text-[var(--color-text-secondary)]">
                             ⏰ 予定: {estimatedMinutes}分
                           </span>
                         )}
                         {project && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded">
+                          <span className="tag-industrial text-xs">
                             {project.name}
                           </span>
                         )}
                         {mode && (
                           <span 
-                            className="text-xs px-2 py-0.5 rounded text-white"
-                            style={mode.color ? { backgroundColor: mode.color } : { backgroundColor: '#6366F1' }}
+                            className="tag-industrial text-xs"
+                            style={mode.color ? { backgroundColor: mode.color, borderColor: mode.color, color: '#0c0c0c' } : {}}
                           >
                             {mode.name}
                           </span>
@@ -315,14 +315,15 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
                         {taskTags.map(tag => (
                           <span 
                             key={tag.id}
-                            className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
+                            className="tag-industrial text-xs"
+                            style={tag.color ? { borderColor: tag.color, color: tag.color } : {}}
                           >
                             {tag.name}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <span className="text-blue-600 dark:text-blue-400 text-sm">選択</span>
+                    <span className="font-display text-xs text-[var(--color-secondary)]">選択</span>
                   </div>
                 </button>
               )
@@ -332,7 +333,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       )}
 
       <div>
-        <label htmlFor="estimatedTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor="estimatedTime" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
           予定時間（分）
         </label>
         <input
@@ -344,18 +345,18 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
             const value = e.target.value
             setEstimatedTime(value === '' ? '' : parseInt(value) || 0)
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          className="input-industrial w-full"
           placeholder="予定時間を分で入力（例: 30）"
         />
         {averageElapsedTime !== null && estimatedTime === '' && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
             過去の平均実績時間（{averageElapsedTime}分）を参考に設定できます
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor="description" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
           説明
         </label>
         <textarea
@@ -363,14 +364,14 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          className="input-industrial w-full resize-none"
           placeholder="タスクの詳細を入力（任意）"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="startTime" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
             開始時間
           </label>
           <input
@@ -378,12 +379,12 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
             type="datetime-local"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="input-industrial w-full"
           />
         </div>
 
         <div>
-          <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="endTime" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
             終了時間
           </label>
           <input
@@ -391,21 +392,21 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
             type="datetime-local"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="input-industrial w-full"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="project" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="project" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
             プロジェクト
           </label>
           <select
             id="project"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="input-industrial w-full"
           >
             <option value="">プロジェクトなし</option>
             {projects.map((project) => (
@@ -417,14 +418,14 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
         </div>
 
         <div>
-          <label htmlFor="mode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="mode" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
             モード
           </label>
           <select
             id="mode"
             value={modeId}
             onChange={(e) => setModeId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="input-industrial w-full"
           >
             <option value="">モードなし</option>
             {modes.map((mode) => (
@@ -437,7 +438,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
           タグ
         </label>
         <div className="flex flex-wrap gap-2">
@@ -451,14 +452,12 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
                   : [...selectedTagIds, tag.id]
                 setSelectedTagIds(newTagIds)
               }}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+              className={`tag-industrial transition-all duration-200 ${
                 selectedTagIds.includes(tag.id)
-                  ? tag.color
-                    ? 'text-white'
-                    : 'bg-blue-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'hover:border-[var(--color-accent)]'
               }`}
-              style={selectedTagIds.includes(tag.id) && tag.color ? { backgroundColor: tag.color } : {}}
+              style={selectedTagIds.includes(tag.id) && tag.color ? { backgroundColor: tag.color, borderColor: tag.color, color: '#0c0c0c' } : {}}
             >
               {tag.name}
             </button>
@@ -467,14 +466,14 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       </div>
 
       <div>
-        <label htmlFor="repeatPattern" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label htmlFor="repeatPattern" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
           繰り返し
         </label>
         <select
           id="repeatPattern"
           value={repeatPattern}
           onChange={(e) => setRepeatPattern(e.target.value as RepeatPattern)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          className="input-industrial w-full"
         >
           <option value="none">なし</option>
           <option value="daily">毎日</option>
@@ -485,9 +484,9 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       </div>
 
       {repeatPattern !== 'none' && (
-        <div className="pl-4 border-l-2 border-blue-200 dark:border-blue-800 space-y-3">
+        <div className="pl-4 border-l-2 border-[var(--color-secondary)]/30 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               間隔
             </label>
             <input
@@ -495,9 +494,9 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
               min="1"
               value={repeatInterval}
               onChange={(e) => setRepeatInterval(parseInt(e.target.value) || 1)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="input-industrial w-full"
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
               {repeatPattern === 'daily' && '日'}
               {repeatPattern === 'weekly' && '週間'}
               {repeatPattern === 'monthly' && 'ヶ月'}
@@ -507,7 +506,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
 
           {repeatPattern === 'weekly' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                 繰り返す曜日
               </label>
               <div className="flex flex-wrap gap-2">
@@ -521,10 +520,10 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
                         : [...repeatDaysOfWeek, index].sort()
                       setRepeatDaysOfWeek(newDays)
                     }}
-                    className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                    className={`tag-industrial transition-all duration-200 ${
                       repeatDaysOfWeek.includes(index)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                        : 'hover:border-[var(--color-accent)]'
                     }`}
                   >
                     {day}
@@ -536,7 +535,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
 
           {repeatPattern === 'monthly' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                 日付
               </label>
               <input
@@ -545,36 +544,36 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
                 max="31"
                 value={repeatDayOfMonth}
                 onChange={(e) => setRepeatDayOfMonth(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                className="input-industrial w-full"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
               終了日（任意）
             </label>
             <input
               type="date"
               value={repeatEndDate}
               onChange={(e) => setRepeatEndDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="input-industrial w-full"
             />
           </div>
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-4">
+      <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          className="btn-industrial"
         >
           キャンセル
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          className="btn-industrial-primary"
         >
           {task ? '更新' : '作成'}
         </button>

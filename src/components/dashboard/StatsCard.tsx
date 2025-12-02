@@ -3,30 +3,65 @@ interface StatsCardProps {
   value: number | string
   icon: string
   color: 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'orange'
+  subtitle?: string
 }
 
 const colorClasses = {
-  blue: 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300',
-  green: 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300',
-  red: 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300',
-  yellow: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300',
-  purple: 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-300',
-  orange: 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-300',
+  blue: {
+    border: 'border-l-[var(--color-tertiary)]',
+    icon: 'text-[var(--color-tertiary)]',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(91,141,239,0.2)]',
+  },
+  green: {
+    border: 'border-l-[var(--color-secondary)]',
+    icon: 'text-[var(--color-secondary)]',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(0,212,170,0.2)]',
+  },
+  red: {
+    border: 'border-l-[var(--color-error)]',
+    icon: 'text-[var(--color-error)]',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(255,71,87,0.2)]',
+  },
+  yellow: {
+    border: 'border-l-[var(--color-warning)]',
+    icon: 'text-[var(--color-warning)]',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(255,184,0,0.2)]',
+  },
+  purple: {
+    border: 'border-l-purple-500',
+    icon: 'text-purple-500',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]',
+  },
+  orange: {
+    border: 'border-l-[var(--color-accent)]',
+    icon: 'text-[var(--color-accent)]',
+    glow: 'group-hover:shadow-[0_0_20px_rgba(255,107,53,0.2)]',
+  },
 }
 
-export default function StatsCard({ title, value, icon, color }: StatsCardProps) {
+export default function StatsCard({ title, value, icon, color, subtitle }: StatsCardProps) {
+  const classes = colorClasses[color]
+  
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
+    <div className={`group card-industrial p-6 border-l-4 ${classes.border} ${classes.glow} transition-all duration-300 hover:-translate-y-1`}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-3">
+            {title}
+          </p>
+          <p className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+            {value}
+          </p>
+          {subtitle && (
+            <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-2">
+              {subtitle}
+            </p>
+          )}
         </div>
-        <div className={`p-4 rounded-full ${colorClasses[color]}`}>
-          <span className="text-2xl">{icon}</span>
+        <div className={`text-3xl ${classes.icon} opacity-50 group-hover:opacity-100 transition-opacity`}>
+          {icon}
         </div>
       </div>
     </div>
   )
 }
-

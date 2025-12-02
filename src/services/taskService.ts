@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, AppData } from '../types'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -23,6 +23,7 @@ export function loadData(): AppData {
     tags: [],
     wishes: [],
     goals: [],
+    memos: [],
   }
 }
 
@@ -53,11 +54,22 @@ export function getTasks(): Task[] {
  */
 export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
   const data = loadData()
+  
+  // 順序が指定されていない場合、最大のorder + 1を設定
+  let order = task.order
+  if (order === undefined) {
+    const maxOrder = data.tasks
+      .filter(t => t.order !== undefined)
+      .reduce((max, t) => Math.max(max, t.order!), -1)
+    order = maxOrder + 1
+  }
+  
   const newTask: Task = {
     ...task,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    order,
   }
   
   data.tasks.push(newTask)
@@ -103,6 +115,161 @@ export function deleteTask(id: string): void {
 }
 
 /**
+ * タスクの順番を変更する
+ */
+export function reorderTasks(taskIds: string[]): void {
+  const data = loadData()
+  
+  // 指定された順序でorderを更新
+  taskIds.forEach((taskId, index) => {
+    const task = data.tasks.find(t => t.id === taskId)
+    if (task) {
+      task.order = index
+      task.updatedAt = new Date().toISOString()
+    }
+  })
+  
+  saveData(data)
+}
+
+/**
+ * タスクの順番を移動（フィルタリングされたリスト内での移動）
+ */
+export function moveTaskToPosition(taskId: string, newIndex: number, filteredTaskIds: string[]): void {
+  const data = loadData()
+  
+  // フィルタリングされたタスクの順番を更新
+  const reorderedIds = [...filteredTaskIds]
+  const currentIndex = reorderedIds.indexOf(taskId)
+  
+  if (currentIndex === -1 || currentIndex === newIndex) {
+    return // 移動不要
+  }
+  
+  // 配列から削除して新しい位置に挿入
+  reorderedIds.splice(currentIndex, 1)
+  reorderedIds.splice(newIndex, 0, taskId)
+  
+  // 新しい順番でorderを更新
+  reorderedIds.forEach((id, index) => {
+    const task = data.tasks.find(t => t.id === id)
+    if (task) {
+      task.order = index
+      task.updatedAt = new Date().toISOString()
+    }
+  })
+  
+  saveData(data)
+}
+
+/**
+ * タスクを上に移動
+ */
+export function moveTaskUp(id: string): Task {
+  const data = loadData()
+  const task = data.tasks.find(t => t.id === id)
+  
+  if (!task) {
+    throw new Error(`Task with id ${id} not found`)
+  }
+  
+  // orderでソート
+  const sortedTasks = [...data.tasks].sort((a, b) => {
+    const aOrder = a.order ?? Infinity
+    const bOrder = b.order ?? Infinity
+    return aOrder - bOrder
+  })
+  
+  const currentIndex = sortedTasks.findIndex(t => t.id === id)
+  
+  if (currentIndex === 0) {
+    // 既に最上位
+    return task
+  }
+  
+  const previousTask = sortedTasks[currentIndex - 1]
+  
+  // orderを入れ替え
+  const tempOrder = task.order
+  task.order = previousTask.order
+  previousTask.order = tempOrder
+  
+  task.updatedAt = new Date().toISOString()
+  previousTask.updatedAt = new Date().toISOString()
+  
+  saveData(data)
+  return task
+}
+
+/**
+ * タスクを下に移動
+ */
+export function moveTaskDown(id: string): Task {
+  const data = loadData()
+  const task = data.tasks.find(t => t.id === id)
+  
+  if (!task) {
+    throw new Error(`Task with id ${id} not found`)
+  }
+  
+  // orderでソート
+  const sortedTasks = [...data.tasks].sort((a, b) => {
+    const aOrder = a.order ?? Infinity
+    const bOrder = b.order ?? Infinity
+    return aOrder - bOrder
+  })
+  
+  const currentIndex = sortedTasks.findIndex(t => t.id === id)
+  
+  if (currentIndex === sortedTasks.length - 1) {
+    // 既に最下位
+    return task
+  }
+  
+  const nextTask = sortedTasks[currentIndex + 1]
+  
+  // orderを入れ替え
+  const tempOrder = task.order
+  task.order = nextTask.order
+  nextTask.order = tempOrder
+  
+  task.updatedAt = new Date().toISOString()
+  nextTask.updatedAt = new Date().toISOString()
+  
+  saveData(data)
+  return task
+}
+
+/**
+ * タスクをコピーする（完了状態をリセットして新しいタスクとして作成）
+ */
+export function copyTask(id: string): Task {
+  const data = loadData()
+  const task = data.tasks.find(t => t.id === id)
+  
+  if (!task) {
+    throw new Error(`Task with id ${id} not found`)
+  }
+  
+  // 完了状態をリセットして新しいタスクを作成
+  const newTask: Task = {
+    ...task,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: undefined,
+    isRunning: false,
+    startTime: undefined,
+    endTime: undefined,
+    elapsedTime: 0, // 経過時間もリセット
+  }
+  
+  data.tasks.push(newTask)
+  saveData(data)
+  return newTask
+}
+
+/**
  * タスクのタイマーを開始
  */
 export function startTaskTimer(id: string): Task {
@@ -143,6 +310,7 @@ export function stopTaskTimer(id: string): Task {
   let updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {
     isRunning: false,
     endTime,
+    completedAt: endTime, // タイマー停止時に完了時刻を設定
   }
   
   // タイマーが実行中の場合、経過時間を計算
@@ -541,6 +709,77 @@ export function deleteGoal(id: string): void {
   }
   
   data.goals.splice(goalIndex, 1)
+  saveData(data)
+}
+
+/**
+ * Memoを取得する
+ */
+export function getMemos(): Memo[] {
+  const data = loadData()
+  return data.memos || []
+}
+
+/**
+ * Memoを追加する
+ */
+export function addMemo(memo: Omit<Memo, 'id' | 'createdAt' | 'updatedAt'>): Memo {
+  const data = loadData()
+  const newMemo: Memo = {
+    ...memo,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  if (!data.memos) {
+    data.memos = []
+  }
+  data.memos.push(newMemo)
+  saveData(data)
+  return newMemo
+}
+
+/**
+ * Memoを更新する
+ */
+export function updateMemo(id: string, updates: Partial<Omit<Memo, 'id' | 'createdAt'>>): Memo {
+  const data = loadData()
+  if (!data.memos) {
+    data.memos = []
+  }
+  const memoIndex = data.memos.findIndex(m => m.id === id)
+  
+  if (memoIndex === -1) {
+    throw new Error(`Memo with id ${id} not found`)
+  }
+  
+  const updatedMemo: Memo = {
+    ...data.memos[memoIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.memos[memoIndex] = updatedMemo
+  saveData(data)
+  return updatedMemo
+}
+
+/**
+ * Memoを削除する
+ */
+export function deleteMemo(id: string): void {
+  const data = loadData()
+  if (!data.memos) {
+    return
+  }
+  const memoIndex = data.memos.findIndex(m => m.id === id)
+  
+  if (memoIndex === -1) {
+    throw new Error(`Memo with id ${id} not found`)
+  }
+  
+  data.memos.splice(memoIndex, 1)
   saveData(data)
 }
 

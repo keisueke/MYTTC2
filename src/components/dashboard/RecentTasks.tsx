@@ -16,8 +16,8 @@ export default function RecentTasks({ tasks, maxItems = 5 }: RecentTasksProps) {
 
   if (recentTasks.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        <p className="text-sm">最近のタスクがありません</p>
+      <div className="text-center py-8">
+        <p className="font-display text-sm text-[var(--color-text-tertiary)]">最近のタスクがありません</p>
       </div>
     )
   }
@@ -28,11 +28,11 @@ export default function RecentTasks({ tasks, maxItems = 5 }: RecentTasksProps) {
         <Link
           key={task.id}
           to="/tasks"
-          className="block p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-600 hover:shadow-md transition-all"
+          className="block card-industrial p-4 hover:border-[var(--color-accent)] transition-all"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-gray-900 dark:text-white truncate">
+              <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] truncate">
                 {task.title}
               </h3>
             </div>
