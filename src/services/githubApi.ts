@@ -124,6 +124,7 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
         tags: [],
         wishes: [],
         goals: [],
+        memos: [],
       }
     }
     throw error

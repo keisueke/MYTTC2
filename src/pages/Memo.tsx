@@ -94,7 +94,7 @@ export default function MemoPage() {
             }}
             className="btn-industrial-primary"
           >
-            + 新規メモ
+            新規
           </button>
         )}
       </div>
@@ -204,9 +204,16 @@ export default function MemoPage() {
                         {memo.content}
                       </p>
                     )}
-                    <p className="font-display text-[10px] text-[var(--color-text-tertiary)]">
-                      {new Date(memo.updatedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-display text-[10px] text-[var(--color-text-tertiary)]">
+                        作成: {new Date(memo.createdAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                      {memo.createdAt !== memo.updatedAt && (
+                        <p className="font-display text-[10px] text-[var(--color-text-tertiary)]">
+                          更新: {new Date(memo.updatedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
             </div>
