@@ -92,7 +92,7 @@ export default function MemoPage() {
               setContent('')
               setShowForm(true)
             }}
-            className="btn-industrial-primary"
+            className="btn-industrial"
           >
             ＋新規メモ
           </button>
@@ -150,7 +150,7 @@ export default function MemoPage() {
               <button
                 type="button"
                 onClick={editingMemo ? handleUpdateMemo : handleCreateMemo}
-                className="btn-industrial-primary"
+                className="btn-industrial"
               >
                 {editingMemo ? '更新' : '作成'}
               </button>

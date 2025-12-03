@@ -3,11 +3,13 @@ import { Project, Mode, Tag, GitHubConfig } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { loadData } from '../services/taskService'
-import { exportTasks } from '../utils/export'
+import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { getStoredTheme, saveTheme, applyTheme, Theme } from '../utils/theme'
 import { getWeatherConfig, saveWeatherConfig } from '../utils/weatherConfig'
 import { getCoordinatesFromCity } from '../services/weatherService'
+import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
+import { SummaryConfig } from '../types'
 import ProjectList from '../components/projects/ProjectList'
 import ProjectForm from '../components/projects/ProjectForm'
 import ModeList from '../components/modes/ModeList'
@@ -42,8 +44,7 @@ export default function Settings() {
     error: githubError,
     saveConfig: saveGitHubConfig,
     removeConfig: removeGitHubConfig,
-    syncFromGitHub,
-    syncToGitHub,
+    syncBidirectional,
     validateConfig,
   } = useGitHub()
   
@@ -61,6 +62,7 @@ export default function Settings() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme())
   const [weatherCityName, setWeatherCityName] = useState(getWeatherConfig().cityName)
   const [savingWeather, setSavingWeather] = useState(false)
+  const [summaryConfig, setSummaryConfig] = useState<SummaryConfig>(getSummaryConfig())
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -224,31 +226,43 @@ export default function Settings() {
     }
   }
 
-  const handleSyncFromGitHub = async () => {
-    if (!confirm('GitHubからデータを同期しますか？現在のローカルデータは上書きされます。')) {
-      return
-    }
-
+  const handleSync = async () => {
     try {
-      await syncFromGitHub()
+      const result = await syncBidirectional()
       refresh()
-      alert('GitHubからデータを同期しました')
+      
+      switch (result) {
+        case 'pulled':
+          alert('GitHubから同期しました')
+          break
+        case 'pushed':
+          alert('GitHubに同期しました')
+          break
+        case 'up-to-date':
+          alert('既に最新の状態です')
+          break
+      }
     } catch (error) {
-      alert(`同期に失敗しました: ${error}`)
-    }
-  }
-
-  const handleSyncToGitHub = async () => {
-    try {
-      await syncToGitHub()
-      alert('GitHubにデータを同期しました')
-    } catch (error) {
-      alert(`同期に失敗しました: ${error}`)
+      alert(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
 
   const handleExport = () => {
     exportTasks(tasks, projects, modes, tags)
+  }
+
+  const handleCopyTodaySummary = async () => {
+    try {
+      const summary = await generateTodaySummary(tasks, projects, modes, tags)
+      const success = await copyToClipboard(summary)
+      if (success) {
+        alert('今日のまとめをクリップボードにコピーしました')
+      } else {
+        alert('クリップボードへのコピーに失敗しました')
+      }
+    } catch (error) {
+      alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+    }
   }
 
   const handleGenerateTestData = () => {
@@ -401,7 +415,7 @@ export default function Settings() {
               <button
                 onClick={handleSaveWeatherConfig}
                 disabled={savingWeather}
-                className="btn-industrial-primary"
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {savingWeather ? '保存中...' : '保存'}
               </button>
@@ -409,6 +423,136 @@ export default function Settings() {
             <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-2">
               現在の設定: {getWeatherConfig().cityName}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 今日のまとめ設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Summary
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              今日のまとめ設定
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-4">
+            今日のまとめに含める項目を選択してください
+          </p>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeWeight}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeWeight: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                体重
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeBedtime}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeBedtime: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                就寝時間
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeWakeTime}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeWakeTime: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                起床時間
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeSleepDuration}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeSleepDuration: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                睡眠時間
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeBreakfast}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeBreakfast: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                朝食
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeLunch}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeLunch: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                昼食
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeDinner}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeDinner: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                夕食
+              </span>
+            </label>
+            
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={summaryConfig.includeSnack}
+                onChange={(e) => setSummaryConfig({ ...summaryConfig, includeSnack: e.target.checked })}
+                className="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-accent)] transition-colors">
+                間食
+              </span>
+            </label>
+          </div>
+          
+          <div className="pt-4 border-t border-[var(--color-border)]">
+            <button
+              onClick={() => {
+                saveSummaryConfig(summaryConfig)
+                alert('設定を保存しました')
+              }}
+              className="btn-industrial"
+            >
+              設定を保存
+            </button>
           </div>
         </div>
       </div>
@@ -433,12 +577,21 @@ export default function Settings() {
           >
             🧪 テストデータを追加
           </button>
-        <button
-          onClick={handleExport}
+          <button
+            onClick={handleExport}
             className="btn-industrial"
-        >
-          📥 タスクをエクスポート
-        </button>
+          >
+            📥 タスクをエクスポート
+          </button>
+          <button
+            onClick={handleCopyTodaySummary}
+            className="btn-industrial flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>今日のまとめ</span>
+          </button>
         </div>
       </div>
       
@@ -456,7 +609,7 @@ export default function Settings() {
             {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
-                className="btn-industrial-primary"
+                className="btn-industrial"
               >
                 + 新規作成
               </button>
@@ -615,22 +768,25 @@ export default function Settings() {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSyncFromGitHub}
-                  disabled={syncing}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {syncing ? '同期中...' : 'GitHubから同期'}
-                </button>
-                <button
-                  onClick={handleSyncToGitHub}
-                  disabled={syncing}
-                className="btn-industrial-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {syncing ? '同期中...' : 'GitHubに同期'}
-                </button>
-              </div>
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
+              >
+                {syncing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                    <span>同期中...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>同期</span>
+                  </>
+                )}
+              </button>
 
               {githubError && (
               <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
@@ -717,7 +873,7 @@ export default function Settings() {
                 <button
                   onClick={handleSaveGitHubConfig}
                   disabled={validating}
-                className="btn-industrial-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {validating ? '検証中...' : '保存'}
                 </button>

@@ -71,7 +71,7 @@ export default function ProjectForm({ project, onSubmit, onCancel }: ProjectForm
         </button>
         <button
           type="submit"
-          className="btn-industrial-primary"
+          className="btn-industrial"
         >
           {project ? '更新' : '作成'}
         </button>

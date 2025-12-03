@@ -71,7 +71,7 @@ export default function TagForm({ tag, onSubmit, onCancel }: TagFormProps) {
         </button>
         <button
           type="submit"
-          className="btn-industrial-primary"
+          className="btn-industrial"
         >
           {tag ? '更新' : '作成'}
         </button>

@@ -133,6 +133,7 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
         wishes: [],
         goals: [],
         memos: [],
+        dailyRecords: [],
       }
     }
     throw error
@@ -186,6 +187,29 @@ export async function getFileSha(
   } catch (error) {
     if (error instanceof GitHubApiError && error.status === 404) {
       return undefined
+    }
+    throw error
+  }
+}
+
+/**
+ * ファイルの最終更新時刻を取得
+ */
+export async function getFileLastModified(
+  config: GitHubConfig,
+  path: string
+): Promise<Date | null> {
+  try {
+    // GitHub APIは直接last_modifiedを返さないため、commits APIを使用
+    const commitsEndpoint = `/repos/${config.owner}/${config.repo}/commits?path=${encodeURIComponent(path)}&per_page=1`
+    const commitsData = await githubRequest(commitsEndpoint, config)
+    if (commitsData && commitsData.length > 0) {
+      return new Date(commitsData[0].commit.committer.date)
+    }
+    return null
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) {
+      return null
     }
     throw error
   }

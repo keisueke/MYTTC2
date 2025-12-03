@@ -80,7 +80,7 @@ export default function RepeatTasks() {
             Routine
           </p>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-            🔁 ルーティン
+            ルーティン
           </h1>
         </div>
         {!showForm && (
@@ -89,7 +89,7 @@ export default function RepeatTasks() {
               setEditingTask(undefined)
               setShowForm(true)
             }}
-            className="btn-industrial-primary"
+            className="btn-industrial"
           >
             + 新規タスク
           </button>

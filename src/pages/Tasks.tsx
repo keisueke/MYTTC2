@@ -80,7 +80,7 @@ export default function Tasks() {
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="btn-industrial-primary"
+            className="btn-industrial"
           >
             ＋新規タスク
           </button>

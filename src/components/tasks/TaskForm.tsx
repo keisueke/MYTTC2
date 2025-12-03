@@ -573,7 +573,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
         </button>
         <button
           type="submit"
-          className="btn-industrial-primary"
+          className="btn-industrial"
         >
           {task ? '更新' : '作成'}
         </button>

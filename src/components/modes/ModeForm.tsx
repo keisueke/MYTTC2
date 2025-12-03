@@ -115,7 +115,7 @@ export default function ModeForm({ mode, onSubmit, onCancel }: ModeFormProps) {
         </button>
         <button
           type="submit"
-          className="btn-industrial-primary"
+          className="btn-industrial"
         >
           {mode ? '更新' : '作成'}
         </button>

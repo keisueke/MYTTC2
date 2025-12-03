@@ -97,6 +97,74 @@ export function useGitHub() {
     }
   }, [config])
 
+  // 両方向の同期（自動的に最新の状態に合わせる）
+  const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date'> => {
+    if (!config) {
+      throw new Error('GitHub設定がありません')
+    }
+
+    setSyncing(true)
+    setError(null)
+
+    try {
+      const localData = taskService.loadData()
+      const localLastSynced = localData.lastSynced ? new Date(localData.lastSynced) : null
+
+      // GitHubからファイルの最終更新時刻を取得
+      let remoteLastModified: Date | null = null
+      try {
+        remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+      } catch (err) {
+        // ファイルが存在しない場合は新規作成として処理
+        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
+          remoteLastModified = null
+        } else {
+          throw err
+        }
+      }
+
+      // リモートファイルが存在しない場合、またはローカルの方が新しい場合はGitHubに保存
+      if (!remoteLastModified || (localLastSynced && localLastSynced > remoteLastModified)) {
+        // ローカルが新しい、またはリモートファイルが存在しない場合はGitHubに保存
+        let sha: string | undefined
+        try {
+          sha = await githubApi.getFileSha(config, config.dataPath)
+        } catch (err) {
+          if (err instanceof githubApi.GitHubApiError && err.status === 404) {
+            sha = undefined
+          } else {
+            throw err
+          }
+        }
+
+        await githubApi.saveDataToGitHub(config, localData, sha)
+        
+        // 最終同期時刻を更新
+        const updatedData: AppData = {
+          ...localData,
+          lastSynced: new Date().toISOString(),
+        }
+        taskService.saveData(updatedData)
+        
+        return 'pushed'
+      } else if (localLastSynced && remoteLastModified && localLastSynced.getTime() === remoteLastModified.getTime()) {
+        // 同じ時刻の場合は最新
+        return 'up-to-date'
+      } else {
+        // リモートが新しい場合はGitHubから取得
+        const data = await githubApi.loadDataFromGitHub(config)
+        taskService.saveData(data)
+        return 'pulled'
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setSyncing(false)
+    }
+  }, [config])
+
   // GitHubにデータを同期
   const syncToGitHub = useCallback(async (): Promise<void> => {
     if (!config) {
@@ -159,6 +227,7 @@ export function useGitHub() {
     removeConfig,
     syncFromGitHub,
     syncToGitHub,
+    syncBidirectional,
     validateConfig,
   }
 }

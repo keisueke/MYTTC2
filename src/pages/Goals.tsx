@@ -328,7 +328,7 @@ function GoalForm({ goal, year, category, position, onSubmit, onCancel }: GoalFo
           </button>
           <button
             type="submit"
-            className="btn-industrial-primary"
+            className="btn-industrial"
           >
             {goal ? '更新' : '作成'}
           </button>

@@ -1,14 +1,53 @@
 import { useState, useMemo } from 'react'
 import { useTasks } from '../hooks/useTasks'
+import { useGitHub } from '../hooks/useGitHub'
+import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import StatsCard from '../components/dashboard/StatsCard'
 import RecentTasks from '../components/dashboard/RecentTasks'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
+import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 
 export default function Dashboard() {
-  const { tasks, projects, modes, tags, loading } = useTasks()
+  const { tasks, projects, modes, tags, loading, refresh } = useTasks()
+  const { config: githubConfig, syncing, syncBidirectional } = useGitHub()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
+  
+  const handleSync = async () => {
+    try {
+      const result = await syncBidirectional()
+      refresh()
+      
+      switch (result) {
+        case 'pulled':
+          alert('GitHubから同期しました')
+          break
+        case 'pushed':
+          alert('GitHubに同期しました')
+          break
+        case 'up-to-date':
+          alert('既に最新の状態です')
+          break
+      }
+    } catch (error) {
+      alert(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+    }
+  }
+
+  const handleCopyTodaySummary = async () => {
+    try {
+      const summary = await generateTodaySummary(tasks, projects, modes, tags)
+      const success = await copyToClipboard(summary)
+      if (success) {
+        alert('今日のまとめをクリップボードにコピーしました')
+      } else {
+        alert('クリップボードへのコピーに失敗しました')
+      }
+    } catch (error) {
+      alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+    }
+  }
 
   const stats = useMemo(() => {
     const totalTasks = tasks.length
@@ -69,13 +108,38 @@ export default function Dashboard() {
             ダッシュボード
           </h1>
         </div>
-        <div className="text-right">
-          <p className="font-display text-2xl font-light text-[var(--color-text-primary)]">
-            {new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric' })}
-          </p>
-          <p className="font-display text-xs text-[var(--color-text-tertiary)]">
-            {new Date().toLocaleDateString('ja-JP', { weekday: 'long' })}
-          </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopyTodaySummary}
+            className="btn-industrial flex items-center gap-2"
+            title="今日のまとめをクリップボードにコピー"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>今日のまとめ</span>
+          </button>
+          {githubConfig && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="btn-industrial flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {syncing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                  <span>同期中...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>github同期</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -118,6 +182,11 @@ export default function Dashboard() {
       {/* Weather Card */}
       <div className="animate-fade-in-up stagger-5">
         <WeatherCard />
+      </div>
+
+      {/* Daily Record Input */}
+      <div className="animate-fade-in-up stagger-6">
+        <DailyRecordInput />
       </div>
 
       {/* Time Summary */}

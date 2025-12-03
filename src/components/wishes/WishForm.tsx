@@ -146,7 +146,7 @@ export default function WishForm({ wish, projects, modes, tags, onSubmit, onCanc
         </button>
         <button
           type="submit"
-          className="btn-industrial-primary"
+          className="btn-industrial"
         >
           {wish ? '更新' : '作成'}
         </button>

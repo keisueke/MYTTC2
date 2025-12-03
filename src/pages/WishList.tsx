@@ -98,7 +98,7 @@ export default function WishListPage() {
               setEditingWish(undefined)
               setShowForm(true)
             }}
-            className="btn-industrial-primary"
+            className="btn-industrial"
           >
             ＋新規リスト
           </button>

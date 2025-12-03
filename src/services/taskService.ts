@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, DailyRecord, SummaryConfig, AppData } from '../types'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -24,6 +24,7 @@ export function loadData(): AppData {
     wishes: [],
     goals: [],
     memos: [],
+    dailyRecords: [],
   }
 }
 
@@ -780,6 +781,88 @@ export function deleteMemo(id: string): void {
   }
   
   data.memos.splice(memoIndex, 1)
+  saveData(data)
+}
+
+/**
+ * 指定日の記録を取得
+ */
+export function getDailyRecord(date: Date): DailyRecord | undefined {
+  const data = loadData()
+  if (!data.dailyRecords) {
+    return undefined
+  }
+  
+  const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD形式
+  return data.dailyRecords.find(record => record.date === dateStr)
+}
+
+/**
+ * 記録を保存
+ */
+export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | 'updatedAt'>): DailyRecord {
+  const data = loadData()
+  
+  if (!data.dailyRecords) {
+    data.dailyRecords = []
+  }
+  
+  // 既存の記録を検索
+  const existingIndex = data.dailyRecords.findIndex(r => r.date === record.date)
+  
+  if (existingIndex !== -1) {
+    // 既存の記録を更新
+    const updatedRecord: DailyRecord = {
+      ...data.dailyRecords[existingIndex],
+      ...record,
+      updatedAt: new Date().toISOString(),
+    }
+    data.dailyRecords[existingIndex] = updatedRecord
+    saveData(data)
+    return updatedRecord
+  } else {
+    // 新しい記録を作成
+    const newRecord: DailyRecord = {
+      ...record,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    data.dailyRecords.push(newRecord)
+    saveData(data)
+    return newRecord
+  }
+}
+
+/**
+ * 設定を取得（デフォルト値: すべてtrue）
+ */
+export function getSummaryConfig(): SummaryConfig {
+  const data = loadData()
+  
+  if (data.summaryConfig) {
+    return data.summaryConfig
+  }
+  
+  // デフォルト値（すべてtrue）
+  return {
+    includeWeight: true,
+    includeBedtime: true,
+    includeWakeTime: true,
+    includeSleepDuration: true,
+    includeBreakfast: true,
+    includeLunch: true,
+    includeDinner: true,
+    includeSnack: true,
+  }
+}
+
+/**
+ * 設定を保存
+ */
+export function saveSummaryConfig(config: SummaryConfig): void {
+  const data = loadData()
+  data.summaryConfig = config
   saveData(data)
 }
 

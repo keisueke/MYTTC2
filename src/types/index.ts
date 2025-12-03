@@ -118,6 +118,32 @@ export interface Memo {
   updatedAt: string // ISO date string
 }
 
+export interface DailyRecord {
+  id: string
+  date: string // ISO date string (日付のみ YYYY-MM-DD)
+  weight?: number // 体重 kg
+  bedtime?: string // 就寝時間 HH:mm
+  wakeTime?: string // 起床時間 HH:mm
+  sleepDuration?: number // 睡眠時間 分
+  breakfast?: string // 朝食
+  lunch?: string // 昼食
+  dinner?: string // 夕食
+  snack?: string // 間食
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
+export interface SummaryConfig {
+  includeWeight: boolean
+  includeBedtime: boolean
+  includeWakeTime: boolean
+  includeSleepDuration: boolean
+  includeBreakfast: boolean
+  includeLunch: boolean
+  includeDinner: boolean
+  includeSnack: boolean
+}
+
 export interface AppData {
   tasks: Task[]
   projects: Project[]
@@ -126,6 +152,8 @@ export interface AppData {
   wishes?: Wish[] // wishリスト
   goals?: Goal[] // 目標リスト
   memos?: Memo[] // メモリスト
+  dailyRecords?: DailyRecord[] // 日次記録
+  summaryConfig?: SummaryConfig // 今日のまとめ設定
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string
