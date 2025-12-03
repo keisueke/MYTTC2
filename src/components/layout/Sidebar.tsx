@@ -18,7 +18,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/repeat-tasks', label: 'ルーティン', code: '03', icon: '◎' },
     { path: '/wish-list', label: 'Wishリスト', code: '04', icon: '☆' },
     { path: '/goals', label: '年間目標', code: '05', icon: '◇' },
-    { path: '/memo', label: 'メモ帳', code: '06', icon: '📝' },
+    { path: '/memo', label: 'メモ帳', code: '06', icon: '◉' },
     { path: '/settings', label: '設定', code: '07', icon: '⚙' },
   ]
 
@@ -33,7 +33,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-xl tracking-tight text-[var(--color-accent)]">
-              MYTTC2
+              MyTTC
             </h1>
             <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)] mt-1">
               Task Management

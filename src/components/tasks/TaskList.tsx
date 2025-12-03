@@ -27,7 +27,7 @@ export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelet
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const filteredAndSortedTasks = useMemo(() => {
-    // すべてのタスクを表示（今日中にやるタスクのみ）
+    // すべてのタスクを表示
     let filtered = [...tasks]
     
     // 完了したタスクのフィルタリング
@@ -152,11 +152,8 @@ export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelet
         </div>
       </div>
 
-      {/* 今日の日付表示と完了タスク表示トグル */}
-      <div className="flex items-center justify-between bg-[var(--color-bg-tertiary)] p-3 border border-[var(--color-border)]">
-        <p className="font-display text-xs tracking-[0.1em] uppercase text-[var(--color-text-secondary)]">
-          {new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-        </p>
+      {/* 完了タスク表示トグル */}
+      <div className="flex items-center justify-end bg-[var(--color-bg-tertiary)] p-3 border border-[var(--color-border)]">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"

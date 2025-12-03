@@ -23,7 +23,8 @@ export default function RepeatTasks() {
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
 
-  // 繰り返しが設定されているタスクのみをフィルタリング
+  // ルーティン（繰り返し設定）が設定されているタスクのみをフィルタリング
+  // 完了状態に関係なく、繰り返し設定の有無で判定
   const repeatTasks = useMemo(() => {
     return tasks.filter(task => task.repeatPattern !== 'none')
   }, [tasks])

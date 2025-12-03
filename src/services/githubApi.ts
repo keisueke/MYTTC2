@@ -60,7 +60,15 @@ export async function getFileContent(
     const data = await githubRequest(endpoint, config)
     
     if (data.encoding === 'base64' && data.content) {
-      return atob(data.content.replace(/\s/g, ''))
+      // Base64デコード後、UTF-8として正しくデコード
+      const base64Content = data.content.replace(/\s/g, '')
+      const binaryString = atob(base64Content)
+      // UTF-8のマルチバイト文字を正しく処理
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      return new TextDecoder('utf-8').decode(bytes)
     }
     
     throw new GitHubApiError('Invalid file encoding')

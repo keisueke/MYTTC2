@@ -25,19 +25,19 @@ export default function RecentTasks({ tasks, maxItems = 5 }: RecentTasksProps) {
   return (
     <div className="space-y-2">
       {recentTasks.map((task) => (
-        <Link
-          key={task.id}
-          to="/tasks"
+          <Link
+            key={task.id}
+            to="/tasks"
           className="block card-industrial p-4 hover:border-[var(--color-accent)] transition-all"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
               <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] truncate">
-                {task.title}
-              </h3>
+                  {task.title}
+                </h3>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
       ))}
     </div>
   )

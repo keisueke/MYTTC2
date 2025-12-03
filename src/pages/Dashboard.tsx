@@ -4,6 +4,7 @@ import StatsCard from '../components/dashboard/StatsCard'
 import RecentTasks from '../components/dashboard/RecentTasks'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
+import WeatherCard from '../components/dashboard/WeatherCard'
 
 export default function Dashboard() {
   const { tasks, projects, modes, tags, loading } = useTasks()
@@ -112,6 +113,11 @@ export default function Dashboard() {
             color="orange"
           />
         </div>
+      </div>
+
+      {/* Weather Card */}
+      <div className="animate-fade-in-up stagger-5">
+        <WeatherCard />
       </div>
 
       {/* Time Summary */}

@@ -100,7 +100,7 @@ export default function WishListPage() {
             }}
             className="btn-industrial-primary"
           >
-            新規
+            ＋新規リスト
           </button>
         )}
       </div>

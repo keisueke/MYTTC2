@@ -94,7 +94,7 @@ export default function MemoPage() {
             }}
             className="btn-industrial-primary"
           >
-            新規
+            ＋新規メモ
           </button>
         )}
       </div>

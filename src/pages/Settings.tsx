@@ -6,6 +6,8 @@ import { loadData } from '../services/taskService'
 import { exportTasks } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { getStoredTheme, saveTheme, applyTheme, Theme } from '../utils/theme'
+import { getWeatherConfig, saveWeatherConfig } from '../utils/weatherConfig'
+import { getCoordinatesFromCity } from '../services/weatherService'
 import ProjectList from '../components/projects/ProjectList'
 import ProjectForm from '../components/projects/ProjectForm'
 import ModeList from '../components/modes/ModeList'
@@ -57,6 +59,8 @@ export default function Settings() {
   const [githubDataPath, setGitHubDataPath] = useState(githubConfig?.dataPath || 'data/tasks.json')
   const [validating, setValidating] = useState(false)
   const [theme, setTheme] = useState<Theme>(getStoredTheme())
+  const [weatherCityName, setWeatherCityName] = useState(getWeatherConfig().cityName)
+  const [savingWeather, setSavingWeather] = useState(false)
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -66,6 +70,34 @@ export default function Settings() {
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme)
+  }
+
+  const handleSaveWeatherConfig = async () => {
+    if (!weatherCityName.trim()) {
+      alert('都市名を入力してください')
+      return
+    }
+
+    setSavingWeather(true)
+    try {
+      const coordinates = await getCoordinatesFromCity(weatherCityName.trim())
+      if (!coordinates) {
+        alert('都市が見つかりませんでした。別の都市名を試してください。')
+        return
+      }
+
+      saveWeatherConfig({
+        cityName: weatherCityName.trim(),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      })
+      alert('天気設定を保存しました')
+    } catch (error) {
+      console.error('Failed to save weather config:', error)
+      alert('天気設定の保存に失敗しました')
+    } finally {
+      setSavingWeather(false)
+    }
   }
 
   const handleCreateProject = (projectData: Omit<Project, 'id' | 'createdAt'>) => {
@@ -338,11 +370,53 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* 天気設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Weather
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              天気設定
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="weather-city" className="block font-display text-sm text-[var(--color-text-primary)] mb-2">
+              都市名
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="weather-city"
+                type="text"
+                value={weatherCityName}
+                onChange={(e) => setWeatherCityName(e.target.value)}
+                placeholder="例: 東京、大阪、名古屋"
+                className="input-industrial flex-1"
+              />
+              <button
+                onClick={handleSaveWeatherConfig}
+                disabled={savingWeather}
+                className="btn-industrial-primary"
+              >
+                {savingWeather ? '保存中...' : '保存'}
+              </button>
+            </div>
+            <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-2">
+              現在の設定: {getWeatherConfig().cityName}
+            </p>
+          </div>
+        </div>
+      </div>
       
       {/* その他の機能 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-          <div>
+    <div>
             <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
               Utilities
             </p>
@@ -359,12 +433,12 @@ export default function Settings() {
           >
             🧪 テストデータを追加
           </button>
-          <button
-            onClick={handleExport}
+        <button
+          onClick={handleExport}
             className="btn-industrial"
-          >
-            📥 タスクをエクスポート
-          </button>
+        >
+          📥 タスクをエクスポート
+        </button>
         </div>
       </div>
       
@@ -445,7 +519,7 @@ export default function Settings() {
                   {activeTab === 'project' && (editingProject ? 'プロジェクトを編集' : '新しいプロジェクトを作成')}
                   {activeTab === 'mode' && (editingMode ? 'モードを編集' : '新しいモードを作成')}
                   {activeTab === 'tag' && (editingTag ? 'タグを編集' : '新しいタグを作成')}
-                </h3>
+              </h3>
               </div>
               {activeTab === 'project' && (
                 <ProjectForm
@@ -465,8 +539,8 @@ export default function Settings() {
                 <TagForm
                   tag={editingTag}
                   onSubmit={editingTag ? handleUpdateTag : handleCreateTag}
-                  onCancel={handleCancel}
-                />
+                onCancel={handleCancel}
+              />
               )}
             </div>
           ) : (
@@ -490,13 +564,13 @@ export default function Settings() {
                   tags={tags}
                   onEdit={handleEditTag}
                   onDelete={handleDeleteTag}
-                />
+            />
               )}
             </>
           )}
         </div>
 
-      {/* GitHub設定 */}
+        {/* GitHub設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
           <div>
@@ -507,149 +581,149 @@ export default function Settings() {
               GitHub設定
             </h2>
           </div>
-          {githubConfig && !showGitHubForm && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowGitHubForm(true)}
+            {githubConfig && !showGitHubForm && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowGitHubForm(true)}
                 className="btn-industrial"
-              >
-                編集
-              </button>
-              <button
-                onClick={handleRemoveGitHubConfig}
+                >
+                  編集
+                </button>
+                <button
+                  onClick={handleRemoveGitHubConfig}
                 className="btn-industrial"
                 style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
-              >
-                削除
-              </button>
-            </div>
-          )}
-        </div>
-
-        {githubConfig && !showGitHubForm ? (
-          <div className="space-y-4">
-            <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
-              <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
-                ✅ GitHub設定が有効です
-              </p>
-              <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
-                <p>リポジトリ: {githubConfig.owner}/{githubConfig.repo}</p>
-                <p>データパス: {githubConfig.dataPath}</p>
-                {loadData().lastSynced && (
-                  <p>最終同期: {new Date(loadData().lastSynced!).toLocaleString('ja-JP')}</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handleSyncFromGitHub}
-                disabled={syncing}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {syncing ? '同期中...' : 'GitHubから同期'}
-              </button>
-              <button
-                onClick={handleSyncToGitHub}
-                disabled={syncing}
-                className="btn-industrial-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {syncing ? '同期中...' : 'GitHubに同期'}
-              </button>
-            </div>
-
-            {githubError && (
-              <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
-                <p className="font-display text-xs text-[var(--color-error)]">
-                  エラー: {githubError}
-                </p>
+                >
+                  削除
+                </button>
               </div>
             )}
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
+
+          {githubConfig && !showGitHubForm ? (
+            <div className="space-y-4">
+            <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
+              <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
+                  ✅ GitHub設定が有効です
+                </p>
+              <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
+                  <p>リポジトリ: {githubConfig.owner}/{githubConfig.repo}</p>
+                  <p>データパス: {githubConfig.dataPath}</p>
+                  {loadData().lastSynced && (
+                    <p>最終同期: {new Date(loadData().lastSynced!).toLocaleString('ja-JP')}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSyncFromGitHub}
+                  disabled={syncing}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncing ? '同期中...' : 'GitHubから同期'}
+                </button>
+                <button
+                  onClick={handleSyncToGitHub}
+                  disabled={syncing}
+                className="btn-industrial-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncing ? '同期中...' : 'GitHubに同期'}
+                </button>
+              </div>
+
+              {githubError && (
+              <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
+                <p className="font-display text-xs text-[var(--color-error)]">
+                    エラー: {githubError}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
               <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                 GitHub Token <span className="text-[var(--color-error)]">*</span>
-              </label>
-              <input
-                type="password"
-                value={githubToken}
-                onChange={(e) => setGitHubToken(e.target.value)}
-                placeholder="ghp_xxxxxxxxxxxx"
+                </label>
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGitHubToken(e.target.value)}
+                  placeholder="ghp_xxxxxxxxxxxx"
                 className="input-industrial w-full"
-              />
+                />
               <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                Personal Access Tokenが必要です。スコープ: repo
-              </p>
-            </div>
+                  Personal Access Tokenが必要です。スコープ: repo
+                </p>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                 <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                   リポジトリ所有者 <span className="text-[var(--color-error)]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={githubOwner}
-                  onChange={(e) => setGitHubOwner(e.target.value)}
-                  placeholder="username"
+                  </label>
+                  <input
+                    type="text"
+                    value={githubOwner}
+                    onChange={(e) => setGitHubOwner(e.target.value)}
+                    placeholder="username"
                   className="input-industrial w-full"
-                />
+                  />
+                </div>
+
+                <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  リポジトリ名 <span className="text-[var(--color-error)]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={githubRepo}
+                    onChange={(e) => setGitHubRepo(e.target.value)}
+                    placeholder="repository-name"
+                  className="input-industrial w-full"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  リポジトリ名 <span className="text-[var(--color-error)]">*</span>
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  データパス
                 </label>
                 <input
                   type="text"
-                  value={githubRepo}
-                  onChange={(e) => setGitHubRepo(e.target.value)}
-                  placeholder="repository-name"
-                  className="input-industrial w-full"
+                  value={githubDataPath}
+                  onChange={(e) => setGitHubDataPath(e.target.value)}
+                  placeholder="data/tasks.json"
+                className="input-industrial w-full"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                データパス
-              </label>
-              <input
-                type="text"
-                value={githubDataPath}
-                onChange={(e) => setGitHubDataPath(e.target.value)}
-                placeholder="data/tasks.json"
-                className="input-industrial w-full"
-              />
-            </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
-              {githubConfig && (
-                <button
-                  onClick={() => {
-                    setShowGitHubForm(false)
-                    setGitHubToken(githubConfig.token)
-                    setGitHubOwner(githubConfig.owner)
-                    setGitHubRepo(githubConfig.repo)
-                    setGitHubDataPath(githubConfig.dataPath)
-                  }}
+                {githubConfig && (
+                  <button
+                    onClick={() => {
+                      setShowGitHubForm(false)
+                      setGitHubToken(githubConfig.token)
+                      setGitHubOwner(githubConfig.owner)
+                      setGitHubRepo(githubConfig.repo)
+                      setGitHubDataPath(githubConfig.dataPath)
+                    }}
                   className="btn-industrial"
-                >
-                  キャンセル
-                </button>
-              )}
-              <button
-                onClick={handleSaveGitHubConfig}
-                disabled={validating}
+                  >
+                    キャンセル
+                  </button>
+                )}
+                <button
+                  onClick={handleSaveGitHubConfig}
+                  disabled={validating}
                 className="btn-industrial-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {validating ? '検証中...' : '保存'}
-              </button>
+                >
+                  {validating ? '検証中...' : '保存'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </div>
   )

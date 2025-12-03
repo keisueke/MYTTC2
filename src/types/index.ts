@@ -69,6 +69,12 @@ export interface GitHubConfig {
   dataPath: string // デフォルト: 'data/tasks.json'
 }
 
+export interface WeatherConfig {
+  cityName: string // 都市名
+  latitude: number // 緯度
+  longitude: number // 経度
+}
+
 export interface Wish {
   id: string
   title: string

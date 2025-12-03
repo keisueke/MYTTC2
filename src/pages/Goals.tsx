@@ -27,6 +27,15 @@ export default function Goals() {
     return goals.filter(g => g.year === selectedYear)
   }, [goals, selectedYear])
 
+  // 利用可能な年のリストを生成（保存されている年 + 現在年から前後5年）
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const savedYears = Array.from(new Set(goals.map(g => g.year))).sort((a, b) => b - a)
+    const yearRange = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i)
+    const allYears = Array.from(new Set([...savedYears, ...yearRange])).sort((a, b) => b - a)
+    return allYears
+  }, [goals])
+
   const goalsByCategory = useMemo(() => {
     const result: Record<GoalCategory, { main?: Goal; subs: Goal[] }> = {
       'social-contribution': { subs: [] },
@@ -125,19 +134,37 @@ export default function Goals() {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
-              <button
-                key={year}
-                onClick={() => setSelectedYear(year)}
-                className={`px-3 py-1.5 font-display text-xs tracking-wider transition-all duration-200 ${
-                  selectedYear === year
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
-              >
-                {year}
-              </button>
-            ))}
+            <label htmlFor="year-select" className="font-display text-xs text-[var(--color-text-secondary)]">
+              年:
+            </label>
+            <select
+              id="year-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="input-industrial px-3 py-1.5 font-display text-xs tracking-wider min-w-[100px]"
+            >
+              {availableYears.map(year => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="2000"
+              max="2100"
+              placeholder="年を入力"
+              className="input-industrial px-3 py-1.5 font-display text-xs tracking-wider w-24"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const year = Number((e.target as HTMLInputElement).value)
+                  if (year >= 2000 && year <= 2100) {
+                    setSelectedYear(year)
+                    ;(e.target as HTMLInputElement).value = ''
+                  }
+                }
+              }}
+            />
           </div>
         </div>
       </div>
