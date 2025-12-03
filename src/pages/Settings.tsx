@@ -5,8 +5,8 @@ import { useGitHub } from '../hooks/useGitHub'
 import { loadData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
-import { getStoredTheme, saveTheme, applyTheme, Theme } from '../utils/theme'
-import { getWeatherConfig, saveWeatherConfig } from '../utils/weatherConfig'
+import { applyTheme, Theme } from '../utils/theme'
+import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig } from '../services/taskService'
 import { getCoordinatesFromCity } from '../services/weatherService'
 import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
 import { SummaryConfig } from '../types'
@@ -59,7 +59,7 @@ export default function Settings() {
   const [githubRepo, setGitHubRepo] = useState(githubConfig?.repo || '')
   const [githubDataPath, setGitHubDataPath] = useState(githubConfig?.dataPath || 'data/tasks.json')
   const [validating, setValidating] = useState(false)
-  const [theme, setTheme] = useState<Theme>(getStoredTheme())
+  const [theme, setTheme] = useState<Theme>(getTheme())
   const [weatherCityName, setWeatherCityName] = useState(getWeatherConfig().cityName)
   const [savingWeather, setSavingWeather] = useState(false)
   const [summaryConfig, setSummaryConfig] = useState<SummaryConfig>(getSummaryConfig())
@@ -72,6 +72,7 @@ export default function Settings() {
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme)
+    saveTheme(newTheme)
   }
 
   const handleSaveWeatherConfig = async () => {

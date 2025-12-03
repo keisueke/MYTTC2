@@ -154,6 +154,8 @@ export interface AppData {
   memos?: Memo[] // メモリスト
   dailyRecords?: DailyRecord[] // 日次記録
   summaryConfig?: SummaryConfig // 今日のまとめ設定
+  theme?: 'light' | 'dark' // テーマ設定
+  weatherConfig?: WeatherConfig // 天気設定
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

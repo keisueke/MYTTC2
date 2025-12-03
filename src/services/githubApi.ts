@@ -134,6 +134,22 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
         goals: [],
         memos: [],
         dailyRecords: [],
+        summaryConfig: {
+          includeWeight: true,
+          includeBedtime: true,
+          includeWakeTime: true,
+          includeSleepDuration: true,
+          includeBreakfast: true,
+          includeLunch: true,
+          includeDinner: true,
+          includeSnack: true,
+        },
+        theme: 'dark',
+        weatherConfig: {
+          cityName: '東京',
+          latitude: 35.6762,
+          longitude: 139.6503,
+        },
       }
     }
     throw error

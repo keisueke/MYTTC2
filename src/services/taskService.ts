@@ -1,4 +1,6 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, DailyRecord, SummaryConfig, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, DailyRecord, SummaryConfig, WeatherConfig, AppData } from '../types'
+import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
+import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -864,5 +866,51 @@ export function saveSummaryConfig(config: SummaryConfig): void {
   const data = loadData()
   data.summaryConfig = config
   saveData(data)
+}
+
+/**
+ * テーマ設定を取得
+ */
+export function getTheme(): 'light' | 'dark' {
+  const data = loadData()
+  if (data.theme) {
+    return data.theme
+  }
+  // AppDataにない場合はLocalStorageから取得
+  return getStoredTheme()
+}
+
+/**
+ * テーマ設定を保存
+ */
+export function saveTheme(theme: 'light' | 'dark'): void {
+  const data = loadData()
+  data.theme = theme
+  saveData(data)
+  // LocalStorageにも保存（後方互換性のため）
+  saveThemeToStorage(theme)
+}
+
+/**
+ * 天気設定を取得
+ */
+export function getWeatherConfig(): WeatherConfig {
+  const data = loadData()
+  if (data.weatherConfig) {
+    return data.weatherConfig
+  }
+  // AppDataにない場合はLocalStorageから取得
+  return getWeatherConfigFromStorage()
+}
+
+/**
+ * 天気設定を保存
+ */
+export function saveWeatherConfig(config: WeatherConfig): void {
+  const data = loadData()
+  data.weatherConfig = config
+  saveData(data)
+  // LocalStorageにも保存（後方互換性のため）
+  saveWeatherConfigToStorage(config)
 }
 

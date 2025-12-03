@@ -1,5 +1,5 @@
 import { useWeather } from '../../hooks/useWeather'
-import { getWeatherConfig } from '../../utils/weatherConfig'
+import { getWeatherConfig } from '../../services/taskService'
 
 /**
  * 天気コードからアイコンを取得

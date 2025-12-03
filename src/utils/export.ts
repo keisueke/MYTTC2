@@ -2,8 +2,7 @@ import { Task, Project, Mode, Tag } from '../types'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { getWeatherData, getWeatherDescriptionFromCode } from '../services/weatherService'
-import { getWeatherConfig } from './weatherConfig'
-import { getDailyRecord, getSummaryConfig } from '../services/taskService'
+import { getDailyRecord, getSummaryConfig, getWeatherConfig } from '../services/taskService'
 
 /**
  * タスクをMarkdown形式に変換
