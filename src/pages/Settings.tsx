@@ -25,7 +25,10 @@ export default function Settings() {
     projects,
     modes,
     tags,
+    memos,
     memoTemplates,
+    goals,
+    wishes,
     addProject,
     updateProject,
     deleteProject,
@@ -35,9 +38,12 @@ export default function Settings() {
     addTag,
     updateTag,
     deleteTag,
+    addMemo,
     addMemoTemplate,
     updateMemoTemplate,
     deleteMemoTemplate,
+    addGoal,
+    addWish,
     addTask,
     refresh,
   } = useTasks()
@@ -325,8 +331,59 @@ export default function Settings() {
         addTask(taskWithRelations)
       })
 
+      // メモを追加
+      const createdMemos: string[] = []
+      testData.memos?.forEach(memo => {
+        if (!memos.find(m => m.title === memo.title)) {
+          addMemo(memo)
+          createdMemos.push(memo.title)
+        }
+      })
+
+      // テンプレートを追加
+      const createdTemplates: string[] = []
+      testData.memoTemplates?.forEach(template => {
+        if (!memoTemplates.find(t => t.title === template.title)) {
+          addMemoTemplate(template)
+          createdTemplates.push(template.title)
+        }
+      })
+
+      // 年間目標を追加
+      const createdGoals: number = testData.goals?.filter(goal => {
+        // 同じ年の同じカテゴリで同じタイトルの目標が既に存在するかチェック
+        return !goals.find(g => 
+          g.year === goal.year && 
+          g.category === goal.category && 
+          g.title === goal.title
+        )
+      }).length || 0
+      testData.goals?.forEach(goal => {
+        if (!goals.find(g => 
+          g.year === goal.year && 
+          g.category === goal.category && 
+          g.title === goal.title
+        )) {
+          addGoal(goal)
+        }
+      })
+
+      // Wishリストを追加
+      const createdWishes: string[] = []
+      testData.wishes?.forEach(wish => {
+        if (!wishes.find(w => w.title === wish.title)) {
+          addWish(wish)
+          createdWishes.push(wish.title)
+        }
+      })
+
       refresh()
-      alert(`テストデータを追加しました:\n- プロジェクト: ${createdProjects.length}個\n- モード: ${createdModes.length}個\n- タグ: ${createdTags.length}個\n- タスク: ${testData.tasks.length}個`)
+      const message = `テストデータを追加しました:\n- プロジェクト: ${createdProjects.length}個\n- モード: ${createdModes.length}個\n- タグ: ${createdTags.length}個\n- タスク: ${testData.tasks.length}個`
+      const memoMessage = createdMemos.length > 0 ? `\n- メモ: ${createdMemos.length}個` : ''
+      const templateMessage = createdTemplates.length > 0 ? `\n- テンプレート: ${createdTemplates.length}個` : ''
+      const goalMessage = createdGoals > 0 ? `\n- 年間目標: ${createdGoals}個` : ''
+      const wishMessage = createdWishes.length > 0 ? `\n- Wishリスト: ${createdWishes.length}個` : ''
+      alert(message + memoMessage + templateMessage + goalMessage + wishMessage)
     } catch (error) {
       alert(`テストデータの追加に失敗しました: ${error}`)
     }

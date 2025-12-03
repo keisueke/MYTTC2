@@ -106,6 +106,7 @@ export interface Goal {
   progress?: number // 進捗率（0-100）
   parentGoalId?: string // 親目標のID（細分化された目標の場合）
   position?: number // 曼荼羅チャートでの位置（0-8、0が中央、1-8が周囲）
+  completedAt?: string // ISO date string（完了日時）
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
 }

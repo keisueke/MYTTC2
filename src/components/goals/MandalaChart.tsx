@@ -8,6 +8,7 @@ interface MandalaChartProps {
   onEditMainGoal: () => void
   onEditSubGoal: (position: number) => void
   onDeleteGoal: (id: string) => void
+  onToggleComplete?: (goalId: string, completed: boolean) => void
 }
 
 const POSITION_LABELS = [
@@ -30,6 +31,7 @@ export default function MandalaChart({
   onEditMainGoal,
   onEditSubGoal,
   onDeleteGoal,
+  onToggleComplete,
 }: MandalaChartProps) {
   const goalsByPosition = new Map<number, Goal>()
   subGoals.forEach(goal => {
@@ -50,6 +52,22 @@ export default function MandalaChart({
     }
   }
 
+  // 達成率を計算（9つの目標が全て存在し、全て完了している場合のみ100%）
+  const calculateCompletionRate = (): number | null => {
+    if (!mainGoal) return null
+    
+    const allSubGoals = [1, 2, 3, 4, 5, 6, 7, 8].map(pos => getGoalAtPosition(pos))
+    if (allSubGoals.some(goal => !goal)) return null
+    
+    // 全ての目標が完了しているかチェック
+    const allGoals = [mainGoal, ...allSubGoals]
+    const allCompleted = allGoals.every(goal => goal?.completedAt)
+    
+    return allCompleted ? 100 : null
+  }
+
+  const completionRate = calculateCompletionRate()
+
   // Grid positions: [1, 2, 3, 4, 0, 5, 6, 7, 8]
   const gridPositions = [1, 2, 3, 4, 0, 5, 6, 7, 8]
 
@@ -65,6 +83,11 @@ export default function MandalaChart({
             {categoryLabel}
           </h3>
         </div>
+        {completionRate !== null && (
+          <span className="font-display text-xs font-medium text-[var(--color-accent)]">
+            {completionRate}%
+          </span>
+        )}
       </div>
 
       {/* Mandala Grid */}
@@ -81,6 +104,7 @@ export default function MandalaChart({
               isMain={isMain}
               onEdit={() => handleEdit(position)}
               onDelete={goal ? () => onDeleteGoal(goal.id) : undefined}
+              onToggleComplete={goal && !isMain ? (goalId: string, completed: boolean) => onToggleComplete?.(goalId, completed) : undefined}
             />
           )
         })}
@@ -95,9 +119,10 @@ interface GoalCellProps {
   isMain?: boolean
   onEdit: () => void
   onDelete?: () => void
+  onToggleComplete?: (goalId: string, completed: boolean) => void
 }
 
-function GoalCell({ position, goal, isMain = false, onEdit, onDelete }: GoalCellProps) {
+function GoalCell({ position, goal, isMain = false, onEdit, onDelete, onToggleComplete }: GoalCellProps) {
   const cellClasses = isMain
     ? 'min-h-[80px] bg-[var(--color-accent)]/10 border-2 border-[var(--color-accent)]/50'
     : 'min-h-[70px] bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]'
@@ -122,8 +147,31 @@ function GoalCell({ position, goal, isMain = false, onEdit, onDelete }: GoalCell
     <div
       className={`${cellClasses} p-2 flex flex-col relative group`}
     >
+      {/* チェックマーク（詳細目標のみ） */}
+      {!isMain && onToggleComplete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleComplete(goal.id, !goal.completedAt)
+          }}
+          className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors z-10"
+          aria-label={goal.completedAt ? '完了を解除' : '完了にする'}
+        >
+          {goal.completedAt ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+        </button>
+      )}
       <div className="flex-1 min-h-0">
-        <h4 className="font-display text-[10px] font-medium text-[var(--color-text-primary)] mb-1 line-clamp-2 leading-tight">
+        <h4 className={`font-display text-[10px] font-medium mb-1 line-clamp-2 leading-tight ${
+          goal.completedAt ? 'text-[var(--color-text-tertiary)] line-through' : 'text-[var(--color-text-primary)]'
+        }`}>
           {goal.title}
         </h4>
         {goal.progress !== undefined && (

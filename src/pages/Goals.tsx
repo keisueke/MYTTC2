@@ -100,6 +100,15 @@ export default function Goals() {
     }
   }
 
+  const handleToggleComplete = (goalId: string, completed: boolean) => {
+    const goal = goals.find(g => g.id === goalId)
+    if (!goal) return
+    
+    updateGoal(goalId, {
+      completedAt: completed ? new Date().toISOString() : undefined,
+    })
+  }
+
   const handleCancel = () => {
     setShowForm(false)
     setEditingGoal(undefined)
@@ -193,6 +202,7 @@ export default function Goals() {
                   onEditMainGoal={() => handleEditMainGoal(category.value)}
                   onEditSubGoal={(position) => handleEditSubGoal(category.value, position)}
                   onDeleteGoal={handleDelete}
+                  onToggleComplete={handleToggleComplete}
                 />
               </div>
             )
