@@ -133,6 +133,7 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
         wishes: [],
         goals: [],
         memos: [],
+        memoTemplates: [],
         dailyRecords: [],
         summaryConfig: {
           includeWeight: true,
@@ -150,6 +151,8 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
           latitude: 35.6762,
           longitude: 139.6503,
         },
+        sidebarAlwaysVisible: false,
+        sidebarWidth: 320,
       }
     }
     throw error

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag, Wish, Goal, Memo } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -10,6 +10,7 @@ export function useTasks() {
   const [wishes, setWishes] = useState<Wish[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [memos, setMemos] = useState<Memo[]>([])
+  const [memoTemplates, setMemoTemplates] = useState<MemoTemplate[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -22,6 +23,7 @@ export function useTasks() {
       setWishes(taskService.getWishes())
       setGoals(taskService.getGoals())
       setMemos(taskService.getMemos())
+      setMemoTemplates(taskService.getMemoTemplates())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -342,6 +344,41 @@ export function useTasks() {
     }
   }, [])
 
+  // MemoTemplateを追加
+  const addMemoTemplate = useCallback((template: Omit<MemoTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newTemplate = taskService.addMemoTemplate(template)
+      setMemoTemplates(prev => [...prev, newTemplate])
+      return newTemplate
+    } catch (error) {
+      console.error('Failed to add memo template:', error)
+      throw error
+    }
+  }, [])
+
+  // MemoTemplateを更新
+  const updateMemoTemplate = useCallback((id: string, updates: Partial<Omit<MemoTemplate, 'id' | 'createdAt'>>) => {
+    try {
+      const updatedTemplate = taskService.updateMemoTemplate(id, updates)
+      setMemoTemplates(prev => prev.map(t => t.id === id ? updatedTemplate : t))
+      return updatedTemplate
+    } catch (error) {
+      console.error('Failed to update memo template:', error)
+      throw error
+    }
+  }, [])
+
+  // MemoTemplateを削除
+  const deleteMemoTemplate = useCallback((id: string) => {
+    try {
+      taskService.deleteMemoTemplate(id)
+      setMemoTemplates(prev => prev.filter(t => t.id !== id))
+    } catch (error) {
+      console.error('Failed to delete memo template:', error)
+      throw error
+    }
+  }, [])
+
   return {
     tasks,
     projects,
@@ -377,6 +414,10 @@ export function useTasks() {
     addMemo,
     updateMemo,
     deleteMemo,
+    memoTemplates,
+    addMemoTemplate,
+    updateMemoTemplate,
+    deleteMemoTemplate,
     refresh: loadData,
   }
 }

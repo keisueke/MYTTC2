@@ -6,7 +6,7 @@ import { loadData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { applyTheme, Theme } from '../utils/theme'
-import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig } from '../services/taskService'
+import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth } from '../services/taskService'
 import { getCoordinatesFromCity } from '../services/weatherService'
 import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
 import { SummaryConfig } from '../types'
@@ -25,6 +25,7 @@ export default function Settings() {
     projects,
     modes,
     tags,
+    memoTemplates,
     addProject,
     updateProject,
     deleteProject,
@@ -34,6 +35,9 @@ export default function Settings() {
     addTag,
     updateTag,
     deleteTag,
+    addMemoTemplate,
+    updateMemoTemplate,
+    deleteMemoTemplate,
     addTask,
     refresh,
   } = useTasks()
@@ -63,6 +67,11 @@ export default function Settings() {
   const [weatherCityName, setWeatherCityName] = useState(getWeatherConfig().cityName)
   const [savingWeather, setSavingWeather] = useState(false)
   const [summaryConfig, setSummaryConfig] = useState<SummaryConfig>(getSummaryConfig())
+  const [sidebarAlwaysVisible, setSidebarAlwaysVisible] = useState(getSidebarVisibility())
+  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<{ id?: string; title: string; content: string } | undefined>(undefined)
+  const [templateTitle, setTemplateTitle] = useState('')
+  const [templateContent, setTemplateContent] = useState('')
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -428,6 +437,77 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* サイドバー表示設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Sidebar
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              サイドバー表示設定
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-6">
+          {/* ピンどめボタン */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-display text-sm text-[var(--color-text-primary)] mb-1">
+                サイドバーを常に表示
+              </p>
+              <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+                ピンどめでサイドバーを固定します
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const newValue = !sidebarAlwaysVisible
+                setSidebarAlwaysVisible(newValue)
+                saveSidebarVisibility(newValue)
+                window.dispatchEvent(new Event('mytcc2:dataChanged'))
+              }}
+              className={`p-3 transition-all duration-200 ${
+                sidebarAlwaysVisible
+                  ? 'text-[var(--color-accent)] hover:text-[var(--color-accent)]/80'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+              aria-label={sidebarAlwaysVisible ? 'ピンどめを解除' : 'ピンどめ'}
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={sidebarAlwaysVisible ? 2 : 1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* サイドバー幅設定 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-display text-sm text-[var(--color-text-primary)]">
+                サイドバー幅
+              </p>
+              <span className="font-display text-xs text-[var(--color-text-tertiary)]">
+                {getSidebarWidth()}px
+              </span>
+            </div>
+            <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-3">
+              サイドバーの右端をドラッグしてサイズを変更できます（200px～600px）
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 今日のまとめ設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -555,6 +635,181 @@ export default function Settings() {
               設定を保存
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* メモテンプレート管理 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Memo Templates
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              メモテンプレート管理
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-4">
+            メモ作成時に使用できるテンプレートを管理します
+          </p>
+          
+          {showTemplateForm ? (
+            <div className="card-industrial p-6 border border-[var(--color-border)]">
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                    テンプレート名 <span className="text-[var(--color-error)]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={templateTitle}
+                    onChange={(e) => setTemplateTitle(e.target.value)}
+                    className="input-industrial w-full"
+                    placeholder="テンプレート名を入力"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                    テンプレート内容
+                  </label>
+                  <textarea
+                    value={templateContent}
+                    onChange={(e) => setTemplateContent(e.target.value)}
+                    rows={8}
+                    className="input-industrial w-full resize-none font-body"
+                    placeholder="テンプレート内容を入力"
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+                  <button
+                    onClick={() => {
+                      setShowTemplateForm(false)
+                      setEditingTemplate(undefined)
+                      setTemplateTitle('')
+                      setTemplateContent('')
+                    }}
+                    className="btn-industrial"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!templateTitle.trim()) {
+                        alert('テンプレート名を入力してください')
+                        return
+                      }
+                      try {
+                        if (editingTemplate?.id) {
+                          updateMemoTemplate(editingTemplate.id, {
+                            title: templateTitle.trim(),
+                            content: templateContent.trim(),
+                          })
+                        } else {
+                          addMemoTemplate({
+                            title: templateTitle.trim(),
+                            content: templateContent.trim(),
+                          })
+                        }
+                        setShowTemplateForm(false)
+                        setEditingTemplate(undefined)
+                        setTemplateTitle('')
+                        setTemplateContent('')
+                        refresh()
+                      } catch (error) {
+                        console.error('Failed to save template:', error)
+                        alert('テンプレートの保存に失敗しました')
+                      }
+                    }}
+                    className="btn-industrial"
+                  >
+                    {editingTemplate?.id ? '更新' : '作成'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {memoTemplates.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="font-display text-sm text-[var(--color-text-tertiary)]">
+                    テンプレートがありません
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {memoTemplates.map(template => (
+                    <div
+                      key={template.id}
+                      className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)] flex items-start justify-between gap-4"
+                    >
+                      <div className="flex-1">
+                        <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                          {template.title}
+                        </h3>
+                        <p className="font-body text-xs text-[var(--color-text-secondary)] line-clamp-2 whitespace-pre-wrap">
+                          {template.content}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingTemplate({ id: template.id, title: template.title, content: template.content })
+                            setTemplateTitle(template.title)
+                            setTemplateContent(template.content)
+                            setShowTemplateForm(true)
+                          }}
+                          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-elevated)] transition-all"
+                          title="編集"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('このテンプレートを削除しますか？')) {
+                              try {
+                                deleteMemoTemplate(template.id)
+                                refresh()
+                              } catch (error) {
+                                console.error('Failed to delete template:', error)
+                                alert('テンプレートの削除に失敗しました')
+                              }
+                            }
+                          }}
+                          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10 transition-all"
+                          title="削除"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="pt-4 border-t border-[var(--color-border)]">
+                <button
+                  onClick={() => {
+                    setEditingTemplate(undefined)
+                    setTemplateTitle('')
+                    setTemplateContent('')
+                    setShowTemplateForm(true)
+                  }}
+                  className="btn-industrial"
+                >
+                  ＋新規テンプレート
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
       

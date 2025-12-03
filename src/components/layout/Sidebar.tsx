@@ -1,17 +1,77 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { loadGitHubConfig } from '../../hooks/useGitHub'
+import { getSidebarWidth, saveSidebarWidth, getSidebarVisibility, saveSidebarVisibility } from '../../services/taskService'
 
 interface SidebarProps {
   isOpen: boolean
   onClose: () => void
+  alwaysVisible?: boolean
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, alwaysVisible = false }: SidebarProps) {
   const location = useLocation()
+  const [isResizing, setIsResizing] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(getSidebarWidth())
+  const [sidebarAlwaysVisible, setSidebarAlwaysVisible] = useState(getSidebarVisibility())
+
+  useEffect(() => {
+    setSidebarWidth(getSidebarWidth())
+    setSidebarAlwaysVisible(getSidebarVisibility())
+    
+    // データ変更イベントをリッスン
+    const handleDataChange = () => {
+      setSidebarWidth(getSidebarWidth())
+      setSidebarAlwaysVisible(getSidebarVisibility())
+    }
+    
+    window.addEventListener('mytcc2:dataChanged', handleDataChange)
+    return () => window.removeEventListener('mytcc2:dataChanged', handleDataChange)
+  }, [])
 
   const handleNavClick = () => {
-    onClose()
+    if (!alwaysVisible) {
+      onClose()
+    }
   }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsResizing(true)
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      const newWidth = Math.min(Math.max(200, e.clientX), 600)
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      if (isResizing) {
+        saveSidebarWidth(sidebarWidth)
+        window.dispatchEvent(new Event('mytcc2:dataChanged'))
+      }
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.userSelect = 'none'
+      document.body.style.cursor = 'col-resize'
+    } else {
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+  }, [isResizing, sidebarWidth])
 
   const navItems = [
     { path: '/', label: 'ダッシュボード', code: '01', icon: '◈' },
@@ -25,9 +85,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full w-80 bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] flex flex-col z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}
+      style={{ width: `${sidebarWidth}px` }}
+      className={`fixed left-0 top-0 h-full bg-[var(--color-bg-secondary)] border-r border-[var(--color-border)] flex flex-col z-50 transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        isOpen ? 'translate-x-0' : alwaysVisible ? 'translate-x-0' : '-translate-x-full'
+      } ${isResizing ? 'transition-none' : ''}`}
     >
       {/* Header */}
       <div className="p-6 border-b border-[var(--color-border)]">
@@ -40,24 +101,55 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               Task Management
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-all duration-200"
-            aria-label="メニューを閉じる"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {!alwaysVisible && (
+            <button
+              onClick={onClose}
+              className="w-10 h-10 flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-all duration-200"
+              aria-label="メニューを閉じる"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-6 overflow-y-auto">
-        <div className="px-4">
+        <div className="px-4 flex items-center justify-between mb-4">
           <span className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-muted)] px-2">
             Navigation
           </span>
+          <button
+            onClick={() => {
+              const newValue = !sidebarAlwaysVisible
+              setSidebarAlwaysVisible(newValue)
+              saveSidebarVisibility(newValue)
+              window.dispatchEvent(new Event('mytcc2:dataChanged'))
+            }}
+            className={`p-2 transition-all duration-200 ${
+              sidebarAlwaysVisible
+                ? 'text-[var(--color-accent)] hover:text-[var(--color-accent)]/80'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+            aria-label={sidebarAlwaysVisible ? 'ピンどめを解除' : 'ピンどめ'}
+            title={sidebarAlwaysVisible ? 'ピンどめを解除' : 'ピンどめ'}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={sidebarAlwaysVisible ? 2 : 1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+              />
+            </svg>
+          </button>
         </div>
         <div className="mt-4 space-y-1 px-4">
           {navItems.map((item, index) => {
@@ -129,6 +221,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )
         })()}
       </div>
+
+      {/* リサイズハンドル */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={`absolute right-0 top-0 h-full w-1 cursor-col-resize hover:w-2 hover:bg-[var(--color-accent)]/30 transition-all duration-200 ${
+          isResizing ? 'w-2 bg-[var(--color-accent)]/50' : ''
+        }`}
+        style={{ zIndex: 60 }}
+      />
     </aside>
   )
 }

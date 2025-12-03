@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, DailyRecord, SummaryConfig, WeatherConfig, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 
@@ -26,6 +26,7 @@ export function loadData(): AppData {
     wishes: [],
     goals: [],
     memos: [],
+    memoTemplates: [],
     dailyRecords: [],
   }
 }
@@ -787,6 +788,77 @@ export function deleteMemo(id: string): void {
 }
 
 /**
+ * MemoTemplateを取得する
+ */
+export function getMemoTemplates(): MemoTemplate[] {
+  const data = loadData()
+  return data.memoTemplates || []
+}
+
+/**
+ * MemoTemplateを追加する
+ */
+export function addMemoTemplate(template: Omit<MemoTemplate, 'id' | 'createdAt' | 'updatedAt'>): MemoTemplate {
+  const data = loadData()
+  const newTemplate: MemoTemplate = {
+    ...template,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  if (!data.memoTemplates) {
+    data.memoTemplates = []
+  }
+  data.memoTemplates.push(newTemplate)
+  saveData(data)
+  return newTemplate
+}
+
+/**
+ * MemoTemplateを更新する
+ */
+export function updateMemoTemplate(id: string, updates: Partial<Omit<MemoTemplate, 'id' | 'createdAt'>>): MemoTemplate {
+  const data = loadData()
+  if (!data.memoTemplates) {
+    data.memoTemplates = []
+  }
+  const templateIndex = data.memoTemplates.findIndex(t => t.id === id)
+  
+  if (templateIndex === -1) {
+    throw new Error(`MemoTemplate with id ${id} not found`)
+  }
+  
+  const updatedTemplate: MemoTemplate = {
+    ...data.memoTemplates[templateIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.memoTemplates[templateIndex] = updatedTemplate
+  saveData(data)
+  return updatedTemplate
+}
+
+/**
+ * MemoTemplateを削除する
+ */
+export function deleteMemoTemplate(id: string): void {
+  const data = loadData()
+  if (!data.memoTemplates) {
+    return
+  }
+  const templateIndex = data.memoTemplates.findIndex(t => t.id === id)
+  
+  if (templateIndex === -1) {
+    throw new Error(`MemoTemplate with id ${id} not found`)
+  }
+  
+  data.memoTemplates.splice(templateIndex, 1)
+  saveData(data)
+}
+
+/**
  * 指定日の記録を取得
  */
 export function getDailyRecord(date: Date): DailyRecord | undefined {
@@ -912,5 +984,39 @@ export function saveWeatherConfig(config: WeatherConfig): void {
   saveData(data)
   // LocalStorageにも保存（後方互換性のため）
   saveWeatherConfigToStorage(config)
+}
+
+/**
+ * サイドバー表示設定を取得
+ */
+export function getSidebarVisibility(): boolean {
+  const data = loadData()
+  return data.sidebarAlwaysVisible ?? false // デフォルトはfalse（非表示）
+}
+
+/**
+ * サイドバー表示設定を保存
+ */
+export function saveSidebarVisibility(alwaysVisible: boolean): void {
+  const data = loadData()
+  data.sidebarAlwaysVisible = alwaysVisible
+  saveData(data)
+}
+
+/**
+ * サイドバー幅を取得
+ */
+export function getSidebarWidth(): number {
+  const data = loadData()
+  return data.sidebarWidth ?? 320 // デフォルト: 320px
+}
+
+/**
+ * サイドバー幅を保存
+ */
+export function saveSidebarWidth(width: number): void {
+  const data = loadData()
+  data.sidebarWidth = width
+  saveData(data)
 }
 

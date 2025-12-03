@@ -5,6 +5,7 @@ import { useTasks } from '../hooks/useTasks'
 export default function MemoPage() {
   const {
     memos,
+    memoTemplates,
     loading,
     addMemo,
     updateMemo,
@@ -15,6 +16,7 @@ export default function MemoPage() {
   const [editingMemo, setEditingMemo] = useState<Memo | undefined>(undefined)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
 
   const handleCreateMemo = () => {
     if (!title.trim()) {
@@ -57,6 +59,21 @@ export default function MemoPage() {
     setEditingMemo(undefined)
     setTitle('')
     setContent('')
+    setSelectedTemplateId('')
+  }
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId)
+    if (templateId) {
+      const template = memoTemplates.find(t => t.id === templateId)
+      if (template) {
+        setTitle(template.title)
+        setContent(template.content)
+      }
+    } else {
+      setTitle('')
+      setContent('')
+    }
   }
 
   if (loading) {
@@ -90,6 +107,7 @@ export default function MemoPage() {
               setEditingMemo(undefined)
               setTitle('')
               setContent('')
+              setSelectedTemplateId('')
               setShowForm(true)
             }}
             className="btn-industrial"
@@ -113,6 +131,26 @@ export default function MemoPage() {
           </div>
           
           <div className="space-y-6">
+            {!editingMemo && memoTemplates.length > 0 && (
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  テンプレートから選択
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="input-industrial w-full"
+                >
+                  <option value="">テンプレートを選択...</option>
+                  {memoTemplates.map(template => (
+                    <option key={template.id} value={template.id}>
+                      {template.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
             <div>
               <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                 タイトル <span className="text-[var(--color-error)]">*</span>

@@ -118,6 +118,14 @@ export interface Memo {
   updatedAt: string // ISO date string
 }
 
+export interface MemoTemplate {
+  id: string
+  title: string
+  content: string
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
 export interface DailyRecord {
   id: string
   date: string // ISO date string (日付のみ YYYY-MM-DD)
@@ -152,10 +160,13 @@ export interface AppData {
   wishes?: Wish[] // wishリスト
   goals?: Goal[] // 目標リスト
   memos?: Memo[] // メモリスト
+  memoTemplates?: MemoTemplate[] // メモテンプレートリスト
   dailyRecords?: DailyRecord[] // 日次記録
   summaryConfig?: SummaryConfig // 今日のまとめ設定
   theme?: 'light' | 'dark' // テーマ設定
   weatherConfig?: WeatherConfig // 天気設定
+  sidebarAlwaysVisible?: boolean // サイドバー常時表示設定
+  sidebarWidth?: number // サイドバー幅（px、デフォルト: 320）
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

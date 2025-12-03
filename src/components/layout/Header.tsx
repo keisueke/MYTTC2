@@ -3,9 +3,10 @@ import { useMemo } from 'react'
 
 interface HeaderProps {
   onMenuClick: () => void
+  sidebarAlwaysVisible?: boolean
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: HeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -40,17 +41,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <div className="px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Left Section */}
         <div className="flex items-center gap-6">
-          <button
-            onClick={onMenuClick}
-            className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors duration-200 group"
-            aria-label="メニューを開く"
-          >
-            <div className="w-6 h-5 flex flex-col justify-between">
-              <span className="w-full h-0.5 bg-current transition-all group-hover:w-4"></span>
-              <span className="w-4 h-0.5 bg-current transition-all group-hover:w-full"></span>
-              <span className="w-full h-0.5 bg-current transition-all group-hover:w-3"></span>
-            </div>
-          </button>
+          {!sidebarAlwaysVisible && (
+            <button
+              onClick={onMenuClick}
+              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors duration-200 group"
+              aria-label="メニューを開く"
+            >
+              <div className="w-6 h-5 flex flex-col justify-between">
+                <span className="w-full h-0.5 bg-current transition-all group-hover:w-4"></span>
+                <span className="w-4 h-0.5 bg-current transition-all group-hover:w-full"></span>
+                <span className="w-full h-0.5 bg-current transition-all group-hover:w-3"></span>
+              </div>
+            </button>
+          )}
           
           <button
             onClick={handleLogoClick}
