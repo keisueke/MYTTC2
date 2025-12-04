@@ -3,6 +3,7 @@ import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
+import { useNotification } from '../context/NotificationContext'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
 import { DashboardLayoutConfig, DashboardWidgetId } from '../types'
@@ -17,6 +18,7 @@ import DashboardWidget from '../components/dashboard/DashboardWidget'
 export default function Dashboard() {
   const { tasks, projects, modes, tags, loading, refresh } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional } = useGitHub()
+  const { showNotification } = useNotification()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
@@ -28,17 +30,17 @@ export default function Dashboard() {
       
       switch (result) {
         case 'pulled':
-          alert('GitHubから同期しました')
+          showNotification('リモートから最新データを取得しました', 'success')
           break
         case 'pushed':
-          alert('GitHubに同期しました')
+          showNotification('リモートにデータを保存しました', 'success')
           break
         case 'up-to-date':
-          alert('既に最新の状態です')
+          showNotification('既に最新の状態です', 'info')
           break
       }
     } catch (error) {
-      alert(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -47,12 +49,12 @@ export default function Dashboard() {
       const summary = await generateTodaySummary(tasks, projects, modes, tags)
       const success = await copyToClipboard(summary)
       if (success) {
-        alert('今日のまとめをクリップボードにコピーしました')
+        showNotification('今日のまとめをクリップボードにコピーしました', 'success')
       } else {
-        alert('クリップボードへのコピーに失敗しました')
+        showNotification('クリップボードへのコピーに失敗しました', 'error')
       }
     } catch (error) {
-      alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 

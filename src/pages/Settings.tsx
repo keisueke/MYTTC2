@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Project, Mode, Tag, GitHubConfig } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
+import { useNotification } from '../context/NotificationContext'
 import { loadData, clearAllData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
@@ -57,6 +58,8 @@ export default function Settings() {
     syncBidirectional,
     validateConfig,
   } = useGitHub()
+  
+  const { showNotification } = useNotification()
   
   const [activeTab, setActiveTab] = useState<TabType>('project')
   const [showForm, setShowForm] = useState(false)
@@ -202,7 +205,7 @@ export default function Settings() {
 
   const handleSaveGitHubConfig = async () => {
     if (!githubToken || !githubOwner || !githubRepo) {
-      alert('すべての項目を入力してください')
+      showNotification('すべての項目を入力してください', 'error')
       return
     }
 
@@ -217,15 +220,15 @@ export default function Settings() {
 
       const isValid = await validateConfig(testConfig)
       if (!isValid) {
-        alert('GitHub設定の検証に失敗しました。トークンとリポジトリ情報を確認してください。')
+        showNotification('GitHub設定の検証に失敗しました。トークンとリポジトリ情報を確認してください。', 'error')
         return
       }
 
       saveGitHubConfig(testConfig)
       setShowGitHubForm(false)
-      alert('GitHub設定を保存しました')
+      showNotification('GitHub設定を保存しました', 'success')
     } catch (error) {
-      alert(`設定の保存に失敗しました: ${error}`)
+      showNotification(`設定の保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     } finally {
       setValidating(false)
     }
@@ -249,17 +252,17 @@ export default function Settings() {
       
       switch (result) {
         case 'pulled':
-          alert('GitHubから同期しました')
+          showNotification('リモートから最新データを取得しました', 'success')
           break
         case 'pushed':
-          alert('GitHubに同期しました')
+          showNotification('リモートにデータを保存しました', 'success')
           break
         case 'up-to-date':
-          alert('既に最新の状態です')
+          showNotification('既に最新の状態です', 'info')
           break
       }
     } catch (error) {
-      alert(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -272,12 +275,12 @@ export default function Settings() {
       const summary = await generateTodaySummary(tasks, projects, modes, tags)
       const success = await copyToClipboard(summary)
       if (success) {
-        alert('今日のまとめをクリップボードにコピーしました')
+        showNotification('今日のまとめをクリップボードにコピーしました', 'success')
       } else {
-        alert('クリップボードへのコピーに失敗しました')
+        showNotification('クリップボードへのコピーに失敗しました', 'error')
       }
     } catch (error) {
-      alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 

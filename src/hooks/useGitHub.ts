@@ -110,6 +110,99 @@ export function useGitHub() {
       const localData = taskService.loadData()
       const localLastSynced = localData.lastSynced ? new Date(localData.lastSynced) : null
 
+      // ローカルのデータの最新の更新時刻を計算
+      const getLocalLatestUpdate = (data: AppData): Date | null => {
+        const allDates: Date[] = []
+        
+        // updatedAtがある項目のみを収集
+        if (data.tasks) {
+          data.tasks.forEach(task => {
+            if (task.updatedAt) {
+              allDates.push(new Date(task.updatedAt))
+            }
+          })
+        }
+        
+        if (data.wishes) {
+          data.wishes.forEach(wish => {
+            if (wish.updatedAt) {
+              allDates.push(new Date(wish.updatedAt))
+            }
+          })
+        }
+        
+        if (data.goals) {
+          data.goals.forEach(goal => {
+            if (goal.updatedAt) {
+              allDates.push(new Date(goal.updatedAt))
+            }
+          })
+        }
+        
+        if (data.memos) {
+          data.memos.forEach(memo => {
+            if (memo.updatedAt) {
+              allDates.push(new Date(memo.updatedAt))
+            }
+          })
+        }
+        
+        if (data.memoTemplates) {
+          data.memoTemplates.forEach(template => {
+            if (template.updatedAt) {
+              allDates.push(new Date(template.updatedAt))
+            }
+          })
+        }
+        
+        if (data.subTasks) {
+          data.subTasks.forEach(subTask => {
+            if (subTask.updatedAt) {
+              allDates.push(new Date(subTask.updatedAt))
+            }
+          })
+        }
+        
+        // createdAtも考慮（Project、Mode、Tagなど）
+        if (data.projects) {
+          data.projects.forEach(project => {
+            if (project.createdAt) {
+              allDates.push(new Date(project.createdAt))
+            }
+          })
+        }
+        
+        if (data.modes) {
+          data.modes.forEach(mode => {
+            if (mode.createdAt) {
+              allDates.push(new Date(mode.createdAt))
+            }
+          })
+        }
+        
+        if (data.tags) {
+          data.tags.forEach(tag => {
+            if (tag.createdAt) {
+              allDates.push(new Date(tag.createdAt))
+            }
+          })
+        }
+        
+        // dailyRecordsのdateも考慮
+        if (data.dailyRecords) {
+          data.dailyRecords.forEach(record => {
+            if (record.date) {
+              allDates.push(new Date(record.date))
+            }
+          })
+        }
+        
+        return allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : null
+      }
+
+      const localLatestUpdate = getLocalLatestUpdate(localData)
+      const hasLocalChanges = !localLastSynced || (localLatestUpdate && localLatestUpdate > localLastSynced)
+
       // GitHubからファイルの最終更新時刻を取得
       let remoteLastModified: Date | null = null
       try {
@@ -123,9 +216,8 @@ export function useGitHub() {
         }
       }
 
-      // リモートファイルが存在しない場合、またはローカルの方が新しい場合はGitHubに保存
-      if (!remoteLastModified || (localLastSynced && localLastSynced > remoteLastModified)) {
-        // ローカルが新しい、またはリモートファイルが存在しない場合はGitHubに保存
+      // ローカルに未同期の変更がある場合は、まずローカルをプッシュ
+      if (hasLocalChanges) {
         let sha: string | undefined
         try {
           sha = await githubApi.getFileSha(config, config.dataPath)
@@ -147,15 +239,51 @@ export function useGitHub() {
         taskService.saveData(updatedData)
         
         return 'pushed'
-      } else if (localLastSynced && remoteLastModified && localLastSynced.getTime() === remoteLastModified.getTime()) {
+      }
+
+      // ローカルに未同期の変更がない場合
+      if (!remoteLastModified) {
+        // リモートファイルが存在しない場合は、ローカルをプッシュ
+        await githubApi.saveDataToGitHub(config, localData, undefined)
+        const updatedData: AppData = {
+          ...localData,
+          lastSynced: new Date().toISOString(),
+        }
+        taskService.saveData(updatedData)
+        return 'pushed'
+      }
+
+      if (localLastSynced && remoteLastModified && localLastSynced.getTime() === remoteLastModified.getTime()) {
         // 同じ時刻の場合は最新
         return 'up-to-date'
-      } else {
-        // リモートが新しい場合はGitHubから取得
+      }
+
+      // リモートが新しい場合はGitHubから取得
+      if (!localLastSynced || remoteLastModified > localLastSynced) {
         const data = await githubApi.loadDataFromGitHub(config)
         taskService.saveData(data)
         return 'pulled'
       }
+
+      // 上記の条件に該当しない場合は、ローカルをプッシュ
+      let sha: string | undefined
+      try {
+        sha = await githubApi.getFileSha(config, config.dataPath)
+      } catch (err) {
+        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
+          sha = undefined
+        } else {
+          throw err
+        }
+      }
+
+      await githubApi.saveDataToGitHub(config, localData, sha)
+      const updatedData: AppData = {
+        ...localData,
+        lastSynced: new Date().toISOString(),
+      }
+      taskService.saveData(updatedData)
+      return 'pushed'
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
       setError(errorMessage)
