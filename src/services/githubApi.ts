@@ -153,6 +153,7 @@ export async function loadDataFromGitHub(config: GitHubConfig): Promise<AppData>
         },
         sidebarAlwaysVisible: false,
         sidebarWidth: 320,
+        subTasks: [],
       }
     }
     throw error

@@ -8,9 +8,10 @@ import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
+import HabitTracker from '../components/dashboard/HabitTracker'
 
 export default function Dashboard() {
-  const { tasks, projects, modes, tags, loading, refresh } = useTasks()
+  const { tasks, projects, modes, tags, loading, refresh, updateTask } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional } = useGitHub()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   
@@ -47,6 +48,20 @@ export default function Dashboard() {
     } catch (error) {
       alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
+  }
+
+  const handleToggleHabitComplete = (taskId: string, date: Date, completed: boolean) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+
+    // 完了状態を更新
+    // 完了する場合は指定された日付の日時を設定
+    // 未完了にする場合はundefinedを設定
+    const completedAt = completed 
+      ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), new Date().getHours(), new Date().getMinutes(), new Date().getSeconds()).toISOString()
+      : undefined
+
+    updateTask(taskId, { completedAt })
   }
 
   const stats = useMemo(() => {
@@ -184,8 +199,16 @@ export default function Dashboard() {
         <WeatherCard />
       </div>
 
-      {/* Daily Record Input */}
+      {/* Habit Tracker */}
       <div className="animate-fade-in-up stagger-6">
+        <HabitTracker
+          tasks={tasks}
+          onToggleComplete={handleToggleHabitComplete}
+        />
+      </div>
+
+      {/* Daily Record Input */}
+      <div className="animate-fade-in-up stagger-7">
         <DailyRecordInput />
       </div>
 

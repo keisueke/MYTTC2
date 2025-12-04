@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 
@@ -28,6 +28,7 @@ export function loadData(): AppData {
     memos: [],
     memoTemplates: [],
     dailyRecords: [],
+    subTasks: [],
   }
 }
 
@@ -42,6 +43,30 @@ export function saveData(data: AppData): void {
   } catch (error) {
     console.error('Failed to save data to localStorage:', error)
     throw new Error('データの保存に失敗しました')
+  }
+}
+
+/**
+ * すべてのデータをクリアする（テスト用）
+ */
+export function clearAllData(): void {
+  try {
+    const defaultData: AppData = {
+      tasks: [],
+      projects: [],
+      modes: [],
+      tags: [],
+      wishes: [],
+      goals: [],
+      memos: [],
+      memoTemplates: [],
+      dailyRecords: [],
+      subTasks: [],
+    }
+    saveData(defaultData)
+  } catch (error) {
+    console.error('Failed to clear data:', error)
+    throw new Error('データの削除に失敗しました')
   }
 }
 
@@ -1017,6 +1042,112 @@ export function getSidebarWidth(): number {
 export function saveSidebarWidth(width: number): void {
   const data = loadData()
   data.sidebarWidth = width
+  saveData(data)
+}
+
+/**
+ * 詳細タスクを取得（親タスクIDでフィルタリング）
+ */
+export function getSubTasks(taskId?: string): SubTask[] {
+  const data = loadData()
+  const subTasks = data.subTasks || []
+  if (taskId) {
+    return subTasks.filter(st => st.taskId === taskId)
+  }
+  return subTasks
+}
+
+/**
+ * 詳細タスクを追加
+ */
+export function addSubTask(subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedAt'>): SubTask {
+  const data = loadData()
+  if (!data.subTasks) {
+    data.subTasks = []
+  }
+  
+  // 順序が指定されていない場合、最大のorder + 1を設定
+  let order = subTask.order
+  if (order === undefined) {
+    const taskSubTasks = data.subTasks.filter(st => st.taskId === subTask.taskId)
+    const maxOrder = taskSubTasks
+      .filter(st => st.order !== undefined)
+      .reduce((max, st) => Math.max(max, st.order!), -1)
+    order = maxOrder + 1
+  }
+  
+  const newSubTask: SubTask = {
+    ...subTask,
+    order,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.subTasks.push(newSubTask)
+  saveData(data)
+  return newSubTask
+}
+
+/**
+ * 詳細タスクを更新
+ */
+export function updateSubTask(id: string, updates: Partial<Omit<SubTask, 'id' | 'createdAt'>>): SubTask {
+  const data = loadData()
+  if (!data.subTasks) {
+    data.subTasks = []
+  }
+  
+  const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
+  if (subTaskIndex === -1) {
+    throw new Error(`SubTask with id ${id} not found`)
+  }
+  
+  const updatedSubTask: SubTask = {
+    ...data.subTasks[subTaskIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.subTasks[subTaskIndex] = updatedSubTask
+  saveData(data)
+  return updatedSubTask
+}
+
+/**
+ * 詳細タスクを削除
+ */
+export function deleteSubTask(id: string): void {
+  const data = loadData()
+  if (!data.subTasks) {
+    return
+  }
+  
+  const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
+  if (subTaskIndex === -1) {
+    throw new Error(`SubTask with id ${id} not found`)
+  }
+  
+  data.subTasks.splice(subTaskIndex, 1)
+  saveData(data)
+}
+
+/**
+ * 詳細タスクの完了状態を切り替え
+ */
+export function toggleSubTaskComplete(id: string, completed: boolean): void {
+  const data = loadData()
+  if (!data.subTasks) {
+    return
+  }
+  
+  const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
+  if (subTaskIndex === -1) {
+    throw new Error(`SubTask with id ${id} not found`)
+  }
+  
+  data.subTasks[subTaskIndex].completedAt = completed ? new Date().toISOString() : undefined
+  data.subTasks[subTaskIndex].updatedAt = new Date().toISOString()
   saveData(data)
 }
 

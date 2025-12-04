@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -11,6 +11,7 @@ export function useTasks() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [memos, setMemos] = useState<Memo[]>([])
   const [memoTemplates, setMemoTemplates] = useState<MemoTemplate[]>([])
+  const [subTasks, setSubTasks] = useState<SubTask[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -24,6 +25,7 @@ export function useTasks() {
       setGoals(taskService.getGoals())
       setMemos(taskService.getMemos())
       setMemoTemplates(taskService.getMemoTemplates())
+      setSubTasks(taskService.getSubTasks())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -379,6 +381,66 @@ export function useTasks() {
     }
   }, [])
 
+  // SubTaskを取得
+  const getSubTasks = useCallback((taskId?: string): SubTask[] => {
+    try {
+      return taskService.getSubTasks(taskId)
+    } catch (error) {
+      console.error('Failed to get sub tasks:', error)
+      return []
+    }
+  }, [])
+
+  // SubTaskを追加
+  const addSubTask = useCallback((subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedAt'>): SubTask => {
+    try {
+      const newSubTask = taskService.addSubTask(subTask)
+      setSubTasks(prev => [...prev, newSubTask])
+      return newSubTask
+    } catch (error) {
+      console.error('Failed to add sub task:', error)
+      throw error
+    }
+  }, [])
+
+  // SubTaskを更新
+  const updateSubTask = useCallback((id: string, updates: Partial<Omit<SubTask, 'id' | 'createdAt'>>): SubTask => {
+    try {
+      const updatedSubTask = taskService.updateSubTask(id, updates)
+      setSubTasks(prev => prev.map(st => st.id === id ? updatedSubTask : st))
+      return updatedSubTask
+    } catch (error) {
+      console.error('Failed to update sub task:', error)
+      throw error
+    }
+  }, [])
+
+  // SubTaskを削除
+  const deleteSubTask = useCallback((id: string) => {
+    try {
+      taskService.deleteSubTask(id)
+      setSubTasks(prev => prev.filter(st => st.id !== id))
+    } catch (error) {
+      console.error('Failed to delete sub task:', error)
+      throw error
+    }
+  }, [])
+
+  // SubTaskの完了状態を切り替え
+  const toggleSubTaskComplete = useCallback((id: string, completed: boolean) => {
+    try {
+      taskService.toggleSubTaskComplete(id, completed)
+      setSubTasks(prev => prev.map(st => 
+        st.id === id 
+          ? { ...st, completedAt: completed ? new Date().toISOString() : undefined, updatedAt: new Date().toISOString() }
+          : st
+      ))
+    } catch (error) {
+      console.error('Failed to toggle sub task complete:', error)
+      throw error
+    }
+  }, [])
+
   return {
     tasks,
     projects,
@@ -418,6 +480,12 @@ export function useTasks() {
     addMemoTemplate,
     updateMemoTemplate,
     deleteMemoTemplate,
+    subTasks,
+    getSubTasks,
+    addSubTask,
+    updateSubTask,
+    deleteSubTask,
+    toggleSubTaskComplete,
     refresh: loadData,
   }
 }

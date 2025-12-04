@@ -62,10 +62,28 @@ export default function WeatherCard() {
             <p className="font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-tertiary)]">
               気圧
             </p>
-            <p className="font-display text-sm font-semibold text-[var(--color-text-primary)]">
-              {weather.pressure}
-              <span className="text-xs text-[var(--color-text-tertiary)] ml-0.5">hPa</span>
-            </p>
+            {(() => {
+              const pressure = weather.pressure
+              let pressureType = ''
+              let pressureColor = ''
+              
+              if (pressure < 1000) {
+                pressureType = '低気圧'
+                pressureColor = 'text-[var(--color-error)]'
+              } else if (pressure > 1020) {
+                pressureType = '高気圧'
+                pressureColor = 'text-[var(--color-accent)]'
+              } else {
+                pressureType = '普通'
+                pressureColor = 'text-[var(--color-text-secondary)]'
+              }
+              
+              return (
+                <p className={`font-display text-sm font-semibold mt-0.5 ${pressureColor}`}>
+                  {pressureType}
+                </p>
+              )
+            })()}
           </div>
           <div>
             <p className="font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-tertiary)]">

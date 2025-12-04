@@ -7,6 +7,7 @@ import WishListPage from './pages/WishList'
 import Goals from './pages/Goals'
 import Memo from './pages/Memo'
 import Settings from './pages/Settings'
+import RoutineCheckerPage from './pages/RoutineChecker'
 
 // GitHub Pages用のbaseパス（本番環境では/MYTTC2/、開発環境では/）
 // 開発環境ではwindow.location.pathnameで判定
@@ -28,6 +29,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/repeat-tasks" element={<RepeatTasks />} />
+          <Route path="/routine-checker" element={<RoutineCheckerPage />} />
           <Route path="/wish-list" element={<WishListPage />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/memo" element={<Memo />} />

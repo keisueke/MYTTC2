@@ -127,6 +127,17 @@ export interface MemoTemplate {
   updatedAt: string // ISO date string
 }
 
+export interface SubTask {
+  id: string
+  taskId: string // 親タスクのID
+  title: string
+  description?: string
+  completedAt?: string // ISO date string（完了日時）
+  order?: number // 表示順序
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
+}
+
 export interface DailyRecord {
   id: string
   date: string // ISO date string (日付のみ YYYY-MM-DD)
@@ -168,6 +179,7 @@ export interface AppData {
   weatherConfig?: WeatherConfig // 天気設定
   sidebarAlwaysVisible?: boolean // サイドバー常時表示設定
   sidebarWidth?: number // サイドバー幅（px、デフォルト: 320）
+  subTasks?: SubTask[] // 詳細タスク（ルーティンチェッカー用）
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

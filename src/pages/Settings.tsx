@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Project, Mode, Tag, GitHubConfig } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
-import { loadData } from '../services/taskService'
+import { loadData, clearAllData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { applyTheme, Theme } from '../utils/theme'
@@ -386,6 +386,24 @@ export default function Settings() {
       alert(message + memoMessage + templateMessage + goalMessage + wishMessage)
     } catch (error) {
       alert(`テストデータの追加に失敗しました: ${error}`)
+    }
+  }
+
+  const handleClearAllData = () => {
+    if (!confirm('⚠️ 警告: すべてのデータを削除しますか？この操作は取り消せません。')) {
+      return
+    }
+    
+    if (!confirm('本当にすべてのデータを削除しますか？')) {
+      return
+    }
+
+    try {
+      clearAllData()
+      refresh()
+      alert('すべてのデータを削除しました')
+    } catch (error) {
+      alert(`データの削除に失敗しました: ${error}`)
     }
   }
 
@@ -870,15 +888,15 @@ export default function Settings() {
         </div>
       </div>
       
-      {/* その他の機能 */}
+      {/* テスト用 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-    <div>
+          <div>
             <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Utilities
+              Testing
             </p>
             <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              その他の機能
+              テスト用
             </h2>
           </div>
         </div>
@@ -890,6 +908,29 @@ export default function Settings() {
           >
             🧪 テストデータを追加
           </button>
+          <button
+            onClick={handleClearAllData}
+            className="btn-industrial"
+          >
+            🗑️ すべてのデータを削除
+          </button>
+        </div>
+      </div>
+
+      {/* その他の機能 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Utilities
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              その他の機能
+            </h2>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
           <button
             onClick={handleExport}
             className="btn-industrial"
