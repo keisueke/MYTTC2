@@ -5,6 +5,7 @@ import Tasks from './pages/Tasks'
 import RepeatTasks from './pages/RepeatTasks'
 import WishListPage from './pages/WishList'
 import Goals from './pages/Goals'
+import GoalDetail from './pages/GoalDetail'
 import Memo from './pages/Memo'
 import Settings from './pages/Settings'
 import RoutineCheckerPage from './pages/RoutineChecker'
@@ -32,6 +33,7 @@ function App() {
           <Route path="/routine-checker" element={<RoutineCheckerPage />} />
           <Route path="/wish-list" element={<WishListPage />} />
           <Route path="/goals" element={<Goals />} />
+          <Route path="/goals/:category" element={<GoalDetail />} />
           <Route path="/memo" element={<Memo />} />
           <Route path="/settings" element={<Settings />} />
           {/* 未定義のパスはHomeにリダイレクト */}

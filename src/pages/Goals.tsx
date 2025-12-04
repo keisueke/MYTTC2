@@ -16,7 +16,7 @@ const GOAL_CATEGORIES: { value: GoalCategory; label: string; code: string }[] = 
 ]
 
 export default function Goals() {
-  const { goals, loading, addGoal, updateGoal, deleteGoal } = useTasks()
+  const { goals, tasks, loading, addGoal, updateGoal, deleteGoal } = useTasks()
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined)
   const [editingPosition, setEditingPosition] = useState<number | undefined>(undefined)
@@ -59,6 +59,38 @@ export default function Goals() {
 
     return result
   }, [yearGoals])
+
+  // 全体の進捗率を計算
+  const overallProgress = useMemo(() => {
+    let completedCategories = 0
+    const totalCategories = GOAL_CATEGORIES.length
+
+    GOAL_CATEGORIES.forEach(category => {
+      const { main, subs } = goalsByCategory[category.value]
+      
+      // メイン目標が存在しない場合はスキップ
+      if (!main) return
+      
+      // 8つのサブ目標が全て存在するかチェック
+      const allSubGoals = [1, 2, 3, 4, 5, 6, 7, 8].map(pos => 
+        subs.find(g => g.position === pos)
+      )
+      
+      if (allSubGoals.some(goal => !goal)) return
+      
+      // 全ての目標（メイン1つ + サブ8つ）が完了しているかチェック
+      const allGoals = [main, ...allSubGoals]
+      const allCompleted = allGoals.every(goal => goal?.completedAt)
+      
+      if (allCompleted) {
+        completedCategories++
+      }
+    })
+
+    return totalCategories > 0 
+      ? Math.round((completedCategories / totalCategories) * 100)
+      : 0
+  }, [goalsByCategory])
 
   const handleCreateOrUpdate = (goalData: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingGoal) {
@@ -137,9 +169,19 @@ export default function Goals() {
           <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
             Annual Goals
           </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-            年間目標
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
+              年間目標
+            </h1>
+            <div className="flex items-center gap-2">
+              <span className="font-display text-xs tracking-[0.1em] uppercase text-[var(--color-text-tertiary)]">
+                全体進捗
+              </span>
+              <span className="font-display text-2xl font-semibold text-[var(--color-accent)]">
+                {overallProgress}%
+              </span>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -197,8 +239,10 @@ export default function Goals() {
                 <MandalaChart
                   categoryLabel={category.label}
                   categoryIcon={category.code}
+                  category={category.value}
                   mainGoal={main}
                   subGoals={subs}
+                  tasks={tasks}
                   onEditMainGoal={() => handleEditMainGoal(category.value)}
                   onEditSubGoal={(position) => handleEditSubGoal(category.value, position)}
                   onDeleteGoal={handleDelete}
@@ -226,7 +270,6 @@ function GoalForm({ goal, year, category, position, onSubmit, onCancel }: GoalFo
   const [selectedCategory, setSelectedCategory] = useState<GoalCategory>(goal?.category || category || 'social-contribution')
   const [title, setTitle] = useState(goal?.title || '')
   const [description, setDescription] = useState(goal?.description || '')
-  const [progress, setProgress] = useState(goal?.progress?.toString() || '')
 
   const isMainGoal = position === 0 || (!goal?.parentGoalId && !goal?.position)
   const positionLabel = position !== undefined && position > 0 
@@ -246,7 +289,6 @@ function GoalForm({ goal, year, category, position, onSubmit, onCancel }: GoalFo
       category: selectedCategory,
       title: title.trim(),
       description: description.trim() || undefined,
-      progress: progress ? Number(progress) : undefined,
       position: position !== undefined ? position : (isMainGoal ? 0 : undefined),
     })
   }
@@ -310,21 +352,6 @@ function GoalForm({ goal, year, category, position, onSubmit, onCancel }: GoalFo
             rows={4}
             className="input-industrial w-full resize-none"
             placeholder="目標の詳細を入力（任意）"
-          />
-        </div>
-
-        <div>
-          <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-            進捗率 (%)
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={progress}
-            onChange={(e) => setProgress(e.target.value)}
-            className="input-industrial w-full"
-            placeholder="0-100"
           />
         </div>
 

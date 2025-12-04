@@ -10,6 +10,7 @@ export default function RepeatTasks() {
     projects,
     modes,
     tags,
+    goals,
     loading,
     addTask,
     updateTask,
@@ -114,6 +115,7 @@ export default function RepeatTasks() {
             projects={projects}
             modes={modes}
             tags={tags}
+            goals={goals}
             onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
             onCancel={handleCancel}
           />

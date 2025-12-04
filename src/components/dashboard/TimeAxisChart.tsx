@@ -16,6 +16,7 @@ interface TaskTimeBlock {
   endHour: number // 終了時間（0-24）
   endMinute: number // 終了分（0-59）
   duration: number // 継続時間（分）
+  layer: number // 重複時のレイヤー番号（0から開始）
   project?: Project
   mode?: Mode
   tags: Tag[]
@@ -65,6 +66,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
         endHour,
         endMinute,
         duration,
+        layer: 0, // 初期値、後で計算
         project,
         mode,
         tags: taskTags,
@@ -72,14 +74,60 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
     })
     
     // 開始時間順にソート
-    return blocks.sort((a, b) => {
+    const sortedBlocks = blocks.sort((a, b) => {
       if (a.startHour !== b.startHour) return a.startHour - b.startHour
       return a.startMinute - b.startMinute
     })
+    
+    // 時間が重複しているタスクを検出してレイヤーを割り当て
+    const assignLayers = (blocks: TaskTimeBlock[]): TaskTimeBlock[] => {
+      const layers: TaskTimeBlock[][] = [] // 各レイヤーに配置されるタスク
+      
+      blocks.forEach(block => {
+        const startMinutes = block.startHour * 60 + block.startMinute
+        const endMinutes = block.endHour * 60 + block.endMinute
+        let assignedLayer = -1
+        
+        // 既存のレイヤーを確認して、重複していないレイヤーを見つける
+        for (let i = 0; i < layers.length; i++) {
+          const canFit = layers[i].every(existingBlock => {
+            const existingStart = existingBlock.startHour * 60 + existingBlock.startMinute
+            const existingEnd = existingBlock.endHour * 60 + existingBlock.endMinute
+            
+            // 時間が重複していないかチェック
+            return endMinutes <= existingStart || startMinutes >= existingEnd
+          })
+          
+          if (canFit) {
+            assignedLayer = i
+            break
+          }
+        }
+        
+        // 重複していないレイヤーが見つからなかった場合は新しいレイヤーを作成
+        if (assignedLayer === -1) {
+          assignedLayer = layers.length
+          layers.push([])
+        }
+        
+        block.layer = assignedLayer
+        layers[assignedLayer].push(block)
+      })
+      
+      return blocks
+    }
+    
+    return assignLayers(sortedBlocks)
   }, [tasks, projects, modes, tags, date])
   
   // 時間軸の高さを計算（各時間帯の高さ）
   const hourHeight = 60 // 1時間あたり60px
+  
+  // 最大レイヤー数を計算
+  const maxLayers = useMemo(() => {
+    if (timeBlocks.length === 0) return 1
+    return Math.max(...timeBlocks.map(b => b.layer)) + 1
+  }, [timeBlocks])
   
   // タスクブロックの位置とサイズを計算
   const getBlockStyle = (block: TaskTimeBlock) => {
@@ -88,9 +136,16 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
     const top = (startMinutes / 60) * hourHeight
     const height = ((endMinutes - startMinutes) / 60) * hourHeight
     
+    // レイヤーごとに横にずらす（各レイヤーは幅の一部を使用）
+    const layerWidth = maxLayers > 1 ? 100 / maxLayers : 100
+    const left = block.layer * layerWidth
+    const width = layerWidth
+    
     return {
       top: `${top}px`,
       height: `${Math.max(height, 20)}px`, // 最小20px
+      left: `${left}%`,
+      width: `${width}%`,
     }
   }
   
@@ -162,7 +217,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
             return (
               <div
                 key={block.task.id}
-                className="absolute left-0 right-0 group cursor-pointer"
+                className="absolute group cursor-pointer"
                 style={style}
               >
                 <div

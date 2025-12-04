@@ -1,10 +1,13 @@
-import { Goal } from '../../types'
+import { useNavigate } from 'react-router-dom'
+import { Goal, Task, GoalCategory } from '../../types'
 
 interface MandalaChartProps {
   categoryLabel: string
   categoryIcon: string
+  category: GoalCategory
   mainGoal?: Goal
   subGoals: Goal[]
+  tasks: Task[] // タスクリスト（進捗率計算用）
   onEditMainGoal: () => void
   onEditSubGoal: (position: number) => void
   onDeleteGoal: (id: string) => void
@@ -26,13 +29,16 @@ const POSITION_LABELS = [
 export default function MandalaChart({
   categoryLabel,
   categoryIcon,
+  category,
   mainGoal,
   subGoals,
+  tasks,
   onEditMainGoal,
   onEditSubGoal,
   onDeleteGoal,
   onToggleComplete,
 }: MandalaChartProps) {
+  const navigate = useNavigate()
   const goalsByPosition = new Map<number, Goal>()
   subGoals.forEach(goal => {
     if (goal.position) {
@@ -52,21 +58,50 @@ export default function MandalaChart({
     }
   }
 
-  // 達成率を計算（9つの目標が全て存在し、全て完了している場合のみ100%）
-  const calculateCompletionRate = (): number | null => {
+  // 達成率を計算（関連するタスクの完了状況から）
+  const calculateCompletionRate = (goal: Goal | undefined): number | null => {
+    if (!goal) return null
+    
+    // この目標に関連するタスクを取得
+    const relatedTasks = tasks.filter(task => task.goalId === goal.id)
+    
+    // 関連タスクが存在しない場合はnullを返す
+    if (relatedTasks.length === 0) return null
+    
+    // 完了しているタスクの数をカウント
+    const completedTasks = relatedTasks.filter(task => task.completedAt).length
+    
+    // 進捗率を計算（完了数 / 総数 * 100）
+    return Math.round((completedTasks / relatedTasks.length) * 100)
+  }
+
+  // カテゴリー全体の進捗率を計算（メイン目標とサブ目標のタスクから）
+  const calculateCategoryProgress = (): number | null => {
     if (!mainGoal) return null
     
     const allSubGoals = [1, 2, 3, 4, 5, 6, 7, 8].map(pos => getGoalAtPosition(pos))
-    if (allSubGoals.some(goal => !goal)) return null
+    const allGoals = [mainGoal, ...allSubGoals].filter(goal => goal !== undefined) as Goal[]
     
-    // 全ての目標が完了しているかチェック
-    const allGoals = [mainGoal, ...allSubGoals]
-    const allCompleted = allGoals.every(goal => goal?.completedAt)
+    if (allGoals.length === 0) return null
     
-    return allCompleted ? 100 : null
+    // 各目標に関連するタスクを取得
+    let totalTasks = 0
+    let completedTasks = 0
+    
+    allGoals.forEach(goal => {
+      const relatedTasks = tasks.filter(task => task.goalId === goal.id)
+      totalTasks += relatedTasks.length
+      completedTasks += relatedTasks.filter(task => task.completedAt).length
+    })
+    
+    // タスクが1つも存在しない場合はnullを返す
+    if (totalTasks === 0) return null
+    
+    // 進捗率を計算
+    return Math.round((completedTasks / totalTasks) * 100)
   }
 
-  const completionRate = calculateCompletionRate()
+  const completionRate = calculateCategoryProgress()
 
   // Grid positions: [1, 2, 3, 4, 0, 5, 6, 7, 8]
   const gridPositions = [1, 2, 3, 4, 0, 5, 6, 7, 8]
@@ -75,14 +110,17 @@ export default function MandalaChart({
     <div className="card-industrial p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--color-border)]">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate(`/goals/${category}`)}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <span className="font-display text-xs tracking-[0.1em] text-[var(--color-accent)]">
             [{categoryIcon}]
           </span>
           <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)]">
             {categoryLabel}
           </h3>
-        </div>
+        </button>
         {completionRate !== null && (
           <span className="font-display text-xs font-medium text-[var(--color-accent)]">
             {completionRate}%
@@ -102,6 +140,7 @@ export default function MandalaChart({
               position={position}
               goal={goal}
               isMain={isMain}
+              calculateProgress={calculateCompletionRate}
               onEdit={() => handleEdit(position)}
               onDelete={goal ? () => onDeleteGoal(goal.id) : undefined}
               onToggleComplete={goal && !isMain ? (goalId: string, completed: boolean) => onToggleComplete?.(goalId, completed) : undefined}
@@ -117,12 +156,13 @@ interface GoalCellProps {
   position: number
   goal?: Goal
   isMain?: boolean
+  calculateProgress: (goal: Goal | undefined) => number | null
   onEdit: () => void
   onDelete?: () => void
   onToggleComplete?: (goalId: string, completed: boolean) => void
 }
 
-function GoalCell({ position, goal, isMain = false, onEdit, onDelete, onToggleComplete }: GoalCellProps) {
+function GoalCell({ position, goal, isMain = false, calculateProgress, onEdit, onDelete, onToggleComplete }: GoalCellProps) {
   const cellClasses = isMain
     ? 'min-h-[80px] bg-[var(--color-accent)]/10 border-2 border-[var(--color-accent)]/50'
     : 'min-h-[70px] bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]'
@@ -174,19 +214,22 @@ function GoalCell({ position, goal, isMain = false, onEdit, onDelete, onToggleCo
         }`}>
           {goal.title}
         </h4>
-        {goal.progress !== undefined && (
-          <div className="mt-auto">
-            <div className="progress-industrial h-1">
-              <div
-                className="progress-industrial-bar"
-                style={{ width: `${goal.progress}%` }}
-              />
+        {(() => {
+          const goalProgress = calculateProgress(goal)
+          return goalProgress !== null && (
+            <div className="mt-auto">
+              <div className="progress-industrial h-1">
+                <div
+                  className="progress-industrial-bar"
+                  style={{ width: `${goalProgress}%` }}
+                />
+              </div>
+              <span className="font-display text-[8px] text-[var(--color-text-tertiary)] mt-0.5 block">
+                {goalProgress}%
+              </span>
             </div>
-            <span className="font-display text-[8px] text-[var(--color-text-tertiary)] mt-0.5 block">
-              {goal.progress}%
-            </span>
-          </div>
-        )}
+          )
+        })()}
       </div>
       
       {/* Actions */}

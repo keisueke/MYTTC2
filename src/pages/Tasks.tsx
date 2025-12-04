@@ -10,6 +10,7 @@ export default function Tasks() {
     projects,
     modes,
     tags,
+    goals,
     loading,
     addTask,
     updateTask,
@@ -105,6 +106,7 @@ export default function Tasks() {
             projects={projects}
             modes={modes}
             tags={tags}
+            goals={goals}
             onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
             onCancel={handleCancel}
           />

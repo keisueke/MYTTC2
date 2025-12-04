@@ -1,8 +1,8 @@
+import { useState } from 'react'
 import { Task } from '../../types'
 
 interface HabitTrackerProps {
   tasks: Task[]
-  onToggleComplete: (taskId: string, date: Date, completed: boolean) => void
 }
 
 /**
@@ -41,6 +41,25 @@ const getWeekDays = () => {
 }
 
 /**
+ * 今月の各日を取得
+ */
+const getMonthDays = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  
+  const lastDay = new Date(year, month + 1, 0)
+  const days: Date[] = []
+  
+  for (let i = 1; i <= lastDay.getDate(); i++) {
+    const day = new Date(year, month, i)
+    days.push(day)
+  }
+  
+  return days
+}
+
+/**
  * 指定された日付にタスクが完了したかどうかを判定
  */
 const isCompletedOnDate = (task: Task, date: Date): boolean => {
@@ -57,12 +76,17 @@ const isToday = (date: Date): boolean => {
   return date.toDateString() === today.toDateString()
 }
 
-export default function HabitTracker({ tasks, onToggleComplete }: HabitTrackerProps) {
+export default function HabitTracker({ tasks }: HabitTrackerProps) {
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
+  
   // 繰り返しパターンが設定されているタスクのみをフィルタリング
   const repeatTasks = tasks.filter(task => task.repeatPattern !== 'none')
   
   const weekDays = getWeekDays()
+  const monthDays = getMonthDays()
   const dayLabels = ['月', '火', '水', '木', '金', '土', '日']
+  
+  const displayDays = viewMode === 'daily' ? weekDays : monthDays
   
   if (repeatTasks.length === 0) {
     return (
@@ -97,61 +121,100 @@ export default function HabitTracker({ tasks, onToggleComplete }: HabitTrackerPr
             ハビットトラッカー
           </h2>
         </div>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setViewMode('daily')}
+            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+              viewMode === 'daily'
+                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            デイリー
+          </button>
+          <button
+            onClick={() => setViewMode('monthly')}
+            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+              viewMode === 'monthly'
+                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+            }`}
+          >
+            マンスリー
+          </button>
+        </div>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left p-2 font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-tertiary)] border-b border-[var(--color-border)]">
+              <th className="text-left p-2 font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-tertiary)] border-b border-[var(--color-border)] w-24">
                 タスク
               </th>
-              {weekDays.map((day, index) => (
-                <th
-                  key={index}
-                  className={`text-center p-2 font-display text-[10px] tracking-[0.1em] uppercase border-b border-[var(--color-border)] ${
-                    isToday(day)
-                      ? 'text-[var(--color-accent)]'
-                      : 'text-[var(--color-text-tertiary)]'
-                  }`}
-                >
-                  {dayLabels[index]}
-                  <br />
-                  <span className="text-[8px] font-normal">
-                    {day.getDate()}
-                  </span>
-                </th>
-              ))}
+              {displayDays.map((day, index) => {
+                const isTodayDate = isToday(day)
+                const dayOfWeek = day.getDay()
+                const dayLabel = viewMode === 'daily' 
+                  ? dayLabels[dayOfWeek === 0 ? 6 : dayOfWeek - 1] // 月曜日を0にする
+                  : `${day.getDate()}`
+                
+                return (
+                  <th
+                    key={index}
+                    className={`text-center p-2 font-display text-[10px] tracking-[0.1em] uppercase border-b border-[var(--color-border)] ${
+                      isTodayDate
+                        ? 'text-[var(--color-accent)]'
+                        : 'text-[var(--color-text-tertiary)]'
+                    }`}
+                  >
+                    {viewMode === 'daily' ? (
+                      <>
+                        {dayLabel}
+                        <br />
+                        <span className="text-[8px] font-normal">
+                          {day.getDate()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[8px] font-normal">
+                        {dayLabel}
+                      </span>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
             {repeatTasks.map((task) => (
               <tr key={task.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-tertiary)] transition-colors">
-                <td className="p-3 font-display text-sm text-[var(--color-text-primary)]">
-                  {task.title}
+                <td className="p-2 font-display text-xs text-[var(--color-text-primary)] leading-tight">
+                  <div className="line-clamp-2">
+                    {task.title}
+                  </div>
                 </td>
-                {weekDays.map((day, dayIndex) => {
+                {displayDays.map((day, dayIndex) => {
                   const completed = isCompletedOnDate(task, day)
                   const isTodayDate = isToday(day)
                   
                   return (
                     <td
                       key={dayIndex}
-                      className={`text-center p-3 cursor-pointer transition-all duration-200 ${
+                      className={`text-center p-2 ${
                         isTodayDate
                           ? 'bg-[var(--color-bg-tertiary)]'
                           : ''
                       }`}
-                      onClick={() => onToggleComplete(task.id, day, !completed)}
                     >
                       {completed ? (
-                        <div className="w-6 h-6 mx-auto flex items-center justify-center bg-[var(--color-accent)] rounded-full">
-                          <svg className="w-4 h-4 text-[var(--color-bg-primary)]" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="w-5 h-5 mx-auto flex items-center justify-center bg-[var(--color-accent)] rounded-full">
+                          <svg className="w-3 h-3 text-[var(--color-bg-primary)]" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
                       ) : (
-                        <div className="w-6 h-6 mx-auto flex items-center justify-center border-2 border-[var(--color-border)] rounded-full hover:border-[var(--color-accent)] transition-colors">
+                        <div className="w-5 h-5 mx-auto flex items-center justify-center border-2 border-[var(--color-border)] rounded-full">
                         </div>
                       )}
                     </td>

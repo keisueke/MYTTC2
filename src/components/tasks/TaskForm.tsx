@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig } from '../../types'
+import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal } from '../../types'
 
 interface TaskFormProps {
   task?: Task
@@ -7,6 +7,7 @@ interface TaskFormProps {
   projects: Project[]
   modes: Mode[]
   tags: Tag[]
+  goals?: Goal[] // 目標リスト（目標選択用）
   onSubmit: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void
   onCancel: () => void
 }
@@ -92,11 +93,12 @@ function calculateAverageElapsedTime(tasks: Task[], title: string, currentTaskId
   return Math.round(totalMinutes / tasksWithElapsedTime.length)
 }
 
-export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit, onCancel }: TaskFormProps) {
+export default function TaskForm({ task, tasks, projects, modes, tags, goals = [], onSubmit, onCancel }: TaskFormProps) {
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
   const [projectId, setProjectId] = useState(task?.projectId || '')
   const [modeId, setModeId] = useState(task?.modeId || '')
+  const [goalId, setGoalId] = useState(task?.goalId || '')
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(task?.tagIds || [])
   const [repeatPattern, setRepeatPattern] = useState<RepeatPattern>(task?.repeatPattern || 'none')
   const [repeatInterval, setRepeatInterval] = useState(task?.repeatConfig?.interval || 1)
@@ -156,6 +158,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       setDescription(task.description || '')
       setProjectId(task.projectId || '')
       setModeId(task.modeId || '')
+      setGoalId(task.goalId || '')
       setSelectedTagIds(task.tagIds || [])
       setRepeatPattern(task.repeatPattern || 'none')
       setRepeatInterval(task.repeatConfig?.interval || 1)
@@ -211,6 +214,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
       description: description.trim() || undefined,
       projectId: projectId || undefined,
       modeId: modeId || undefined,
+      goalId: goalId || undefined,
       tagIds: selectedTagIds.length > 0 ? selectedTagIds : undefined,
       repeatPattern,
       repeatConfig,
@@ -436,6 +440,72 @@ export default function TaskForm({ task, tasks, projects, modes, tags, onSubmit,
           </select>
         </div>
       </div>
+
+      {goals.length > 0 && (
+        <div>
+          <label htmlFor="goal" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+            目標
+          </label>
+          <select
+            id="goal"
+            value={goalId}
+            onChange={(e) => setGoalId(e.target.value)}
+            className="input-industrial w-full"
+          >
+            <option value="">目標なし</option>
+            {(() => {
+              // 年とカテゴリーでグループ化
+              const goalsByYear = goals.reduce((acc, goal) => {
+                if (!acc[goal.year]) {
+                  acc[goal.year] = []
+                }
+                acc[goal.year].push(goal)
+                return acc
+              }, {} as Record<number, typeof goals>)
+              
+              const categoryLabels: Record<string, string> = {
+                'social-contribution': '社会貢献',
+                'family': '家族',
+                'relationships': '人間関係',
+                'hobby': '趣味',
+                'work': '仕事',
+                'finance': 'ファイナンス',
+                'health': '健康',
+                'intelligence': '知性',
+                'other': 'その他',
+              }
+              
+              return Object.keys(goalsByYear)
+                .sort((a, b) => Number(b) - Number(a))
+                .map(year => {
+                  const yearGoals = goalsByYear[Number(year)]
+                  const goalsByCategory = yearGoals.reduce((acc, goal) => {
+                    if (!acc[goal.category]) {
+                      acc[goal.category] = []
+                    }
+                    acc[goal.category].push(goal)
+                    return acc
+                  }, {} as Record<string, typeof yearGoals>)
+                  
+                  return (
+                    <optgroup key={year} label={`${year}年`}>
+                      {Object.keys(goalsByCategory)
+                        .sort()
+                        .map(category => {
+                          const categoryGoals = goalsByCategory[category]
+                          return categoryGoals.map(goal => (
+                            <option key={goal.id} value={goal.id}>
+                              [{categoryLabels[category] || category}] {goal.title}
+                            </option>
+                          ))
+                        })}
+                    </optgroup>
+                  )
+                })
+            })()}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">

@@ -12,6 +12,7 @@ export interface Task {
   projectId?: string
   modeId?: string
   tagIds?: string[] // 複数選択可能
+  goalId?: string // 関連する目標のID
   repeatPattern: RepeatPattern
   repeatConfig?: RepeatConfig
   createdAt: string // ISO date string
