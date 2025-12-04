@@ -40,3 +40,25 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+---
+
+## License
+
+**Original License:** The frontmatter of this file references `license: Complete terms in LICENSE.txt`, but the original LICENSE.txt file is not available in this repository. The original license terms could not be located through web search.
+
+**Current Status:**
+This file is stored in the `参考` (reference) directory for development reference purposes only. It is a Claude skill definition file for frontend design guidance.
+
+**Attribution:**
+- Original source: Claude skill definition (frontend-design)
+- This file is provided as reference material for development
+- If you use this material, please attribute it to Anthropic/Claude appropriately
+
+**Note:** 
+- This file is used internally as a development reference
+- The actual license terms should be obtained from Anthropic or the original source
+- For commercial use or redistribution, please verify the license terms with Anthropic
+
+**Disclaimer:** 
+The original LICENSE.txt referenced in the frontmatter could not be found. If you have information about the original license terms, please update this section accordingly.

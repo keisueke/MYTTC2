@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Project, Mode, Tag, GitHubConfig } from '../types'
+import { Project, Mode, Tag, GitHubConfig, ConflictResolution } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
@@ -17,6 +17,7 @@ import ModeList from '../components/modes/ModeList'
 import ModeForm from '../components/modes/ModeForm'
 import TagList from '../components/tags/TagList'
 import TagForm from '../components/tags/TagForm'
+import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 
 type TabType = 'project' | 'mode' | 'tag'
 
@@ -56,6 +57,8 @@ export default function Settings() {
     saveConfig: saveGitHubConfig,
     removeConfig: removeGitHubConfig,
     syncBidirectional,
+    resolveConflict,
+    conflictInfo,
     validateConfig,
   } = useGitHub()
   
@@ -260,9 +263,31 @@ export default function Settings() {
         case 'up-to-date':
           showNotification('既に最新の状態です', 'info')
           break
+        case 'conflict':
+          // 競合ダイアログは自動的に表示される（conflictInfoが設定されるため）
+          break
       }
     } catch (error) {
       showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+    }
+  }
+
+  const handleResolveConflict = async (resolution: ConflictResolution) => {
+    try {
+      if (resolution === 'cancel') {
+        return
+      }
+      
+      const result = await resolveConflict(resolution)
+      refresh()
+      
+      if (result === 'pushed') {
+        showNotification('ローカルのデータで上書きしました', 'success')
+      } else {
+        showNotification('リモートのデータで上書きしました', 'success')
+      }
+    } catch (error) {
+      showNotification(`競合の解決に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -1238,6 +1263,14 @@ export default function Settings() {
             </div>
           )}
       </div>
+      
+      {conflictInfo && (
+        <ConflictResolutionDialog
+          conflictInfo={conflictInfo}
+          onResolve={handleResolveConflict}
+          onCancel={() => handleResolveConflict('cancel')}
+        />
+      )}
     </div>
   )
 }

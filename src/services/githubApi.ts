@@ -183,6 +183,14 @@ export async function saveDataToGitHub(
     )
   } catch (error) {
     if (error instanceof GitHubApiError) {
+      // 409エラー（競合）の場合は、より明確なメッセージを返す
+      if (error.status === 409) {
+        throw new GitHubApiError(
+          'データの競合が発生しました。リモートのデータが変更されています。',
+          error.status,
+          error.response
+        )
+      }
       throw new GitHubApiError(
         `データの保存に失敗しました: ${error.message}`,
         error.status,
@@ -246,5 +254,12 @@ export async function validateGitHubConfig(config: GitHubConfig): Promise<boolea
   } catch (error) {
     return false
   }
+}
+
+/**
+ * エラーが競合エラー（409）かどうかを判定
+ */
+export function isConflictError(error: unknown): boolean {
+  return error instanceof GitHubApiError && error.status === 409
 }
 

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { GitHubConfig, AppData } from '../types'
+import { GitHubConfig, AppData, ConflictResolution, ConflictInfo } from '../types'
 import * as githubApi from '../services/githubApi'
 import * as taskService from '../services/taskService'
 
@@ -46,6 +46,7 @@ export function useGitHub() {
   const [config, setConfig] = useState<GitHubConfig | null>(loadGitHubConfig())
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null)
 
   // 設定を保存
   const saveConfig = useCallback((newConfig: GitHubConfig) => {
@@ -98,7 +99,7 @@ export function useGitHub() {
   }, [config])
 
   // 両方向の同期（自動的に最新の状態に合わせる）
-  const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date'> => {
+  const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date' | 'conflict'> => {
     if (!config) {
       throw new Error('GitHub設定がありません')
     }
@@ -229,16 +230,36 @@ export function useGitHub() {
           }
         }
 
-        await githubApi.saveDataToGitHub(config, localData, sha)
-        
-        // 最終同期時刻を更新
-        const updatedData: AppData = {
-          ...localData,
-          lastSynced: new Date().toISOString(),
+        try {
+          await githubApi.saveDataToGitHub(config, localData, sha)
+          
+          // 最終同期時刻を更新
+          const updatedData: AppData = {
+            ...localData,
+            lastSynced: new Date().toISOString(),
+          }
+          taskService.saveData(updatedData)
+          
+          return 'pushed'
+        } catch (err) {
+          // 競合エラー（409）を検出
+          if (githubApi.isConflictError(err)) {
+            // リモートから最新データを取得
+            const remoteData = await githubApi.loadDataFromGitHub(config)
+            const remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+            
+            // 競合情報を保存
+            setConflictInfo({
+              localData,
+              remoteData,
+              localLastModified: localLatestUpdate,
+              remoteLastModified,
+            })
+            
+            return 'conflict'
+          }
+          throw err
         }
-        taskService.saveData(updatedData)
-        
-        return 'pushed'
       }
 
       // ローカルに未同期の変更がない場合
@@ -277,13 +298,33 @@ export function useGitHub() {
         }
       }
 
-      await githubApi.saveDataToGitHub(config, localData, sha)
-      const updatedData: AppData = {
-        ...localData,
-        lastSynced: new Date().toISOString(),
+      try {
+        await githubApi.saveDataToGitHub(config, localData, sha)
+        const updatedData: AppData = {
+          ...localData,
+          lastSynced: new Date().toISOString(),
+        }
+        taskService.saveData(updatedData)
+        return 'pushed'
+      } catch (err) {
+        // 競合エラー（409）を検出
+        if (githubApi.isConflictError(err)) {
+          // リモートから最新データを取得
+          const remoteData = await githubApi.loadDataFromGitHub(config)
+          const remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+          
+          // 競合情報を保存
+          setConflictInfo({
+            localData,
+            remoteData,
+            localLastModified: localLatestUpdate,
+            remoteLastModified,
+          })
+          
+          return 'conflict'
+        }
+        throw err
       }
-      taskService.saveData(updatedData)
-      return 'pushed'
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
       setError(errorMessage)
@@ -345,17 +386,61 @@ export function useGitHub() {
     } catch {
       return false
     }
-  }, [])
+  }, [config])
+
+  // 競合を解決
+  const resolveConflict = useCallback(async (resolution: ConflictResolution): Promise<'pushed' | 'pulled'> => {
+    if (!config || !conflictInfo) {
+      throw new Error('競合情報がありません')
+    }
+
+    setSyncing(true)
+    setError(null)
+
+    try {
+      if (resolution === 'local') {
+        // ローカルを優先：リモートを上書き
+        const sha = await githubApi.getFileSha(config, config.dataPath)
+        await githubApi.saveDataToGitHub(config, conflictInfo.localData, sha)
+        
+        // 最終同期時刻を更新
+        const updatedData: AppData = {
+          ...conflictInfo.localData,
+          lastSynced: new Date().toISOString(),
+        }
+        taskService.saveData(updatedData)
+        setConflictInfo(null)
+        return 'pushed'
+      } else if (resolution === 'remote') {
+        // リモートを優先：ローカルを上書き
+        taskService.saveData(conflictInfo.remoteData)
+        setConflictInfo(null)
+        return 'pulled'
+      } else {
+        // cancel: 何もしない
+        setConflictInfo(null)
+        throw new Error('同期がキャンセルされました')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '競合の解決に失敗しました'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setSyncing(false)
+    }
+  }, [config, conflictInfo])
 
   return {
     config,
     syncing,
     error,
+    conflictInfo,
     saveConfig,
     removeConfig,
     syncFromGitHub,
     syncToGitHub,
     syncBidirectional,
+    resolveConflict,
     validateConfig,
   }
 }

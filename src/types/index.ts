@@ -207,3 +207,12 @@ export interface AppData {
   lastSynced?: string
 }
 
+export type ConflictResolution = 'local' | 'remote' | 'cancel'
+
+export interface ConflictInfo {
+  localData: AppData
+  remoteData: AppData
+  localLastModified: Date | null
+  remoteLastModified: Date | null
+}
+

@@ -6,7 +6,7 @@ import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
-import { DashboardLayoutConfig, DashboardWidgetId } from '../types'
+import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution } from '../types'
 import StatsCard from '../components/dashboard/StatsCard'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
@@ -14,10 +14,11 @@ import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 import HabitTracker from '../components/dashboard/HabitTracker'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
+import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 
 export default function Dashboard() {
   const { tasks, projects, modes, tags, loading, refresh } = useTasks()
-  const { config: githubConfig, syncing, syncBidirectional } = useGitHub()
+  const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   const [isEditMode, setIsEditMode] = useState(false)
@@ -38,9 +39,31 @@ export default function Dashboard() {
         case 'up-to-date':
           showNotification('既に最新の状態です', 'info')
           break
+        case 'conflict':
+          // 競合ダイアログは自動的に表示される（conflictInfoが設定されるため）
+          break
       }
     } catch (error) {
       showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+    }
+  }
+
+  const handleResolveConflict = async (resolution: ConflictResolution) => {
+    try {
+      if (resolution === 'cancel') {
+        return
+      }
+      
+      const result = await resolveConflict(resolution)
+      refresh()
+      
+      if (result === 'pushed') {
+        showNotification('ローカルのデータで上書きしました', 'success')
+      } else {
+        showNotification('リモートのデータで上書きしました', 'success')
+      }
+    } catch (error) {
+      showNotification(`競合の解決に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -480,6 +503,14 @@ export default function Dashboard() {
           })}
         </div>
       </SortableContext>
+      
+      {conflictInfo && (
+        <ConflictResolutionDialog
+          conflictInfo={conflictInfo}
+          onResolve={handleResolveConflict}
+          onCancel={() => handleResolveConflict('cancel')}
+        />
+      )}
     </DndContext>
   )
 }
