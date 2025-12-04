@@ -1,5 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
+import { useNotification } from '../../context/NotificationContext'
+import Toast from '../common/Toast'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -9,6 +11,7 @@ interface HeaderProps {
 export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: HeaderProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { notifications, removeNotification } = useNotification()
 
   const handleLogoClick = () => {
     navigate('/')
@@ -38,9 +41,9 @@ export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: He
 
   return (
     <header className="sticky top-0 z-30 bg-[var(--color-bg-primary)]/95 backdrop-blur-md border-b border-[var(--color-border)]">
-      <div className="px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div className="px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
         {/* Left Section */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 flex-shrink-0">
           {!sidebarAlwaysVisible && (
             <button
               onClick={onMenuClick}
@@ -73,8 +76,25 @@ export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: He
           </button>
         </div>
 
+        {/* Center Section - Notifications */}
+        <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+          {notifications.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              {notifications.map(notification => (
+                <Toast
+                  key={notification.id}
+                  message={notification.message}
+                  type={notification.type}
+                  onClose={() => removeNotification(notification.id)}
+                  duration={3000}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Right Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-shrink-0">
           {/* Time Display */}
           <div className="hidden md:flex items-center gap-2">
             <span className="font-display text-sm tracking-wider text-[var(--color-text-secondary)]">

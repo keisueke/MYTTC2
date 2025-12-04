@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { NotificationProvider } from './context/NotificationContext'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
@@ -9,6 +10,7 @@ import GoalDetail from './pages/GoalDetail'
 import Memo from './pages/Memo'
 import Settings from './pages/Settings'
 import RoutineCheckerPage from './pages/RoutineChecker'
+import DailyRecordView from './pages/DailyRecordView'
 
 // GitHub Pages用のbaseパス（本番環境では/MYTTC2/、開発環境では/）
 // 開発環境ではwindow.location.pathnameで判定
@@ -24,9 +26,10 @@ const getBasename = () => {
 
 function App() {
   return (
-    <BrowserRouter basename={getBasename()}>
-      <Layout>
-        <Routes>
+    <NotificationProvider>
+      <BrowserRouter basename={getBasename()}>
+        <Layout>
+          <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/repeat-tasks" element={<RepeatTasks />} />
@@ -36,11 +39,13 @@ function App() {
           <Route path="/goals/:category" element={<GoalDetail />} />
           <Route path="/memo" element={<Memo />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/daily-records" element={<DailyRecordView />} />
           {/* 未定義のパスはHomeにリダイレクト */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </NotificationProvider>
   )
 }
 

@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 
@@ -897,6 +897,23 @@ export function getDailyRecord(date: Date): DailyRecord | undefined {
 }
 
 /**
+ * 期間指定で記録を取得
+ */
+export function getDailyRecordsByPeriod(startDate: Date, endDate: Date): DailyRecord[] {
+  const data = loadData()
+  if (!data.dailyRecords) {
+    return []
+  }
+  
+  const startStr = startDate.toISOString().split('T')[0]
+  const endStr = endDate.toISOString().split('T')[0]
+  
+  return data.dailyRecords.filter(record => {
+    return record.date >= startStr && record.date <= endStr
+  }).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/**
  * 記録を保存
  */
 export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | 'updatedAt'>): DailyRecord {
@@ -1148,6 +1165,43 @@ export function toggleSubTaskComplete(id: string, completed: boolean): void {
   
   data.subTasks[subTaskIndex].completedAt = completed ? new Date().toISOString() : undefined
   data.subTasks[subTaskIndex].updatedAt = new Date().toISOString()
+  saveData(data)
+}
+
+/**
+ * デフォルトのダッシュボードレイアウトを取得
+ */
+function getDefaultDashboardLayout(): DashboardLayoutConfig {
+  return {
+    widgets: [
+      { id: 'stats-grid', order: 0, visible: true },
+      { id: 'weather-card', order: 1, visible: true },
+      { id: 'habit-tracker', order: 2, visible: true },
+      { id: 'daily-record-input', order: 3, visible: true },
+      { id: 'time-summary', order: 4, visible: true },
+      { id: 'time-axis-chart', order: 5, visible: true },
+      { id: 'category-time-chart', order: 6, visible: true },
+    ]
+  }
+}
+
+/**
+ * ダッシュボードレイアウトを取得
+ */
+export function getDashboardLayout(): DashboardLayoutConfig {
+  const data = loadData()
+  if (data.dashboardLayout) {
+    return data.dashboardLayout
+  }
+  return getDefaultDashboardLayout()
+}
+
+/**
+ * ダッシュボードレイアウトを保存
+ */
+export function saveDashboardLayout(layout: DashboardLayoutConfig): void {
+  const data = loadData()
+  data.dashboardLayout = layout
   saveData(data)
 }
 

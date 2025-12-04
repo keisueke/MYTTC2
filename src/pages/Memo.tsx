@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Memo } from '../types'
 import { useTasks } from '../hooks/useTasks'
+import { copyToClipboard } from '../utils/export'
 
 export default function MemoPage() {
   const {
@@ -51,6 +52,16 @@ export default function MemoPage() {
   const handleDelete = (id: string) => {
     if (confirm('このメモを削除しますか？')) {
       deleteMemo(id)
+    }
+  }
+
+  const handleCopy = async (memo: Memo) => {
+    const text = `${memo.title}\n\n${memo.content || ''}`
+    const success = await copyToClipboard(text)
+    if (success) {
+      alert('メモをクリップボードにコピーしました')
+    } else {
+      alert('クリップボードへのコピーに失敗しました')
     }
   }
 
@@ -217,6 +228,15 @@ export default function MemoPage() {
                         {memo.title}
                       </h3>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleCopy(memo)}
+                          className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-secondary)] hover:bg-[var(--color-secondary)]/10 transition-all"
+                          title="コピー"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
                         <button
                           onClick={() => handleEdit(memo)}
                           className="w-8 h-8 flex items-center justify-center text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)] transition-all"

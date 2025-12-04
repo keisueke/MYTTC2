@@ -1,19 +1,25 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
+import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
+import { DashboardLayoutConfig, DashboardWidgetId } from '../types'
 import StatsCard from '../components/dashboard/StatsCard'
-import RecentTasks from '../components/dashboard/RecentTasks'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 import HabitTracker from '../components/dashboard/HabitTracker'
+import DashboardWidget from '../components/dashboard/DashboardWidget'
 
 export default function Dashboard() {
   const { tasks, projects, modes, tags, loading, refresh } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional } = useGitHub()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
   
   const handleSync = async () => {
     try {
@@ -49,6 +55,72 @@ export default function Dashboard() {
       alert(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
+
+  // レイアウト設定を読み込む
+  useEffect(() => {
+    const loadedLayout = getDashboardLayout()
+    setLayout(loadedLayout)
+  }, [])
+
+  // 編集モード終了時にレイアウトを保存
+  useEffect(() => {
+    if (!isEditMode && layout.widgets.length > 0) {
+      saveDashboardLayout(layout)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode])
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const activeId = active.id as DashboardWidgetId
+    const overId = over.id as DashboardWidgetId
+
+    const newWidgets = [...layout.widgets]
+    const activeIndex = newWidgets.findIndex(w => w.id === activeId)
+    const overIndex = newWidgets.findIndex(w => w.id === overId)
+
+    if (activeIndex === -1 || overIndex === -1) return
+
+    // ウィジェットを移動
+    const [movedWidget] = newWidgets.splice(activeIndex, 1)
+    newWidgets.splice(overIndex, 0, movedWidget)
+
+    // orderを更新
+    const updatedWidgets = newWidgets.map((widget, index) => ({
+      ...widget,
+      order: index,
+    }))
+
+    const newLayout = { widgets: updatedWidgets }
+    setLayout(newLayout)
+    // 編集モード中でも即座に保存（リアルタイムで保存）
+    if (isEditMode) {
+      saveDashboardLayout(newLayout)
+    }
+  }
+
+  const handleToggleVisible = (widgetId: DashboardWidgetId) => {
+    const newLayout = {
+      widgets: layout.widgets.map(widget =>
+        widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
+      ),
+    }
+    setLayout(newLayout)
+    // 編集モード中でも即座に保存（リアルタイムで保存）
+    if (isEditMode) {
+      saveDashboardLayout(newLayout)
+    }
+  }
+
+  const getWidget = (id: DashboardWidgetId) => {
+    return layout.widgets.find(w => w.id === id)
+  }
+
+  const sortedWidgets = layout.widgets
+    .filter(w => w.visible || isEditMode)
+    .sort((a, b) => a.order - b.order)
 
   const stats = useMemo(() => {
     const totalTasks = tasks.length
@@ -97,8 +169,12 @@ export default function Dashboard() {
     ? Math.round((stats.totalElapsedTimeMinutes / stats.totalEstimatedTime) * 100)
     : 0
 
+  const widgetIds = sortedWidgets.map(w => w.id)
+
   return (
-    <div className="space-y-8">
+    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={widgetIds} strategy={verticalListSortingStrategy}>
+        <div className={`space-y-8 ${isEditMode ? 'pl-8' : ''}`}>
       {/* Page Header */}
       <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
         <div>
@@ -110,6 +186,16 @@ export default function Dashboard() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`btn-industrial flex items-center gap-2 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''}`}
+            title={isEditMode ? '編集モードを終了' : 'レイアウトを編集'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span>{isEditMode ? '編集終了' : 'レイアウト編集'}</span>
+          </button>
           <button
             onClick={handleCopyTodaySummary}
             className="btn-industrial flex items-center gap-2"
@@ -144,187 +230,254 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="animate-fade-in-up stagger-1">
-          <StatsCard
-            title="Total Tasks"
-            value={stats.total}
-            icon="▣"
-            color="blue"
-          />
-        </div>
-        <div className="animate-fade-in-up stagger-2">
-          <StatsCard
-            title="Today's Tasks"
-            value={stats.todayTasks}
-            icon="◈"
-            color="green"
-          />
-        </div>
-        <div className="animate-fade-in-up stagger-3">
-          <StatsCard
-            title="Estimated"
-            value={`${stats.totalEstimatedTime}m`}
-            icon="◇"
-            color="purple"
-          />
-        </div>
-        <div className="animate-fade-in-up stagger-4">
-          <StatsCard
-            title="Actual"
-            value={`${stats.totalElapsedTimeMinutes}m`}
-            icon="◎"
-            color="orange"
-          />
-        </div>
-      </div>
+          {sortedWidgets.map((widget) => {
+            const widgetData = getWidget(widget.id)
+            if (!widgetData) return null
 
-      {/* Weather Card */}
-      <div className="animate-fade-in-up stagger-5">
-        <WeatherCard />
-      </div>
+            switch (widget.id) {
+              case 'stats-grid':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="animate-fade-in-up stagger-1">
+                        <StatsCard
+                          title="Total Tasks"
+                          value={stats.total}
+                          icon="▣"
+                          color="blue"
+                        />
+                      </div>
+                      <div className="animate-fade-in-up stagger-2">
+                        <StatsCard
+                          title="Today's Tasks"
+                          value={stats.todayTasks}
+                          icon="◈"
+                          color="green"
+                        />
+                      </div>
+                      <div className="animate-fade-in-up stagger-3">
+                        <StatsCard
+                          title="Estimated"
+                          value={`${stats.totalEstimatedTime}m`}
+                          icon="◇"
+                          color="purple"
+                        />
+                      </div>
+                      <div className="animate-fade-in-up stagger-4">
+                        <StatsCard
+                          title="Actual"
+                          value={`${stats.totalElapsedTimeMinutes}m`}
+                          icon="◎"
+                          color="orange"
+                        />
+                      </div>
+                    </div>
+                  </DashboardWidget>
+                )
 
-      {/* Habit Tracker */}
-      <div className="animate-fade-in-up stagger-6">
-        <HabitTracker tasks={tasks} />
-      </div>
+              case 'weather-card':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <WeatherCard />
+                  </DashboardWidget>
+                )
 
-      {/* Daily Record Input */}
-      <div className="animate-fade-in-up stagger-7">
-        <DailyRecordInput />
-      </div>
+              case 'habit-tracker':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <HabitTracker tasks={tasks} />
+                  </DashboardWidget>
+                )
 
-      {/* Time Summary */}
-      {stats.totalEstimatedTime > 0 && (
-        <div className="card-industrial p-6 animate-fade-in-up stagger-5">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-sm tracking-[0.1em] uppercase text-[var(--color-text-primary)]">
-              Today's Progress
-            </h2>
-            <span className={`font-display text-2xl font-semibold ${
-              progressPercent > 100 ? 'text-[var(--color-error)]' : 
-              progressPercent > 80 ? 'text-[var(--color-warning)]' : 
-              'text-[var(--color-secondary)]'
-            }`}>
-              {progressPercent}%
-            </span>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="progress-industrial mb-6">
-            <div 
-              className="progress-industrial-bar"
-              style={{ width: `${Math.min(progressPercent, 100)}%` }}
-            />
-          </div>
-          
-          {/* Time Details */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
-              <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                Estimated
-              </p>
-              <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                {stats.totalEstimatedTime}
-                <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
-              </p>
-            </div>
-            <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
-              <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                Actual
-              </p>
-              <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                {stats.totalElapsedTimeMinutes}
-                <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
-              </p>
-            </div>
-            <div className={`p-4 border ${
-              stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
-                ? 'bg-[var(--color-error)]/10 border-[var(--color-error)]/30'
-                : 'bg-[var(--color-secondary)]/10 border-[var(--color-secondary)]/30'
-            }`}>
-              <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                {stats.totalElapsedTimeMinutes > stats.totalEstimatedTime ? 'Over' : 'Remaining'}
-              </p>
-              <p className={`font-display text-xl font-semibold ${
-                stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
-                  ? 'text-[var(--color-error)]'
-                  : 'text-[var(--color-secondary)]'
-              }`}>
-                {Math.abs(stats.totalEstimatedTime - stats.totalElapsedTimeMinutes)}
-                <span className="text-sm opacity-70 ml-1">min</span>
-              </p>
-            </div>
-          </div>
+              case 'daily-record-input':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <DailyRecordInput />
+                  </DashboardWidget>
+                )
+
+              case 'time-summary':
+                if (stats.totalEstimatedTime === 0) return null
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <div className="card-industrial p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="font-display text-sm tracking-[0.1em] uppercase text-[var(--color-text-primary)]">
+                          Today's Progress
+                        </h2>
+                        <span className={`font-display text-2xl font-semibold ${
+                          progressPercent > 100 ? 'text-[var(--color-error)]' : 
+                          progressPercent > 80 ? 'text-[var(--color-warning)]' : 
+                          'text-[var(--color-secondary)]'
+                        }`}>
+                          {progressPercent}%
+                        </span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="progress-industrial mb-6">
+                        <div 
+                          className="progress-industrial-bar"
+                          style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                        />
+                      </div>
+                      
+                      {/* Time Details */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
+                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                            Estimated
+                          </p>
+                          <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                            {stats.totalEstimatedTime}
+                            <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
+                          </p>
+                        </div>
+                        <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
+                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                            Actual
+                          </p>
+                          <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                            {stats.totalElapsedTimeMinutes}
+                            <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
+                          </p>
+                        </div>
+                        <div className={`p-4 border ${
+                          stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
+                            ? 'bg-[var(--color-error)]/10 border-[var(--color-error)]/30'
+                            : 'bg-[var(--color-secondary)]/10 border-[var(--color-secondary)]/30'
+                        }`}>
+                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                            {stats.totalElapsedTimeMinutes > stats.totalEstimatedTime ? 'Over' : 'Remaining'}
+                          </p>
+                          <p className={`font-display text-xl font-semibold ${
+                            stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
+                              ? 'text-[var(--color-error)]'
+                              : 'text-[var(--color-secondary)]'
+                          }`}>
+                            {Math.abs(stats.totalEstimatedTime - stats.totalElapsedTimeMinutes)}
+                            <span className="text-sm opacity-70 ml-1">min</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </DashboardWidget>
+                )
+
+              case 'time-axis-chart':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <div className="card-industrial p-6">
+                      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+                        <div>
+                          <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                            Timeline
+                          </p>
+                          <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                            時間軸分析
+                          </h2>
+                        </div>
+                      </div>
+                      <TimeAxisChart
+                        tasks={tasks}
+                        projects={projects}
+                        modes={modes}
+                        tags={tags}
+                        date={new Date()}
+                      />
+                    </div>
+                  </DashboardWidget>
+                )
+
+              case 'category-time-chart':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <div className="card-industrial p-6">
+                      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+                        <div>
+                          <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                            Category Analysis
+                          </p>
+                          <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                            カテゴリー別分析
+                          </h2>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setTimePeriod('week')}
+                            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                              timePeriod === 'week'
+                                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            Week
+                          </button>
+                          <button
+                            onClick={() => setTimePeriod('month')}
+                            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                              timePeriod === 'month'
+                                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                            }`}
+                          >
+                            Month
+                          </button>
+                        </div>
+                      </div>
+                      <CategoryTimeChart tasks={tasks} projects={projects} modes={modes} tags={tags} period={timePeriod} />
+                    </div>
+                  </DashboardWidget>
+                )
+
+              default:
+                return null
+            }
+          })}
         </div>
-      )}
-
-      {/* Time Axis Chart - 今日の時間軸 */}
-      <div className="card-industrial p-6 animate-fade-in-up stagger-6">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
-          <div>
-            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Timeline
-            </p>
-            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              時間軸分析
-            </h2>
-          </div>
-        </div>
-        <TimeAxisChart
-          tasks={tasks}
-          projects={projects}
-          modes={modes}
-          tags={tags}
-          date={new Date()}
-        />
-      </div>
-
-      {/* Charts Section */}
-      <div className="card-industrial p-6 animate-fade-in-up stagger-7">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
-          <div>
-            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Category Analysis
-            </p>
-            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              カテゴリー別分析
-            </h2>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setTimePeriod('week')}
-              className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                timePeriod === 'week'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setTimePeriod('month')}
-              className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                timePeriod === 'month'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              Month
-            </button>
-          </div>
-        </div>
-        <CategoryTimeChart tasks={tasks} projects={projects} modes={modes} tags={tags} period={timePeriod} />
-      </div>
-
-      {/* Recent Tasks */}
-      <div className="card-industrial p-6 animate-fade-in-up stagger-8">
-        <h2 className="font-display text-sm tracking-[0.1em] uppercase text-[var(--color-text-primary)] mb-6">
-          Recent Tasks
-        </h2>
-        <RecentTasks tasks={tasks} />
-      </div>
-    </div>
+      </SortableContext>
+    </DndContext>
   )
 }

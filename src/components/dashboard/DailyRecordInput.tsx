@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DailyRecord, SummaryConfig } from '../../types'
 import { getDailyRecord, saveDailyRecord, getSummaryConfig } from '../../services/taskService'
+import { useNotification } from '../../context/NotificationContext'
 
 export default function DailyRecordInput() {
+  const navigate = useNavigate()
+  const { showNotification } = useNotification()
   const [record, setRecord] = useState<Partial<DailyRecord>>({})
   const [config, setConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [saving, setSaving] = useState(false)
@@ -79,10 +83,10 @@ export default function DailyRecordInput() {
         dinner: record.dinner,
         snack: record.snack,
       })
-      alert('記録を保存しました')
+      showNotification('記録を保存しました', 'success')
     } catch (error) {
       console.error('Failed to save daily record:', error)
-      alert('記録の保存に失敗しました')
+      showNotification('記録の保存に失敗しました', 'error')
     } finally {
       setSaving(false)
     }
@@ -223,13 +227,19 @@ export default function DailyRecordInput() {
           </div>
         )}
 
-        <div className="pt-4 border-t border-[var(--color-border)]">
+        <div className="pt-4 border-t border-[var(--color-border)] flex items-center gap-2">
           <button
             onClick={handleSave}
             disabled={saving}
             className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? '保存中...' : '保存'}
+          </button>
+          <button
+            onClick={() => navigate('/daily-records')}
+            className="btn-industrial"
+          >
+            記録を確認
           </button>
         </div>
       </div>

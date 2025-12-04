@@ -165,6 +165,26 @@ export interface SummaryConfig {
   includeSnack: boolean
 }
 
+export type DashboardWidgetId = 
+  | 'stats-grid'
+  | 'weather-card'
+  | 'habit-tracker'
+  | 'daily-record-input'
+  | 'time-summary'
+  | 'time-axis-chart'
+  | 'category-time-chart'
+  | 'recent-tasks'
+
+export interface DashboardWidget {
+  id: DashboardWidgetId
+  order: number // 表示順序（0から開始）
+  visible: boolean // 表示/非表示
+}
+
+export interface DashboardLayoutConfig {
+  widgets: DashboardWidget[]
+}
+
 export interface AppData {
   tasks: Task[]
   projects: Project[]
@@ -181,6 +201,7 @@ export interface AppData {
   sidebarAlwaysVisible?: boolean // サイドバー常時表示設定
   sidebarWidth?: number // サイドバー幅（px、デフォルト: 320）
   subTasks?: SubTask[] // 詳細タスク（ルーティンチェッカー用）
+  dashboardLayout?: DashboardLayoutConfig // ダッシュボードレイアウト設定
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string
