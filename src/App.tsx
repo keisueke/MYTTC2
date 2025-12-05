@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { NotificationProvider } from './context/NotificationContext'
 import { useReminders } from './hooks/useReminders'
 import Layout from './components/layout/Layout'
+import InstallPrompt from './components/common/InstallPrompt'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
 import RepeatTasks from './pages/RepeatTasks'
@@ -55,6 +56,7 @@ function App() {
   return (
     <NotificationProvider>
       <AppContent />
+      <InstallPrompt />
     </NotificationProvider>
   )
 }
