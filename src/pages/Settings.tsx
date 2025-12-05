@@ -460,6 +460,16 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* 表示・UI設定 */}
+      <div className="mb-6">
+        <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+          表示・UI設定
+        </h2>
+        <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+          アプリの見た目や表示に関する設定
+        </p>
+      </div>
+
       {/* テーマ設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -505,48 +515,6 @@ export default function Settings() {
                 ダーク
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 天気設定 */}
-      <div className="card-industrial p-6">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-          <div>
-            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Weather
-            </p>
-            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              天気設定
-            </h2>
-          </div>
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="weather-city" className="block font-display text-sm text-[var(--color-text-primary)] mb-2">
-              都市名
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="weather-city"
-                type="text"
-                value={weatherCityName}
-                onChange={(e) => setWeatherCityName(e.target.value)}
-                placeholder="例: 東京、大阪、名古屋"
-                className="input-industrial flex-1"
-              />
-              <button
-                onClick={handleSaveWeatherConfig}
-                disabled={savingWeather}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingWeather ? '保存中...' : '保存'}
-              </button>
-            </div>
-            <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-2">
-              現在の設定: {getWeatherConfig().cityName}
-            </p>
           </div>
         </div>
       </div>
@@ -620,6 +588,58 @@ export default function Settings() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* 天気設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Weather
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              天気設定
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="weather-city" className="block font-display text-sm text-[var(--color-text-primary)] mb-2">
+              都市名
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="weather-city"
+                type="text"
+                value={weatherCityName}
+                onChange={(e) => setWeatherCityName(e.target.value)}
+                placeholder="例: 東京、大阪、名古屋"
+                className="input-industrial flex-1"
+              />
+              <button
+                onClick={handleSaveWeatherConfig}
+                disabled={savingWeather}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingWeather ? '保存中...' : '保存'}
+              </button>
+            </div>
+            <p className="font-display text-xs text-[var(--color-text-tertiary)] mt-2">
+              現在の設定: {getWeatherConfig().cityName}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 機能設定 */}
+      <div className="mb-6 mt-12">
+        <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+          機能設定
+        </h2>
+        <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+          アプリの機能に関する設定
+        </p>
       </div>
 
       {/* 今日のまとめ設定 */}
@@ -926,68 +946,17 @@ export default function Settings() {
           )}
         </div>
       </div>
-      
-      {/* テスト用 */}
-      <div className="card-industrial p-6">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-          <div>
-            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Testing
-            </p>
-            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              テスト用
-            </h2>
-          </div>
-        </div>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={handleGenerateTestData}
-            className="btn-industrial"
-          >
-            🧪 テストデータを追加
-          </button>
-          <button
-            onClick={handleClearAllData}
-            className="btn-industrial"
-          >
-            🗑️ すべてのデータを削除
-          </button>
-        </div>
+
+      {/* データ管理 */}
+      <div className="mb-6 mt-12">
+        <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+          データ管理
+        </h2>
+        <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+          プロジェクト、モード、タグの管理とデータのエクスポート
+        </p>
       </div>
 
-      {/* その他の機能 */}
-      <div className="card-industrial p-6">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-          <div>
-            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-              Utilities
-            </p>
-            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-              その他の機能
-            </h2>
-          </div>
-        </div>
-        
-        <div className="flex gap-3">
-          <button
-            onClick={handleExport}
-            className="btn-industrial"
-          >
-            📥 タスクをエクスポート
-          </button>
-          <button
-            onClick={handleCopyTodaySummary}
-            className="btn-industrial flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <span>今日のまとめ</span>
-          </button>
-        </div>
-      </div>
-      
       {/* プロジェクト・モード・タグ管理 */}
       <div className="card-industrial p-6">
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -1116,7 +1085,78 @@ export default function Settings() {
           )}
         </div>
 
-        {/* GitHub設定 */}
+      {/* データエクスポート */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Data Export
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              データエクスポート
+            </h2>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={handleExport}
+            className="btn-industrial"
+          >
+            📥 タスクをエクスポート
+          </button>
+          <button
+            onClick={handleCopyTodaySummary}
+            className="btn-industrial flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>今日のまとめ</span>
+          </button>
+        </div>
+      </div>
+
+      {/* テスト用 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Testing
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              テスト用
+            </h2>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={handleGenerateTestData}
+            className="btn-industrial"
+          >
+            🧪 テストデータを追加
+          </button>
+          <button
+            onClick={handleClearAllData}
+            className="btn-industrial"
+          >
+            🗑️ すべてのデータを削除
+          </button>
+        </div>
+      </div>
+
+      {/* 外部連携 */}
+      <div className="mb-6 mt-12">
+        <h2 className="font-display text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+          外部連携
+        </h2>
+        <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+          GitHub同期やAI APIなどの外部サービスとの連携設定
+        </p>
+      </div>
+
+      {/* GitHub設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
           <div>
