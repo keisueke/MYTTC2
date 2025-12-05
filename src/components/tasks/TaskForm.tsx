@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal } from '../../types'
+import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal, TaskReminder } from '../../types'
 
 interface TaskFormProps {
   task?: Task
@@ -116,6 +116,22 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
   )
   // 予定時間（分）
   const [estimatedTime, setEstimatedTime] = useState<number | ''>(task?.estimatedTime || '')
+  // 期限とリマインダー
+  const [dueDate, setDueDate] = useState(
+    task?.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''
+  )
+  const [reminderMinutes, setReminderMinutes] = useState<number[]>(
+    task?.reminders && task.reminders.length > 0
+      ? task.reminders
+          .map(r => {
+            if (!task.dueDate) return null
+            const due = new Date(task.dueDate)
+            const reminder = new Date(r.reminderTime)
+            return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
+          })
+          .filter((m): m is number => m !== null)
+      : []
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
   
   // 過去の類似タスクを検索
@@ -168,6 +184,19 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       setStartTime(task.startTime ? toLocalDateTime(task.startTime) : '')
       setEndTime(task.endTime ? toLocalDateTime(task.endTime) : '')
       setEstimatedTime(task.estimatedTime || '')
+      setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '')
+      setReminderMinutes(
+        task?.reminders && task.reminders.length > 0
+          ? task.reminders
+              .map(r => {
+                if (!task.dueDate) return null
+                const due = new Date(task.dueDate)
+                const reminder = new Date(r.reminderTime)
+                return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
+              })
+              .filter((m): m is number => m !== null)
+          : []
+      )
     }
   }, [task])
 
@@ -208,6 +237,23 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
 
     const newStartTime = startTime ? new Date(startTime).toISOString() : undefined
     const newEndTime = endTime ? new Date(endTime).toISOString() : undefined
+    const newDueDate = dueDate ? new Date(dueDate).toISOString() : undefined
+    
+    // リマインダーを生成
+    let reminders: TaskReminder[] | undefined = undefined
+    if (newDueDate && reminderMinutes.length > 0) {
+      const due = new Date(newDueDate)
+      reminders = reminderMinutes.map((minutes) => {
+        const reminderTime = new Date(due.getTime() - minutes * 60 * 1000)
+        return {
+          id: crypto.randomUUID(),
+          taskId: task?.id || '',
+          reminderTime: reminderTime.toISOString(),
+          notified: false,
+          createdAt: new Date().toISOString(),
+        }
+      })
+    }
     
     const submitData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
@@ -221,6 +267,8 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       startTime: newStartTime,
       endTime: newEndTime,
       estimatedTime: estimatedTime !== '' ? (typeof estimatedTime === 'number' ? estimatedTime : parseInt(String(estimatedTime)) || undefined) : undefined,
+      dueDate: newDueDate,
+      reminders,
     }
     
     // 開始時間と終了時間の両方がある場合、経過時間を再計算
@@ -629,6 +677,88 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
               onChange={(e) => setRepeatEndDate(e.target.value)}
               className="input-industrial w-full"
             />
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label htmlFor="dueDate" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+          期限
+        </label>
+        <input
+          id="dueDate"
+          type="datetime-local"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="input-industrial w-full"
+        />
+      </div>
+
+      {dueDate && (
+        <div className="pl-4 border-l-2 border-[var(--color-secondary)]/30 space-y-3">
+          <div>
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+              リマインダー（期限の何分前に通知）
+            </label>
+            <div className="space-y-2">
+              {[0, 15, 30, 60, 120, 1440].map((minutes) => {
+                const hours = Math.floor(minutes / 60)
+                const mins = minutes % 60
+                const label =
+                  minutes === 0
+                    ? '期限時刻'
+                    : hours > 0
+                    ? `${hours}時間${mins > 0 ? `${mins}分` : ''}前`
+                    : `${minutes}分前`
+                
+                return (
+                  <label key={minutes} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={reminderMinutes.includes(minutes)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setReminderMinutes([...reminderMinutes, minutes].sort((a, b) => b - a))
+                        } else {
+                          setReminderMinutes(reminderMinutes.filter(m => m !== minutes))
+                        }
+                      }}
+                      className="w-4 h-4 accent-[var(--color-accent)]"
+                    />
+                    <span className="font-display text-sm text-[var(--color-text-primary)]">
+                      {label}
+                    </span>
+                  </label>
+                )
+              })}
+              <div className="mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reminderMinutes.some(m => ![0, 15, 30, 60, 120, 1440].includes(m))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        // カスタム時間を入力
+                        const customMinutes = prompt('通知する時間（分）を入力してください:')
+                        if (customMinutes) {
+                          const minutes = parseInt(customMinutes)
+                          if (!isNaN(minutes) && minutes >= 0) {
+                            setReminderMinutes([...reminderMinutes, minutes].sort((a, b) => b - a))
+                          }
+                        }
+                      } else {
+                        // カスタム時間を削除
+                        setReminderMinutes(reminderMinutes.filter(m => [0, 15, 30, 60, 120, 1440].includes(m)))
+                      }
+                    }}
+                    className="w-4 h-4 accent-[var(--color-accent)]"
+                  />
+                  <span className="font-display text-sm text-[var(--color-text-primary)]">
+                    カスタム時間
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       )}

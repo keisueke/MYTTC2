@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { NotificationProvider } from './context/NotificationContext'
+import { useReminders } from './hooks/useReminders'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
 import Tasks from './pages/Tasks'
@@ -24,27 +25,36 @@ const getBasename = () => {
   return '/'
 }
 
+function AppContent() {
+  // リマインダーを有効化
+  useReminders()
+
+  return (
+    <BrowserRouter basename={getBasename()}>
+      <Layout>
+        <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/repeat-tasks" element={<RepeatTasks />} />
+        <Route path="/routine-checker" element={<RoutineCheckerPage />} />
+        <Route path="/wish-list" element={<WishListPage />} />
+        <Route path="/goals" element={<Goals />} />
+        <Route path="/goals/:category" element={<GoalDetail />} />
+        <Route path="/memo" element={<Memo />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/daily-records" element={<DailyRecordView />} />
+        {/* 未定義のパスはHomeにリダイレクト */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
+  )
+}
+
 function App() {
   return (
     <NotificationProvider>
-      <BrowserRouter basename={getBasename()}>
-        <Layout>
-          <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/repeat-tasks" element={<RepeatTasks />} />
-          <Route path="/routine-checker" element={<RoutineCheckerPage />} />
-          <Route path="/wish-list" element={<WishListPage />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/goals/:category" element={<GoalDetail />} />
-          <Route path="/memo" element={<Memo />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/daily-records" element={<DailyRecordView />} />
-          {/* 未定義のパスはHomeにリダイレクト */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      </BrowserRouter>
+      <AppContent />
     </NotificationProvider>
   )
 }

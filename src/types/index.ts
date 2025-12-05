@@ -5,6 +5,14 @@ export type RepeatPattern =
   | 'monthly'
   | 'custom'
 
+export interface TaskReminder {
+  id: string
+  taskId: string
+  reminderTime: string // ISO date string
+  notified: boolean
+  createdAt: string
+}
+
 export interface Task {
   id: string
   title: string
@@ -25,6 +33,9 @@ export interface Task {
   estimatedTime?: number // 予定時間（分）
   completedAt?: string // ISO date string (完了時刻)
   order?: number // 表示順序
+  // リマインダー関連
+  dueDate?: string // ISO date string（期限）
+  reminders?: TaskReminder[] // リマインダー配列
 }
 
 export interface RepeatConfig {

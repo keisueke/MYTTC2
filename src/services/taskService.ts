@@ -79,6 +79,14 @@ export function getTasks(): Task[] {
 }
 
 /**
+ * IDでタスクを取得する
+ */
+export function getTaskById(id: string): Task | undefined {
+  const data = loadData()
+  return data.tasks.find(t => t.id === id)
+}
+
+/**
  * タスクを追加する
  */
 export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {

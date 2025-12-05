@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react'
 import { GitHubConfig, AppData, ConflictResolution, ConflictInfo } from '../types'
 import * as githubApi from '../services/githubApi'
 import * as taskService from '../services/taskService'
+import * as dataSplitService from '../services/dataSplitService'
+import * as migrationService from '../services/migrationService'
 
 const GITHUB_CONFIG_KEY = 'mytcc2_github_config'
 
@@ -70,23 +72,17 @@ export function useGitHub() {
     setError(null)
 
     try {
-      const data = await githubApi.loadDataFromGitHub(config)
+      // 移行が必要かチェック
+      const migrated = await migrationService.isMigrated(config)
+      if (!migrated) {
+        // 移行を実行
+        await migrationService.migrateFromSingleFile(config)
+      }
+
+      // 自動検出でデータを読み込み
+      const data = await migrationService.loadDataAutoDetect(config)
       // ローカルストレージに保存
       taskService.saveData(data)
-      
-      // ファイルが存在しなかった場合（空データが返された場合）、
-      // 初回同期として空のファイルを作成
-      try {
-        // ファイルが存在するか確認
-        await githubApi.getFileSha(config, config.dataPath)
-      } catch (err) {
-        // ファイルが存在しない場合は、空のデータでファイルを作成
-        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
-          await githubApi.saveDataToGitHub(config, data)
-        } else {
-          throw err
-        }
-      }
       
       return data
     } catch (err) {
@@ -204,34 +200,39 @@ export function useGitHub() {
       const localLatestUpdate = getLocalLatestUpdate(localData)
       const hasLocalChanges = !localLastSynced || (localLatestUpdate && localLatestUpdate > localLastSynced)
 
-      // GitHubからファイルの最終更新時刻を取得
+      // 移行が必要かチェック
+      const migrated = await migrationService.isMigrated(config)
+      if (!migrated) {
+        // 移行を実行
+        await migrationService.migrateFromSingleFile(config)
+      }
+
+      // GitHubからファイルの最終更新時刻を取得（分割形式の場合はtasks.jsonをチェック）
+      const dataPath = config.dataPath || 'data/tasks.json'
+      const basePath = dataPath.substring(0, dataPath.lastIndexOf('/') + 1)
       let remoteLastModified: Date | null = null
       try {
-        remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+        // 分割形式の場合はtasks.jsonの更新時刻を取得
+        remoteLastModified = await githubApi.getFileLastModified(config, `${basePath}tasks.json`)
       } catch (err) {
-        // ファイルが存在しない場合は新規作成として処理
-        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
-          remoteLastModified = null
-        } else {
-          throw err
+        // 分割形式が存在しない場合は単一ファイル形式を試す
+        try {
+          remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+        } catch (err2) {
+          // どちらも存在しない場合は新規作成として処理
+          if (err2 instanceof githubApi.GitHubApiError && err2.status === 404) {
+            remoteLastModified = null
+          } else {
+            throw err2
+          }
         }
       }
 
       // ローカルに未同期の変更がある場合は、まずローカルをプッシュ
       if (hasLocalChanges) {
-        let sha: string | undefined
         try {
-          sha = await githubApi.getFileSha(config, config.dataPath)
-        } catch (err) {
-          if (err instanceof githubApi.GitHubApiError && err.status === 404) {
-            sha = undefined
-          } else {
-            throw err
-          }
-        }
-
-        try {
-          await githubApi.saveDataToGitHub(config, localData, sha)
+          // 分割形式で保存
+          await dataSplitService.saveDataToGitHubSplit(config, localData)
           
           // 最終同期時刻を更新
           const updatedData: AppData = {
@@ -242,11 +243,11 @@ export function useGitHub() {
           
           return 'pushed'
         } catch (err) {
-          // 競合エラー（409）を検出
+          // 競合エラー（409）を検出（分割形式では複数ファイルのため、個別に処理）
           if (githubApi.isConflictError(err)) {
             // リモートから最新データを取得
-            const remoteData = await githubApi.loadDataFromGitHub(config)
-            const remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+            const remoteData = await migrationService.loadDataAutoDetect(config)
+            const remoteLastModified = await githubApi.getFileLastModified(config, `${basePath}tasks.json`).catch(() => null)
             
             // 競合情報を保存
             setConflictInfo({
@@ -265,7 +266,7 @@ export function useGitHub() {
       // ローカルに未同期の変更がない場合
       if (!remoteLastModified) {
         // リモートファイルが存在しない場合は、ローカルをプッシュ
-        await githubApi.saveDataToGitHub(config, localData, undefined)
+        await dataSplitService.saveDataToGitHubSplit(config, localData)
         const updatedData: AppData = {
           ...localData,
           lastSynced: new Date().toISOString(),
@@ -281,25 +282,14 @@ export function useGitHub() {
 
       // リモートが新しい場合はGitHubから取得
       if (!localLastSynced || remoteLastModified > localLastSynced) {
-        const data = await githubApi.loadDataFromGitHub(config)
+        const data = await migrationService.loadDataAutoDetect(config)
         taskService.saveData(data)
         return 'pulled'
       }
 
       // 上記の条件に該当しない場合は、ローカルをプッシュ
-      let sha: string | undefined
       try {
-        sha = await githubApi.getFileSha(config, config.dataPath)
-      } catch (err) {
-        if (err instanceof githubApi.GitHubApiError && err.status === 404) {
-          sha = undefined
-        } else {
-          throw err
-        }
-      }
-
-      try {
-        await githubApi.saveDataToGitHub(config, localData, sha)
+        await dataSplitService.saveDataToGitHubSplit(config, localData)
         const updatedData: AppData = {
           ...localData,
           lastSynced: new Date().toISOString(),
@@ -310,8 +300,8 @@ export function useGitHub() {
         // 競合エラー（409）を検出
         if (githubApi.isConflictError(err)) {
           // リモートから最新データを取得
-          const remoteData = await githubApi.loadDataFromGitHub(config)
-          const remoteLastModified = await githubApi.getFileLastModified(config, config.dataPath)
+          const remoteData = await migrationService.loadDataAutoDetect(config)
+          const remoteLastModified = await githubApi.getFileLastModified(config, `${basePath}tasks.json`).catch(() => null)
           
           // 競合情報を保存
           setConflictInfo({
@@ -400,8 +390,7 @@ export function useGitHub() {
     try {
       if (resolution === 'local') {
         // ローカルを優先：リモートを上書き
-        const sha = await githubApi.getFileSha(config, config.dataPath)
-        await githubApi.saveDataToGitHub(config, conflictInfo.localData, sha)
+        await dataSplitService.saveDataToGitHubSplit(config, conflictInfo.localData)
         
         // 最終同期時刻を更新
         const updatedData: AppData = {
