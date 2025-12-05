@@ -892,6 +892,14 @@ export function deleteMemoTemplate(id: string): void {
 }
 
 /**
+ * すべての日次記録を取得
+ */
+export function getDailyRecords(): DailyRecord[] {
+  const data = loadData()
+  return data.dailyRecords || []
+}
+
+/**
  * 指定日の記録を取得
  */
 export function getDailyRecord(date: Date): DailyRecord | undefined {
@@ -1186,9 +1194,10 @@ function getDefaultDashboardLayout(): DashboardLayoutConfig {
       { id: 'weather-card', order: 1, visible: true },
       { id: 'habit-tracker', order: 2, visible: true },
       { id: 'daily-record-input', order: 3, visible: true },
-      { id: 'time-summary', order: 4, visible: true },
-      { id: 'time-axis-chart', order: 5, visible: true },
-      { id: 'category-time-chart', order: 6, visible: true },
+      { id: 'daily-reflection', order: 4, visible: true },
+      { id: 'time-summary', order: 5, visible: true },
+      { id: 'time-axis-chart', order: 6, visible: true },
+      { id: 'category-time-chart', order: 7, visible: true },
     ]
   }
 }

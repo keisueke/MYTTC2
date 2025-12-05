@@ -13,11 +13,12 @@ import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 import HabitTracker from '../components/dashboard/HabitTracker'
+import DailyReflection from '../components/dashboard/DailyReflection'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 
 export default function Dashboard() {
-  const { tasks, projects, modes, tags, loading, refresh } = useTasks()
+  const { tasks, projects, modes, tags, loading, refresh, dailyRecords } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
@@ -342,6 +343,19 @@ export default function Dashboard() {
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
                     <DailyRecordInput />
+                  </DashboardWidget>
+                )
+
+              case 'daily-reflection':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} />
                   </DashboardWidget>
                 )
 

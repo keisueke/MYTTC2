@@ -185,6 +185,7 @@ export type DashboardWidgetId =
   | 'time-axis-chart'
   | 'category-time-chart'
   | 'recent-tasks'
+  | 'daily-reflection'
 
 export interface DashboardWidget {
   id: DashboardWidgetId
@@ -225,5 +226,37 @@ export interface ConflictInfo {
   remoteData: AppData
   localLastModified: Date | null
   remoteLastModified: Date | null
+}
+
+// 後方互換性のため残す（削除予定）
+export interface GeminiConfig {
+  apiKey: string
+  enabled: boolean
+}
+
+export type AIProvider = 'gemini' | 'openai' | 'claude'
+
+export interface AIConfig {
+  provider: AIProvider
+  apiKey: string
+  enabled: boolean
+  model?: string // モデル名（例: 'gpt-4', 'claude-3-opus', 'gemini-pro'）
+}
+
+export interface AIConfigs {
+  providers: AIConfig[]
+  primaryProvider: AIProvider | null // プライマリAPI
+}
+
+export interface DailyReflection {
+  id: string
+  date: string // ISO date string (YYYY-MM-DD)
+  summary: string // 振り返りの要約
+  completedTasks: number // 完了したタスク数
+  totalTasks: number // 総タスク数
+  insights: string[] // 分析結果のインサイト
+  suggestions: string[] // 改善提案
+  provider?: AIProvider // 使用したAPIプロバイダー
+  createdAt: string // ISO date string
 }
 

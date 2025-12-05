@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Project, Mode, Tag, GitHubConfig, ConflictResolution } from '../types'
+import { Project, Mode, Tag, GitHubConfig, ConflictResolution, AIProvider, AIConfig, AIConfigs } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
@@ -11,6 +11,10 @@ import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVis
 import { getCoordinatesFromCity } from '../services/weatherService'
 import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
 import { SummaryConfig } from '../types'
+import * as aiConfigService from '../services/aiConfig'
+import { geminiApiProvider } from '../services/aiApi/geminiApi'
+import { openaiApiProvider } from '../services/aiApi/openaiApi'
+import { claudeApiProvider } from '../services/aiApi/claudeApi'
 import ProjectList from '../components/projects/ProjectList'
 import ProjectForm from '../components/projects/ProjectForm'
 import ModeList from '../components/modes/ModeList'
@@ -84,6 +88,13 @@ export default function Settings() {
   const [editingTemplate, setEditingTemplate] = useState<{ id?: string; title: string; content: string } | undefined>(undefined)
   const [templateTitle, setTemplateTitle] = useState('')
   const [templateContent, setTemplateContent] = useState('')
+  const [aiConfigs, setAiConfigs] = useState<AIConfigs>(() => aiConfigService.loadAIConfigs())
+  const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null)
+  const [editingApiKey, setEditingApiKey] = useState('')
+  const [editingEnabled, setEditingEnabled] = useState(false)
+  const [editingModel, setEditingModel] = useState('')
+  const [validatingProvider, setValidatingProvider] = useState<AIProvider | null>(null)
+  const [primaryProvider, setPrimaryProvider] = useState<AIProvider | null>(aiConfigs.primaryProvider)
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -1262,6 +1273,279 @@ export default function Settings() {
               </div>
             </div>
           )}
+      </div>
+
+      {/* AI API設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              AI Integration
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              AI API設定
+            </h2>
+          </div>
+        </div>
+
+        {/* プライマリAPI選択 */}
+        <div className="mb-6 space-y-3">
+          <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+            プライマリAPI
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {(['gemini', 'openai', 'claude'] as AIProvider[]).map((provider) => {
+              const config = aiConfigs.providers.find(p => p.provider === provider)
+              const isEnabled = config?.enabled || false
+              return (
+                <label
+                  key={provider}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded cursor-pointer transition-all ${
+                    primaryProvider === provider
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                      : 'border-[var(--color-border)] hover:border-[var(--color-accent)]/50'
+                  } ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="primaryProvider"
+                    value={provider}
+                    checked={primaryProvider === provider}
+                    onChange={() => {
+                      if (isEnabled) {
+                        aiConfigService.setPrimaryProvider(provider)
+                        setPrimaryProvider(provider)
+                        const updated = aiConfigService.loadAIConfigs()
+                        setAiConfigs(updated)
+                        showNotification('プライマリAPIを変更しました', 'success')
+                      }
+                    }}
+                    disabled={!isEnabled}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  <span className="font-display text-sm text-[var(--color-text-primary)]">
+                    {provider === 'gemini' ? 'Gemini' : provider === 'openai' ? 'OpenAI' : 'Claude'}
+                    {!isEnabled && ' (未設定)'}
+                  </span>
+                </label>
+              )
+            })}
+            <label className="flex items-center gap-2 px-4 py-2 border border-[var(--color-border)] rounded cursor-pointer hover:border-[var(--color-accent)]/50 transition-all">
+              <input
+                type="radio"
+                name="primaryProvider"
+                value=""
+                checked={primaryProvider === null}
+                onChange={() => {
+                  aiConfigService.setPrimaryProvider(null)
+                  setPrimaryProvider(null)
+                  const updated = aiConfigService.loadAIConfigs()
+                  setAiConfigs(updated)
+                  showNotification('プライマリAPIを解除しました', 'info')
+                }}
+                className="accent-[var(--color-accent)]"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)]">なし</span>
+            </label>
+          </div>
+        </div>
+
+        {/* 各プロバイダー設定 */}
+        <div className="space-y-6">
+          {(['gemini', 'openai', 'claude'] as AIProvider[]).map((provider) => {
+            const config = aiConfigs.providers.find(p => p.provider === provider)
+            const isEditing = editingProvider === provider
+            const providerNames = { gemini: 'Gemini', openai: 'OpenAI', claude: 'Claude' }
+            const providerLinks = {
+              gemini: 'https://makersuite.google.com/app/apikey',
+              openai: 'https://platform.openai.com/api-keys',
+              claude: 'https://console.anthropic.com/',
+            }
+            const defaultModels = {
+              gemini: 'gemini-pro',
+              openai: 'gpt-4',
+              claude: 'claude-3-opus-20240229',
+            }
+
+            return (
+              <div key={provider} className="border border-[var(--color-border)] rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)]">
+                    {providerNames[provider]}
+                  </h3>
+                  <div className="flex gap-2">
+                    {config && !isEditing && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditingProvider(provider)
+                            setEditingApiKey(config.apiKey)
+                            setEditingEnabled(config.enabled)
+                            setEditingModel(config.model || defaultModels[provider])
+                          }}
+                          className="btn-industrial text-xs"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`${providerNames[provider]} API設定を削除しますか？`)) {
+                              aiConfigService.deleteAIConfig(provider)
+                              const updated = aiConfigService.loadAIConfigs()
+                              setAiConfigs(updated)
+                              if (primaryProvider === provider) {
+                                setPrimaryProvider(null)
+                              }
+                              showNotification(`${providerNames[provider]} API設定を削除しました`, 'success')
+                            }
+                          }}
+                          className="btn-industrial text-xs"
+                          style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                        >
+                          削除
+                        </button>
+                      </>
+                    )}
+                    {!config && (
+                      <button
+                        onClick={() => {
+                          setEditingProvider(provider)
+                          setEditingApiKey('')
+                          setEditingEnabled(false)
+                          setEditingModel(defaultModels[provider])
+                        }}
+                        className="btn-industrial text-xs"
+                      >
+                        追加
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {config && !isEditing ? (
+                  <div className="p-3 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30 rounded">
+                    <p className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
+                      <span className={config.enabled ? 'text-[var(--color-secondary)]' : 'text-[var(--color-text-tertiary)]'}>
+                        {config.enabled ? '✅ 有効' : '⚠️ 無効'}
+                      </span>
+                      {' | '}
+                      <span>APIキー: {config.apiKey.substring(0, 10)}...</span>
+                      {config.model && ` | モデル: ${config.model}`}
+                    </p>
+                  </div>
+                ) : isEditing ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                        API Key <span className="text-[var(--color-error)]">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={editingApiKey}
+                        onChange={(e) => setEditingApiKey(e.target.value)}
+                        placeholder={provider === 'gemini' ? 'AIzaSy...' : provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
+                        className="input-industrial w-full"
+                      />
+                      <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                        <a href={providerLinks[provider]} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent)] hover:underline">
+                          {providerLinks[provider]}
+                        </a> でAPIキーを取得してください
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                        モデル（オプション）
+                      </label>
+                      <input
+                        type="text"
+                        value={editingModel}
+                        onChange={(e) => setEditingModel(e.target.value)}
+                        placeholder={defaultModels[provider]}
+                        className="input-industrial w-full"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`${provider}Enabled`}
+                        checked={editingEnabled}
+                        onChange={(e) => setEditingEnabled(e.target.checked)}
+                        className="w-4 h-4 accent-[var(--color-accent)]"
+                      />
+                      <label htmlFor={`${provider}Enabled`} className="font-display text-sm text-[var(--color-text-primary)] cursor-pointer">
+                        有効化
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2 border-t border-[var(--color-border)]">
+                      <button
+                        onClick={() => {
+                          setEditingProvider(null)
+                          setEditingApiKey('')
+                          setEditingEnabled(false)
+                          setEditingModel('')
+                        }}
+                        className="btn-industrial text-xs"
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!editingApiKey.trim()) {
+                            showNotification('APIキーを入力してください', 'error')
+                            return
+                          }
+
+                          setValidatingProvider(provider)
+                          try {
+                            let isValid = false
+                            if (provider === 'gemini') {
+                              isValid = await geminiApiProvider.validateApiKey(editingApiKey, editingModel)
+                            } else if (provider === 'openai') {
+                              isValid = await openaiApiProvider.validateApiKey(editingApiKey, editingModel)
+                            } else if (provider === 'claude') {
+                              isValid = await claudeApiProvider.validateApiKey(editingApiKey, editingModel)
+                            }
+
+                            if (!isValid) {
+                              showNotification('APIキーの検証に失敗しました', 'error')
+                              return
+                            }
+
+                            const newConfig: AIConfig = {
+                              provider,
+                              apiKey: editingApiKey,
+                              enabled: editingEnabled,
+                              model: editingModel || undefined,
+                            }
+                            aiConfigService.saveAIConfig(newConfig)
+                            const updated = aiConfigService.loadAIConfigs()
+                            setAiConfigs(updated)
+                            setEditingProvider(null)
+                            setEditingApiKey('')
+                            setEditingEnabled(false)
+                            setEditingModel('')
+                            showNotification(`${providerNames[provider]} API設定を保存しました`, 'success')
+                          } catch (error) {
+                            showNotification(`設定の保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+                          } finally {
+                            setValidatingProvider(null)
+                          }
+                        }}
+                        disabled={validatingProvider === provider}
+                        className="btn-industrial text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {validatingProvider === provider ? '検証中...' : '保存'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
       </div>
       
       {conflictInfo && (

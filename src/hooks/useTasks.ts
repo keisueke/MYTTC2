@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask, DailyRecord } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -12,6 +12,7 @@ export function useTasks() {
   const [memos, setMemos] = useState<Memo[]>([])
   const [memoTemplates, setMemoTemplates] = useState<MemoTemplate[]>([])
   const [subTasks, setSubTasks] = useState<SubTask[]>([])
+  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -26,6 +27,7 @@ export function useTasks() {
       setMemos(taskService.getMemos())
       setMemoTemplates(taskService.getMemoTemplates())
       setSubTasks(taskService.getSubTasks())
+      setDailyRecords(taskService.getDailyRecords())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -486,6 +488,7 @@ export function useTasks() {
     updateSubTask,
     deleteSubTask,
     toggleSubTaskComplete,
+    dailyRecords,
     refresh: loadData,
   }
 }
