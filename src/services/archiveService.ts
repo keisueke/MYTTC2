@@ -54,7 +54,10 @@ export async function archiveOldData(
             oldMemos: [],
           }
         }
-        archivedDataByYear[year].dailyRecords.push(record)
+        const archivedData = archivedDataByYear[year]
+        if (archivedData) {
+          archivedData.dailyRecords.push(record)
+        }
       }
     })
   }
@@ -77,7 +80,10 @@ export async function archiveOldData(
               oldMemos: [],
             }
           }
-          archivedDataByYear[year].completedTasks.push(task)
+          const archivedData = archivedDataByYear[year]
+          if (archivedData) {
+            archivedData.completedTasks.push(task)
+          }
         }
       }
     })
@@ -100,7 +106,10 @@ export async function archiveOldData(
             oldMemos: [],
           }
         }
-        archivedDataByYear[year].oldMemos.push(memo)
+        const archivedData = archivedDataByYear[year]
+        if (archivedData && archivedData.oldMemos) {
+          archivedData.oldMemos.push(memo)
+        }
       }
     })
   }
