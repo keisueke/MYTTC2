@@ -13,9 +13,6 @@ export async function migrateFromSingleFile(config: GitHubConfig): Promise<void>
     // 既存の単一ファイルを読み込み
     const existingData = await githubApi.loadDataFromGitHub(config)
 
-    // 分割形式に変換
-    const split = dataSplitService.splitData(existingData)
-
     // 分割されたファイルを保存
     await dataSplitService.saveDataToGitHubSplit(config, existingData)
 

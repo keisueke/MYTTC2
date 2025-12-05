@@ -1,6 +1,5 @@
 import { Task, DailyRecord, DailyReflection, AIProvider } from '../types'
 import * as aiConfig from './aiConfig'
-import * as taskService from './taskService'
 import { geminiApiProvider } from './aiApi/geminiApi'
 import { openaiApiProvider } from './aiApi/openaiApi'
 import { claudeApiProvider } from './aiApi/claudeApi'

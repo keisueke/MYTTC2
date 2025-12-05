@@ -100,7 +100,9 @@ export async function archiveOldData(
             oldMemos: [],
           }
         }
-        archivedDataByYear[year].oldMemos.push(memo)
+        if (archivedDataByYear[year]) {
+          archivedDataByYear[year].oldMemos.push(memo)
+        }
       }
     })
   }
@@ -171,7 +173,7 @@ export function restoreFromArchive(
     ],
     memos: [
       ...(currentData.memos || []),
-      ...archivedData.oldMemos,
+      ...(archivedData.oldMemos || []),
     ],
   }
 }

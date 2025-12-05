@@ -57,8 +57,9 @@ export const geminiApiProvider: AIApiProvider = {
   async validateApiKey(apiKey: string, model?: string): Promise<boolean> {
     try {
       const prompt = 'Hello'
+      const modelName = model || 'gemini-pro'
       const response = await geminiRequest(
-        '/models/gemini-pro:generateContent',
+        `/models/${modelName}:generateContent`,
         apiKey,
         {
           method: 'POST',

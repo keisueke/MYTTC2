@@ -14,7 +14,6 @@ export default function DailyReflection({ tasks, dailyRecords }: DailyReflection
   const { showNotification } = useNotification()
   const [primaryConfig, setPrimaryConfig] = useState(aiConfig.getPrimaryConfig())
   const [reflection, setReflection] = useState<DailyReflectionType | null>(null)
-  const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]

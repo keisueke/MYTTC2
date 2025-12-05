@@ -1,4 +1,4 @@
-import { Task, TaskReminder } from '../types'
+import { Task } from '../types'
 import * as taskService from './taskService'
 import { showNotification, scheduleNotification } from './notificationService'
 
