@@ -100,9 +100,7 @@ export async function archiveOldData(
             oldMemos: [],
           }
         }
-        if (archivedDataByYear[year]) {
-          archivedDataByYear[year].oldMemos.push(memo)
-        }
+        archivedDataByYear[year].oldMemos.push(memo)
       }
     })
   }
