@@ -80,8 +80,9 @@ export default function Sidebar({ isOpen, onClose, alwaysVisible = false }: Side
     { path: '/routine-checker', label: 'ルーティンチェッカー', code: '04', icon: '✓' },
     { path: '/wish-list', label: 'Wishリスト', code: '05', icon: '☆' },
     { path: '/goals', label: '年間目標', code: '06', icon: '◇' },
-    { path: '/memo', label: 'メモ帳', code: '07', icon: '◉' },
-    { path: '/settings', label: '設定', code: '08', icon: '⚙' },
+    { path: '/analyze', label: '分析', code: '07', icon: '◆' },
+    { path: '/memo', label: 'メモ帳', code: '08', icon: '◉' },
+    { path: '/settings', label: '設定', code: '09', icon: '⚙' },
   ]
 
   return (

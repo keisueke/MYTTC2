@@ -9,6 +9,7 @@ import RepeatTasks from './pages/RepeatTasks'
 import WishListPage from './pages/WishList'
 import Goals from './pages/Goals'
 import GoalDetail from './pages/GoalDetail'
+import Analyze from './pages/Analyze'
 import Memo from './pages/Memo'
 import Settings from './pages/Settings'
 import RoutineCheckerPage from './pages/RoutineChecker'
@@ -41,6 +42,7 @@ function AppContent() {
         <Route path="/wish-list" element={<WishListPage />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/goals/:category" element={<GoalDetail />} />
+        <Route path="/analyze" element={<Analyze />} />
         <Route path="/memo" element={<Memo />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/daily-records" element={<DailyRecordView />} />
