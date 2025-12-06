@@ -8,7 +8,6 @@ import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import StatsCard from '../components/dashboard/StatsCard'
-import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
@@ -23,7 +22,6 @@ export default function Dashboard() {
   const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
-  const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -412,7 +410,20 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} />
+                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} projects={projects} modes={modes} tags={tags} />
+                  </DashboardWidget>
+                )
+
+              case 'daily-review':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} projects={projects} modes={modes} tags={tags} />
                   </DashboardWidget>
                 )
 
@@ -517,53 +528,6 @@ export default function Dashboard() {
                         tags={tags}
                         date={new Date()}
                       />
-                    </div>
-                  </DashboardWidget>
-                )
-
-              case 'category-time-chart':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <div className="card-industrial p-6">
-                      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
-                        <div>
-                          <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-                            Category Analysis
-                          </p>
-                          <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                            カテゴリー別分析
-                          </h2>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => setTimePeriod('week')}
-                            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                              timePeriod === 'week'
-                                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                          >
-                            Week
-                          </button>
-                          <button
-                            onClick={() => setTimePeriod('month')}
-                            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                              timePeriod === 'month'
-                                ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                            }`}
-                          >
-                            Month
-                          </button>
-                        </div>
-                      </div>
-                      <CategoryTimeChart tasks={tasks} projects={projects} modes={modes} tags={tags} period={timePeriod} />
                     </div>
                   </DashboardWidget>
                 )

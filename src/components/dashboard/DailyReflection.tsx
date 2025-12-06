@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Task, DailyRecord } from '../../types'
+import { Task, DailyRecord, Project, Mode, Tag } from '../../types'
 import { useNotification } from '../../context/NotificationContext'
 import * as aiConfig from '../../services/aiConfig'
 import * as reflectionService from '../../services/reflectionService'
@@ -8,9 +8,12 @@ import { DailyReflection as DailyReflectionType } from '../../types'
 interface DailyReflectionProps {
   tasks: Task[]
   dailyRecords?: DailyRecord[]
+  projects?: Project[]
+  modes?: Mode[]
+  tags?: Tag[]
 }
 
-export default function DailyReflection({ tasks, dailyRecords }: DailyReflectionProps) {
+export default function DailyReflection({ tasks, dailyRecords, projects, modes, tags }: DailyReflectionProps) {
   const { showNotification } = useNotification()
   const [primaryConfig, setPrimaryConfig] = useState(aiConfig.getPrimaryConfig())
   const [reflection, setReflection] = useState<DailyReflectionType | null>(null)
@@ -38,7 +41,10 @@ export default function DailyReflection({ tasks, dailyRecords }: DailyReflection
     try {
       const newReflection = await reflectionService.generateReflection(
         tasks,
-        dailyRecords
+        dailyRecords,
+        projects,
+        modes,
+        tags
       )
       setReflection(newReflection)
       showNotification('振り返りを生成しました', 'success')

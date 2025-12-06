@@ -1,4 +1,4 @@
-import { Task, DailyRecord } from '../../types'
+import { Task, DailyRecord, Project, Mode, Tag } from '../../types'
 import { AIApiProvider, buildReflectionPrompt } from './base'
 
 /**
@@ -87,13 +87,16 @@ export const geminiApiProvider: AIApiProvider = {
     apiKey: string,
     tasks: Task[],
     dailyRecords?: DailyRecord[],
+    projects?: Project[],
+    modes?: Mode[],
+    tags?: Tag[],
     model?: string
   ): Promise<{
     summary: string
     insights: string[]
     suggestions: string[]
   }> {
-    const prompt = buildReflectionPrompt(tasks, dailyRecords)
+    const prompt = buildReflectionPrompt(tasks, dailyRecords, projects, modes, tags)
     const modelName = model || 'gemini-2.0-flash'
 
     try {

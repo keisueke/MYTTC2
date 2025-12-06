@@ -36,6 +36,8 @@ export interface Task {
   // リマインダー関連
   dueDate?: string // ISO date string（期限）
   reminders?: TaskReminder[] // リマインダー配列
+  // ルーティンチェッカー表示設定
+  showInRoutineChecker?: boolean // ルーティンチェッカーで表示するかどうか（デフォルト: true）
 }
 
 export interface RepeatConfig {
@@ -183,9 +185,9 @@ export type DashboardWidgetId =
   | 'daily-record-input'
   | 'time-summary'
   | 'time-axis-chart'
-  | 'category-time-chart'
   | 'recent-tasks'
   | 'daily-reflection'
+  | 'daily-review'
 
 export interface DashboardWidget {
   id: DashboardWidgetId

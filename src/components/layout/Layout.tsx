@@ -13,9 +13,11 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarWidth, setSidebarWidth] = useState(getSidebarWidth())
 
   useEffect(() => {
-    setSidebarAlwaysVisible(getSidebarVisibility())
-    setIsMenuOpen(getSidebarVisibility())
+    const alwaysVisible = getSidebarVisibility()
+    setSidebarAlwaysVisible(alwaysVisible)
     setSidebarWidth(getSidebarWidth())
+    // 常時表示の設定に基づいてサイドバーの開閉状態を設定
+    setIsMenuOpen(alwaysVisible)
     
     // データ変更イベントをリッスン
     const handleDataChange = () => {

@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { getWeatherData, getWeatherDescriptionFromCode } from '../services/weatherService'
 import { getDailyRecord, getSummaryConfig, getWeatherConfig } from '../services/taskService'
+import { getReflectionByDate } from '../services/reflectionService'
 
 /**
  * タスクをMarkdown形式に変換
@@ -203,8 +204,7 @@ export async function generateTodaySummary(
     const weatherConfig = getWeatherConfig()
     if (weatherData) {
       const weatherDescription = getWeatherDescriptionFromCode(weatherData.weatherCode)
-      weatherInfo = `## 天気\n`
-      weatherInfo += `- 天気: ${weatherDescription}\n`
+      weatherInfo = `## 天気\n- 天気: ${weatherDescription}\n`
       weatherInfo += `- 気温: ${weatherData.temperature}°C\n`
       weatherInfo += `- 気圧: ${weatherData.pressure} hPa\n`
       weatherInfo += `- 湿度: ${Math.round(weatherData.humidity)}%\n`
@@ -220,9 +220,8 @@ export async function generateTodaySummary(
   const todayRecord = getDailyRecord(date)
   let healthInfo = ''
   
-  if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
+    if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
     healthInfo = `## 健康データ\n`
-    
     if (summaryConfig.includeWeight && todayRecord.weight !== undefined) {
       healthInfo += `- 体重: ${todayRecord.weight} kg\n`
     }
@@ -297,15 +296,14 @@ export async function generateTodaySummary(
   }
 
   // タスクデータ概要
-  markdown += `## タスクデータ概要\n`
-  markdown += `- 総タスク数: ${todayTasks.length}\n`
+  markdown += `## タスクデータ概要\n- 総タスク数: ${todayTasks.length}\n`
   markdown += `- 総実績時間: ${formatTime(totalElapsedTime)}\n`
   markdown += `- 総見積時間: ${formatTime(totalEstimatedTime)}\n`
 
   // プロジェクト別集計
   if (projectTimes.size > 0) {
-    markdown += `### プロジェクト別集計\n`
     const sortedProjects = Array.from(projectTimes.entries()).sort((a, b) => b[1].time - a[1].time)
+    markdown += `### プロジェクト別集計\n`
     sortedProjects.forEach(([projectName, data]) => {
       markdown += `- ${projectName}: ${formatTime(data.time)} (${data.count}タスク)\n`
     })
@@ -313,8 +311,8 @@ export async function generateTodaySummary(
 
   // モード別集計
   if (modeTimes.size > 0) {
-    markdown += `### モード別集計\n`
     const sortedModes = Array.from(modeTimes.entries()).sort((a, b) => b[1].time - a[1].time)
+    markdown += `### モード別集計\n`
     sortedModes.forEach(([modeName, data]) => {
       markdown += `- ${modeName}: ${formatTime(data.time)} (${data.count}タスク)\n`
     })
@@ -322,7 +320,6 @@ export async function generateTodaySummary(
 
   // タスク詳細
   markdown += `## タスク詳細\n`
-
   if (todayTasks.length === 0) {
     const dateStr = format(date, 'yyyy年MM月dd日', { locale: ja })
     markdown += `${dateStr}に作業したタスクはありません。\n\n`
@@ -371,6 +368,30 @@ export async function generateTodaySummary(
 
       markdown += `\n`
     })
+  }
+
+  // AI振り返りを取得
+  const dateStr = format(date, 'yyyy-MM-dd', { locale: ja })
+  const reflection = getReflectionByDate(dateStr)
+
+  if (reflection) {
+    markdown += `## AI振り返り\n### 要約\n${reflection.summary}\n\n`
+    
+    if (reflection.insights && reflection.insights.length > 0) {
+      markdown += `### インサイト\n`
+      reflection.insights.forEach(insight => {
+        markdown += `- ${insight}\n`
+      })
+      markdown += `\n`
+    }
+    
+    if (reflection.suggestions && reflection.suggestions.length > 0) {
+      markdown += `### 改善提案\n`
+      reflection.suggestions.forEach(suggestion => {
+        markdown += `- ${suggestion}\n`
+      })
+      markdown += `\n`
+    }
   }
 
   return markdown

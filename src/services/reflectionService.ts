@@ -1,4 +1,4 @@
-import { Task, DailyRecord, DailyReflection, AIProvider } from '../types'
+import { Task, DailyRecord, DailyReflection, AIProvider, Project, Mode, Tag } from '../types'
 import * as aiConfig from './aiConfig'
 import { geminiApiProvider } from './aiApi/geminiApi'
 import { openaiApiProvider } from './aiApi/openaiApi'
@@ -55,7 +55,10 @@ function getApiProvider(provider: AIProvider): AIApiProvider {
  */
 export async function generateReflection(
   tasks: Task[],
-  dailyRecords?: DailyRecord[]
+  dailyRecords?: DailyRecord[],
+  projects?: Project[],
+  modes?: Mode[],
+  tags?: Tag[]
 ): Promise<DailyReflection> {
   const config = aiConfig.getPrimaryConfig()
   
@@ -93,6 +96,9 @@ export async function generateReflection(
     config.apiKey,
     tasks,
     dailyRecords,
+    projects,
+    modes,
+    tags,
     config.model
   )
 

@@ -1195,9 +1195,9 @@ function getDefaultDashboardLayout(): DashboardLayoutConfig {
       { id: 'habit-tracker', order: 2, visible: true },
       { id: 'daily-record-input', order: 3, visible: true },
       { id: 'daily-reflection', order: 4, visible: true },
-      { id: 'time-summary', order: 5, visible: true },
-      { id: 'time-axis-chart', order: 6, visible: true },
-      { id: 'category-time-chart', order: 7, visible: true },
+      { id: 'daily-review', order: 5, visible: true },
+      { id: 'time-summary', order: 6, visible: true },
+      { id: 'time-axis-chart', order: 7, visible: true },
     ]
   }
 }
@@ -1208,6 +1208,18 @@ function getDefaultDashboardLayout(): DashboardLayoutConfig {
 export function getDashboardLayout(): DashboardLayoutConfig {
   const data = loadData()
   if (data.dashboardLayout) {
+    // 既存のレイアウトにdaily-reviewが含まれていない場合は追加
+    const hasDailyReview = data.dashboardLayout.widgets.some(w => w.id === 'daily-review')
+    if (!hasDailyReview) {
+      const maxOrder = Math.max(...data.dashboardLayout.widgets.map(w => w.order), -1)
+      data.dashboardLayout.widgets.push({
+        id: 'daily-review',
+        order: maxOrder + 1,
+        visible: true
+      })
+      // 更新されたレイアウトを保存
+      saveDashboardLayout(data.dashboardLayout)
+    }
     return data.dashboardLayout
   }
   return getDefaultDashboardLayout()
