@@ -24,7 +24,7 @@ export function loadAIConfigs(): AIConfigs {
         provider: 'gemini',
         apiKey: legacyGeminiConfig.apiKey,
         enabled: legacyGeminiConfig.enabled,
-        model: 'gemini-pro',
+        model: 'gemini-1.5-flash',
       }],
       primaryProvider: legacyGeminiConfig.enabled ? 'gemini' : null,
     }

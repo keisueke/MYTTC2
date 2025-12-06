@@ -51,6 +51,9 @@ export default function WeatherCard() {
               {weather.temperature}°C
             </p>
             <p className="font-display text-[10px] text-[var(--color-text-tertiary)] mt-0.5">
+              最高 {weather.maxTemperature}°C / 最低 {weather.minTemperature}°C
+            </p>
+            <p className="font-display text-[10px] text-[var(--color-text-tertiary)] mt-0.5">
               {config.cityName}
             </p>
           </div>

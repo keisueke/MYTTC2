@@ -95,6 +95,9 @@ export default function Settings() {
   const [editingModel, setEditingModel] = useState('')
   const [validatingProvider, setValidatingProvider] = useState<AIProvider | null>(null)
   const [primaryProvider, setPrimaryProvider] = useState<AIProvider | null>(aiConfigs.primaryProvider)
+  const [exportDate, setExportDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0]
+  })
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -303,15 +306,19 @@ export default function Settings() {
   }
 
   const handleExport = () => {
-    exportTasks(tasks, projects, modes, tags)
+    const date = exportDate ? new Date(exportDate) : undefined
+    exportTasks(tasks, projects, modes, tags, date)
   }
 
-  const handleCopyTodaySummary = async () => {
+  const handleCopyTodaySummary = async (selectedDate?: Date) => {
     try {
-      const summary = await generateTodaySummary(tasks, projects, modes, tags)
+      const summary = await generateTodaySummary(tasks, projects, modes, tags, selectedDate)
       const success = await copyToClipboard(summary)
       if (success) {
-        showNotification('今日のまとめをクリップボードにコピーしました', 'success')
+        const dateStr = selectedDate 
+          ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+          : '今日'
+        showNotification(`${dateStr}のまとめをクリップボードにコピーしました`, 'success')
       } else {
         showNotification('クリップボードへのコピーに失敗しました', 'error')
       }
@@ -319,6 +326,7 @@ export default function Settings() {
       showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
+
 
   const handleGenerateTestData = () => {
     if (!confirm('テストデータを追加しますか？既存のデータは保持されます。')) {
@@ -1098,22 +1106,40 @@ export default function Settings() {
           </div>
         </div>
         
-        <div className="flex gap-3">
-          <button
-            onClick={handleExport}
-            className="btn-industrial"
-          >
-            📥 タスクをエクスポート
-          </button>
-          <button
-            onClick={handleCopyTodaySummary}
-            className="btn-industrial flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <span>今日のまとめ</span>
-          </button>
+        <div className="space-y-4">
+          <div>
+            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+              日付
+            </label>
+            <input
+              type="date"
+              value={exportDate}
+              onChange={(e) => setExportDate(e.target.value)}
+              className="input-industrial w-full"
+              max={new Date().toISOString().split('T')[0]}
+            />
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleExport}
+              className="btn-industrial flex-1"
+            >
+              📥 タスクをエクスポート
+            </button>
+            <button
+              onClick={async () => {
+                const date = exportDate ? new Date(exportDate) : undefined
+                await handleCopyTodaySummary(date)
+              }}
+              className="btn-industrial flex-1 flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span>まとめをコピー</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1541,16 +1567,28 @@ export default function Settings() {
                           setValidatingProvider(provider)
                           try {
                             let isValid = false
-                            if (provider === 'gemini') {
-                              isValid = await geminiApiProvider.validateApiKey(editingApiKey, editingModel)
-                            } else if (provider === 'openai') {
-                              isValid = await openaiApiProvider.validateApiKey(editingApiKey, editingModel)
-                            } else if (provider === 'claude') {
-                              isValid = await claudeApiProvider.validateApiKey(editingApiKey, editingModel)
+                            let errorMessage = ''
+                            
+                            try {
+                              if (provider === 'gemini') {
+                                isValid = await geminiApiProvider.validateApiKey(editingApiKey, editingModel)
+                              } else if (provider === 'openai') {
+                                isValid = await openaiApiProvider.validateApiKey(editingApiKey, editingModel)
+                              } else if (provider === 'claude') {
+                                isValid = await claudeApiProvider.validateApiKey(editingApiKey, editingModel)
+                              }
+                            } catch (apiError) {
+                              if (apiError instanceof Error) {
+                                errorMessage = apiError.message
+                              } else {
+                                errorMessage = 'APIキーの検証中にエラーが発生しました'
+                              }
+                              isValid = false
                             }
 
                             if (!isValid) {
-                              showNotification('APIキーの検証に失敗しました', 'error')
+                              const message = errorMessage || 'APIキーの検証に失敗しました。APIキーが正しいか、モデル名が正しいか確認してください。'
+                              showNotification(message, 'error')
                               return
                             }
 
@@ -1595,6 +1633,7 @@ export default function Settings() {
           onCancel={() => handleResolveConflict('cancel')}
         />
       )}
+
     </div>
   )
 }

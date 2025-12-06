@@ -15,7 +15,7 @@ export class GeminiApiError extends Error {
   }
 }
 
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1'
 
 /**
  * Gemini APIリクエストを実行
@@ -57,7 +57,7 @@ export const geminiApiProvider: AIApiProvider = {
   async validateApiKey(apiKey: string, model?: string): Promise<boolean> {
     try {
       const prompt = 'Hello'
-      const modelName = model || 'gemini-pro'
+      const modelName = model || 'gemini-1.5-flash'
       const response = await geminiRequest(
         `/models/${modelName}:generateContent`,
         apiKey,
@@ -73,7 +73,8 @@ export const geminiApiProvider: AIApiProvider = {
       return !!response
     } catch (error) {
       if (error instanceof GeminiApiError) {
-        return false
+        // エラーメッセージを保持するために再スロー
+        throw error
       }
       throw error
     }

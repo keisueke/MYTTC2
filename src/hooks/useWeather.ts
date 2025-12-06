@@ -3,6 +3,8 @@ import { getWeatherData, getWeatherDescriptionFromCode } from '../services/weath
 
 interface WeatherInfo {
   temperature: number
+  maxTemperature: number
+  minTemperature: number
   pressure: number
   humidity: number
   description: string
@@ -26,6 +28,8 @@ export function useWeather() {
         if (data) {
           setWeather({
             temperature: data.temperature,
+            maxTemperature: data.maxTemperature,
+            minTemperature: data.minTemperature,
             pressure: data.pressure,
             humidity: data.humidity,
             description: getWeatherDescriptionFromCode(data.weatherCode),

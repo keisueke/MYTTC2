@@ -75,7 +75,8 @@ export const openaiApiProvider: AIApiProvider = {
       return !!response
     } catch (error) {
       if (error instanceof OpenAIApiError) {
-        return false
+        // エラーメッセージを保持するために再スロー
+        throw error
       }
       throw error
     }

@@ -16,6 +16,7 @@ import HabitTracker from '../components/dashboard/HabitTracker'
 import DailyReflection from '../components/dashboard/DailyReflection'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
+import DatePickerModal from '../components/common/DatePickerModal'
 
 export default function Dashboard() {
   const { tasks, projects, modes, tags, loading, refresh, dailyRecords } = useTasks()
@@ -24,6 +25,7 @@ export default function Dashboard() {
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
+  const [showDatePicker, setShowDatePicker] = useState(false)
   
   const handleSync = async () => {
     try {
@@ -68,18 +70,25 @@ export default function Dashboard() {
     }
   }
 
-  const handleCopyTodaySummary = async () => {
+  const handleCopyTodaySummary = async (selectedDate?: Date) => {
     try {
-      const summary = await generateTodaySummary(tasks, projects, modes, tags)
+      const summary = await generateTodaySummary(tasks, projects, modes, tags, selectedDate)
       const success = await copyToClipboard(summary)
       if (success) {
-        showNotification('今日のまとめをクリップボードにコピーしました', 'success')
+        const dateStr = selectedDate 
+          ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+          : '今日'
+        showNotification(`${dateStr}のまとめをクリップボードにコピーしました`, 'success')
       } else {
         showNotification('クリップボードへのコピーに失敗しました', 'error')
       }
     } catch (error) {
       showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
+  }
+
+  const handleDatePickerConfirm = (date: Date) => {
+    handleCopyTodaySummary(date)
   }
 
   // レイアウト設定を読み込む
@@ -198,6 +207,7 @@ export default function Dashboard() {
   const widgetIds = sortedWidgets.map(w => w.id)
 
   return (
+    <>
     <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={widgetIds} strategy={verticalListSortingStrategy}>
         <div className={`space-y-8 ${isEditMode ? 'pl-8' : ''}`}>
@@ -223,14 +233,17 @@ export default function Dashboard() {
             <span>{isEditMode ? '編集終了' : 'レイアウト編集'}</span>
           </button>
           <button
-            onClick={handleCopyTodaySummary}
+            onClick={() => {
+              console.log('Date picker button clicked')
+              setShowDatePicker(true)
+            }}
             className="btn-industrial flex items-center gap-2"
-            title="今日のまとめをクリップボードにコピー"
+            title="まとめをクリップボードにコピー（日付選択可）"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            <span>今日のまとめ</span>
+            <span>まとめをコピー</span>
           </button>
           {githubConfig && (
             <button
@@ -526,5 +539,13 @@ export default function Dashboard() {
         />
       )}
     </DndContext>
+
+    <DatePickerModal
+      isOpen={showDatePicker}
+      onClose={() => setShowDatePicker(false)}
+      onConfirm={handleDatePickerConfirm}
+      title="まとめの日付を選択"
+    />
+    </>
   )
 }

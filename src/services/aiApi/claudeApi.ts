@@ -76,7 +76,8 @@ export const claudeApiProvider: AIApiProvider = {
       return !!response
     } catch (error) {
       if (error instanceof ClaudeApiError) {
-        return false
+        // エラーメッセージを保持するために再スロー
+        throw error
       }
       throw error
     }

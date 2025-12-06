@@ -7,16 +7,31 @@ import { getDailyRecord, getSummaryConfig, getWeatherConfig } from '../services/
 /**
  * タスクをMarkdown形式に変換
  */
-export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[], tags: Tag[]): string {
+export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[], tags: Tag[], targetDate?: Date): string {
   const projectMap = new Map(projects.map(p => [p.id, p.name]))
   const modeMap = new Map(modes.map(m => [m.id, m.name]))
   const tagMap = new Map(tags.map(t => [t.id, t.name]))
   
+  // 指定日がある場合、その日のタスクをフィルタリング
+  let filteredTasks = tasks
+  if (targetDate) {
+    const date = new Date(targetDate)
+    date.setHours(0, 0, 0, 0)
+    const dateEnd = new Date(date)
+    dateEnd.setHours(23, 59, 59, 999)
+    
+    filteredTasks = tasks.filter(task => {
+      if (!task.startTime) return false
+      const startDate = new Date(task.startTime)
+      return startDate >= date && startDate <= dateEnd
+    })
+  }
+  
   let markdown = '# タスク一覧\n\n'
-  const exportDate = new Date()
+  const exportDate = targetDate || new Date()
   markdown += `エクスポート日時: ${format(exportDate, 'yyyy年MM月dd日 HH:mm', { locale: ja })}\n\n`
   
-  // エクスポート実行日の健康データを取得
+  // 指定日の健康データを取得
   const summaryConfig = getSummaryConfig()
   const todayRecord = getDailyRecord(exportDate)
   if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
@@ -60,11 +75,11 @@ export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[
   }
   
   markdown += `## 統計\n\n`
-  markdown += `- 全タスク数: ${tasks.length}\n\n`
+  markdown += `- 全タスク数: ${filteredTasks.length}\n\n`
   
-  if (tasks.length > 0) {
+  if (filteredTasks.length > 0) {
     markdown += `## タスク一覧\n\n`
-    tasks.forEach((task, index) => {
+    filteredTasks.forEach((task, index) => {
       markdown += `### ${index + 1}. ${task.title}\n\n`
       if (task.description) {
         markdown += `${task.description}\n\n`
@@ -120,9 +135,12 @@ export function downloadMarkdown(content: string, filename: string = 'tasks.md')
 /**
  * タスクをエクスポート
  */
-export function exportTasks(tasks: Task[], projects: Project[], modes: Mode[], tags: Tag[]): void {
-  const markdown = tasksToMarkdown(tasks, projects, modes, tags)
-  const filename = `tasks_${format(new Date(), 'yyyyMMdd_HHmmss')}.md`
+export function exportTasks(tasks: Task[], projects: Project[], modes: Mode[], tags: Tag[], targetDate?: Date): void {
+  const markdown = tasksToMarkdown(tasks, projects, modes, tags, targetDate)
+  const dateStr = targetDate 
+    ? format(targetDate, 'yyyyMMdd', { locale: ja })
+    : format(new Date(), 'yyyyMMdd_HHmmss', { locale: ja })
+  const filename = `tasks_${dateStr}.md`
   downloadMarkdown(markdown, filename)
 }
 
@@ -146,15 +164,17 @@ function formatTimeFromMinutes(minutes: number): string {
 }
 
 /**
- * 今日のまとめを生成
+ * 指定日のまとめを生成
  */
 export async function generateTodaySummary(
   tasks: Task[],
   projects: Project[],
   modes: Mode[],
-  tags: Tag[]
+  tags: Tag[],
+  targetDate?: Date
 ): Promise<string> {
-  const today = new Date()
+  const date = targetDate || new Date()
+  const today = new Date(date)
   today.setHours(0, 0, 0, 0)
   const todayEnd = new Date(today)
   todayEnd.setHours(23, 59, 59, 999)
@@ -197,7 +217,7 @@ export async function generateTodaySummary(
 
   // 健康データを取得
   const summaryConfig = getSummaryConfig()
-  const todayRecord = getDailyRecord(new Date())
+  const todayRecord = getDailyRecord(date)
   let healthInfo = ''
   
   if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
@@ -304,7 +324,8 @@ export async function generateTodaySummary(
   markdown += `## タスク詳細\n`
 
   if (todayTasks.length === 0) {
-    markdown += `今日作業したタスクはありません。\n\n`
+    const dateStr = format(date, 'yyyy年MM月dd日', { locale: ja })
+    markdown += `${dateStr}に作業したタスクはありません。\n\n`
   } else {
     todayTasks.forEach((task, index) => {
       markdown += `### ${index + 1}. ${task.title}\n`

@@ -5,7 +5,9 @@
 import { getWeatherConfig } from '../utils/weatherConfig'
 
 interface WeatherData {
-  temperature: number // 気温（℃）
+  temperature: number // 現在の気温（℃）
+  maxTemperature: number // 最高気温（℃）
+  minTemperature: number // 最低気温（℃）
   pressure: number // 気圧（hPa）
   humidity: number // 湿度（%）
   weatherCode: number // 天気コード
@@ -19,6 +21,11 @@ interface WeatherApiResponse {
     pressure_msl: number
     weather_code: number
     time: string
+  }
+  daily: {
+    temperature_2m_max: number[]
+    temperature_2m_min: number[]
+    time: string[]
   }
 }
 
@@ -99,7 +106,7 @@ export async function getWeatherData(): Promise<WeatherData | null> {
     const latitude = config.latitude
     const longitude = config.longitude
     
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,pressure_msl,weather_code&timezone=Asia%2FTokyo`
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,pressure_msl,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo`
     
     const response = await fetch(url)
     
@@ -111,6 +118,8 @@ export async function getWeatherData(): Promise<WeatherData | null> {
     
     return {
       temperature: Math.round(data.current.temperature_2m),
+      maxTemperature: Math.round(data.daily.temperature_2m_max[0]),
+      minTemperature: Math.round(data.daily.temperature_2m_min[0]),
       pressure: Math.round(data.current.pressure_msl),
       humidity: data.current.relative_humidity_2m,
       weatherCode: data.current.weather_code,
