@@ -1428,7 +1428,7 @@ export default function Settings() {
               claude: 'https://console.anthropic.com/',
             }
             const defaultModels = {
-              gemini: 'gemini-pro',
+              gemini: 'gemini-2.0-flash',
               openai: 'gpt-4',
               claude: 'claude-3-opus-20240229',
             }

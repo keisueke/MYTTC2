@@ -94,7 +94,7 @@ export const geminiApiProvider: AIApiProvider = {
     suggestions: string[]
   }> {
     const prompt = buildReflectionPrompt(tasks, dailyRecords)
-    const modelName = model || 'gemini-pro'
+    const modelName = model || 'gemini-2.0-flash'
 
     try {
       const response = await geminiRequest(

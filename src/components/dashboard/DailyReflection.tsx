@@ -76,15 +76,13 @@ export default function DailyReflection({ tasks, dailyRecords }: DailyReflection
         <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)]">
           今日の振り返り
         </h3>
-        {!reflection && (
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="btn-industrial text-xs"
-          >
-            {generating ? '生成中...' : '振り返りを生成'}
-          </button>
-        )}
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="btn-industrial text-xs"
+        >
+          {generating ? '生成中...' : reflection ? '再生成' : '振り返りを生成'}
+        </button>
       </div>
 
       {reflection ? (
@@ -151,16 +149,6 @@ export default function DailyReflection({ tasks, dailyRecords }: DailyReflection
               </ul>
             </div>
           )}
-
-          <div className="pt-2 border-t border-[var(--color-border)]">
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="btn-industrial text-xs w-full"
-            >
-              {generating ? '再生成中...' : '振り返りを再生成'}
-            </button>
-          </div>
         </div>
       ) : (
         <div className="text-center py-8">

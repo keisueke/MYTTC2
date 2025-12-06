@@ -6,7 +6,7 @@ import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
-import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution } from '../types'
+import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import StatsCard from '../components/dashboard/StatsCard'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
@@ -17,15 +17,17 @@ import DailyReflection from '../components/dashboard/DailyReflection'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 import DatePickerModal from '../components/common/DatePickerModal'
+import TaskForm from '../components/tasks/TaskForm'
 
 export default function Dashboard() {
-  const { tasks, projects, modes, tags, loading, refresh, dailyRecords } = useTasks()
+  const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
   const [timePeriod, setTimePeriod] = useState<'week' | 'month'>('week')
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showTaskForm, setShowTaskForm] = useState(false)
   
   const handleSync = async () => {
     try {
@@ -89,6 +91,16 @@ export default function Dashboard() {
 
   const handleDatePickerConfirm = (date: Date) => {
     handleCopyTodaySummary(date)
+  }
+
+  const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    addTask(taskData)
+    setShowTaskForm(false)
+    showNotification('タスクを追加しました', 'success')
+  }
+
+  const handleCancelTaskForm = () => {
+    setShowTaskForm(false)
   }
 
   // レイアウト設定を読み込む
@@ -222,6 +234,14 @@ export default function Dashboard() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {!showTaskForm && (
+            <button
+              onClick={() => setShowTaskForm(true)}
+              className="btn-industrial"
+            >
+              ＋新規タスク
+            </button>
+          )}
           <button
             onClick={() => setIsEditMode(!isEditMode)}
             className={`btn-industrial flex items-center gap-2 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''}`}
@@ -268,6 +288,30 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {showTaskForm && (
+        <div className="card-industrial p-6 animate-scale-in">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+            <div>
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                New Task
+              </p>
+              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                新しいタスクを作成
+              </h2>
+            </div>
+          </div>
+          <TaskForm
+            tasks={tasks}
+            projects={projects}
+            modes={modes}
+            tags={tags}
+            goals={goals}
+            onSubmit={handleCreateTask}
+            onCancel={handleCancelTaskForm}
+          />
+        </div>
+      )}
 
           {sortedWidgets.map((widget) => {
             const widgetData = getWidget(widget.id)
