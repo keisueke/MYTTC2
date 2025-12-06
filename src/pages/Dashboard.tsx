@@ -401,19 +401,6 @@ export default function Dashboard() {
                   </DashboardWidget>
                 )
 
-              case 'daily-reflection':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} projects={projects} modes={modes} tags={tags} />
-                  </DashboardWidget>
-                )
-
               case 'daily-review':
                 return (
                   <DashboardWidget
