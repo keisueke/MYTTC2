@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Task, Project, Mode, Tag, RoutineExecution } from '../../types'
+import { Task, Project, Mode, Tag, RoutineExecution, TimeSection } from '../../types'
 
 interface TaskItemProps {
   task: Task
@@ -7,11 +7,13 @@ interface TaskItemProps {
   modes: Mode[]
   tags: Tag[]
   routineExecution?: RoutineExecution
+  timeSection?: TimeSection
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
-  onStartTimer: (id: string) => void
-  onStopTimer: (id: string) => void
+  onStartTimer?: (id: string) => void
+  onStopTimer?: (id: string) => void
   onCopy?: (id: string) => void
+  hideTimer?: boolean
 }
 
 function formatTime(seconds: number): string {
@@ -25,12 +27,10 @@ function formatTime(seconds: number): string {
   return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-export default function TaskItem({ task, projects, modes, tags, routineExecution, onEdit, onDelete, onStartTimer, onStopTimer, onCopy }: TaskItemProps) {
+export default function TaskItem({ task, projects, modes, tags, routineExecution, timeSection, onEdit, onDelete, onStartTimer, onStopTimer, onCopy, hideTimer = false }: TaskItemProps) {
   const project = task.projectId ? projects.find(p => p.id === task.projectId) : undefined
   const mode = task.modeId ? modes.find(m => m.id === task.modeId) : undefined
   const taskTags = task.tagIds ? tags.filter(t => task.tagIds!.includes(t.id)) : []
-  
-  const [currentElapsed, setCurrentElapsed] = useState<number>(0)
   
   // ルーティンタスクの場合は、実行記録の経過時間を使用
   const displayElapsedTime = task.repeatPattern !== 'none' 
@@ -42,30 +42,42 @@ export default function TaskItem({ task, projects, modes, tags, routineExecution
     ? !!routineExecution?.completedAt 
     : !!task.completedAt
   
+  // 経過時間の状態（displayElapsedTimeで初期化）
+  const [currentElapsed, setCurrentElapsed] = useState<number>(displayElapsedTime)
+  
+  // displayElapsedTimeが変更されたら即座に反映
+  useEffect(() => {
+    if (!task.isRunning) {
+      setCurrentElapsed(displayElapsedTime)
+    }
+  }, [displayElapsedTime, task.isRunning])
+  
+  // タイマーが動作中の場合は1秒ごとに更新
   useEffect(() => {
     if (task.isRunning && task.startTime) {
+      // 初期値を設定
+      const start = new Date(task.startTime).getTime()
+      const initialElapsed = Math.floor((Date.now() - start) / 1000)
+      setCurrentElapsed(displayElapsedTime + initialElapsed)
+      
       const interval = setInterval(() => {
-        const now = new Date().getTime()
-        const start = new Date(task.startTime!).getTime()
+        const now = Date.now()
         const elapsed = Math.floor((now - start) / 1000)
-        const totalElapsed = displayElapsedTime + elapsed
-        setCurrentElapsed(totalElapsed)
+        setCurrentElapsed(displayElapsedTime + elapsed)
       }, 1000)
       
       return () => clearInterval(interval)
-    } else {
-      setCurrentElapsed(displayElapsedTime)
     }
   }, [task.isRunning, task.startTime, displayElapsedTime])
   
   const handleStartTimer = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onStartTimer(task.id)
+    onStartTimer?.(task.id)
   }
   
   const handleStopTimer = (e: React.MouseEvent) => {
     e.stopPropagation()
-    onStopTimer(task.id)
+    onStopTimer?.(task.id)
   }
   
   return (
@@ -82,7 +94,7 @@ export default function TaskItem({ task, projects, modes, tags, routineExecution
         </div>
         
         {/* Timer Control */}
-        {!isCompleted && (
+        {!hideTimer && !isCompleted && (
           <button
             onClick={task.isRunning ? handleStopTimer : handleStartTimer}
             className={`w-10 h-10 flex items-center justify-center border transition-all duration-200 ${
@@ -106,7 +118,7 @@ export default function TaskItem({ task, projects, modes, tags, routineExecution
         )}
         
         {/* Completed Badge */}
-        {isCompleted && (
+        {!hideTimer && isCompleted && (
           <div className="w-10 h-10 flex items-center justify-center bg-[var(--color-secondary)]/20 border border-[var(--color-secondary)]">
             <svg className="w-5 h-5 text-[var(--color-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -118,7 +130,7 @@ export default function TaskItem({ task, projects, modes, tags, routineExecution
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className={`font-display text-sm font-medium transition-colors ${
                   isCompleted 
                     ? 'text-[var(--color-text-tertiary)] line-through' 
@@ -126,6 +138,18 @@ export default function TaskItem({ task, projects, modes, tags, routineExecution
                 }`}>
                   {task.title}
                 </h3>
+                {timeSection && (
+                  <span 
+                    className="font-display text-[8px] tracking-[0.1em] uppercase px-1.5 py-0.5 rounded-sm"
+                    style={{ 
+                      backgroundColor: `${timeSection.color}20`,
+                      color: timeSection.color,
+                      border: `1px solid ${timeSection.color}40`
+                    }}
+                  >
+                    {timeSection.name}
+                  </span>
+                )}
                 {isCompleted && (
                   <span className="font-display text-[8px] tracking-[0.1em] uppercase text-[var(--color-secondary)] bg-[var(--color-secondary)]/20 px-1.5 py-0.5">
                     Completed

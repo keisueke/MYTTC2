@@ -37,15 +37,25 @@ export function buildReflectionPrompt(
   modes?: Mode[],
   tags?: Tag[]
 ): string {
-  const today = new Date().toISOString().split('T')[0]
+  // ローカル日付文字列を取得
+  const toLocalDateStr = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  const today = toLocalDateStr(new Date())
   
   // 今日のタスクをフィルタ
   const todayTasks = tasks.filter(task => {
     if (task.completedAt) {
-      return task.completedAt.startsWith(today)
+      const completedDateStr = toLocalDateStr(new Date(task.completedAt))
+      return completedDateStr === today
     }
     if (task.createdAt) {
-      return task.createdAt.startsWith(today)
+      const createdDateStr = toLocalDateStr(new Date(task.createdAt))
+      return createdDateStr === today
     }
     return false
   })

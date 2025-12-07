@@ -17,8 +17,6 @@ export default function RepeatTasks() {
     deleteTask,
     copyTask,
     moveTaskToPosition,
-    startTaskTimer,
-    stopTaskTimer,
   } = useTasks()
   
   const [showForm, setShowForm] = useState(false)
@@ -136,10 +134,9 @@ export default function RepeatTasks() {
               tags={tags}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onStartTimer={startTaskTimer}
-              onStopTimer={stopTaskTimer}
               onCopy={copyTask}
               onMoveTask={moveTaskToPosition}
+              hideTimer={true}
             />
           )}
         </>

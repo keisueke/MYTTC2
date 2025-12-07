@@ -4,16 +4,16 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
+import { useSelectedDate } from '../context/SelectedDateContext'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
-import StatsCard from '../components/dashboard/StatsCard'
-import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 import HabitTracker from '../components/dashboard/HabitTracker'
-import DailyReflection from '../components/dashboard/DailyReflection'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
+import SummaryCard from '../components/dashboard/SummaryCard'
+import { isTaskForToday } from '../utils/repeatUtils'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 import DatePickerModal from '../components/common/DatePickerModal'
 import IncompleteRoutineDialog from '../components/common/IncompleteRoutineDialog'
@@ -24,6 +24,7 @@ export default function Dashboard() {
   const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask, routineExecutions, addRoutineExecution: addRoutineExecutionHook, updateRoutineExecution: updateRoutineExecutionHook, deleteTask: deleteTaskHook } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
+  const { selectedDate, isToday } = useSelectedDate()
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -40,9 +41,33 @@ export default function Dashboard() {
     }
   }, [tasks, routineExecutions])
   
+  // ローカル日付文字列を取得
+  const toLocalDateStr = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  // ローカルISO文字列を取得
+  const toLocalISOStr = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    const ms = String(date.getMilliseconds()).padStart(3, '0')
+    const tzOffset = -date.getTimezoneOffset()
+    const tzSign = tzOffset >= 0 ? '+' : '-'
+    const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0')
+    const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`
+  }
+  
   const handleContinueRoutine = (taskId: string) => {
     // 今日のルーティン実行記録を作成
-    const today = new Date().toISOString().split('T')[0]
+    const today = toLocalDateStr(new Date())
     addRoutineExecutionHook({
       routineTaskId: taskId,
       date: today,
@@ -62,13 +87,13 @@ export default function Dashboard() {
       yesterday.setDate(yesterday.getDate() - 1)
     }
     yesterday.setHours(0, 0, 0, 0)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const yesterdayStr = toLocalDateStr(yesterday)
     
     const execution = routineExecutions.find(e => 
       e.routineTaskId === taskId && e.date.startsWith(yesterdayStr)
     )
     if (execution) {
-      updateRoutineExecutionHook(execution.id, { skippedAt: new Date().toISOString() })
+      updateRoutineExecutionHook(execution.id, { skippedAt: toLocalISOStr(new Date()) })
     }
     // リストから削除
     setIncompleteRoutines(prev => prev.filter(t => t.id !== taskId))
@@ -161,7 +186,8 @@ export default function Dashboard() {
   }
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addTask(taskData)
+    // 選択日付をベースにタスクを作成（今日以外の日付が選択されている場合）
+    addTask(taskData, isToday ? undefined : selectedDate)
     setShowTaskForm(false)
     showNotification('タスクを追加しました', 'success')
   }
@@ -244,10 +270,11 @@ export default function Dashboard() {
     const todayEnd = new Date(today)
     todayEnd.setHours(23, 59, 59, 999)
     
-    const todayTasks = tasks.filter(task => {
-      const createdAt = new Date(task.createdAt)
-      return createdAt >= today && createdAt <= todayEnd
-    })
+    const todayTasks = tasks.filter(task => isTaskForToday(task))
+    const completedTodayTasks = todayTasks.filter(task => task.completedAt)
+    const completionRate = todayTasks.length > 0 
+      ? Math.round((completedTodayTasks.length / todayTasks.length) * 100)
+      : 0
     
     const totalEstimatedTime = todayTasks.reduce((sum, task) => {
       return sum + (task.estimatedTime || 0)
@@ -258,13 +285,33 @@ export default function Dashboard() {
     }, 0)
     const totalElapsedTimeMinutes = Math.floor(totalElapsedTime / 60)
 
+    // ルーティンタスクの統計
+    const routineTasks = tasks.filter(task => task.repeatPattern !== 'none')
+    const todayStr = toLocalDateStr(new Date())
+    const todayRoutineExecutions = routineExecutions.filter(e => {
+      return e.date.startsWith(todayStr)
+    })
+    const completedRoutines = todayRoutineExecutions.filter(e => e.completedAt)
+    const routineCompletionRate = todayRoutineExecutions.length > 0
+      ? Math.round((completedRoutines.length / todayRoutineExecutions.length) * 100)
+      : 0
+
+    // 今日の記録の有無
+    const todayRecord = dailyRecords.find(r => r.date === todayStr)
+    const hasTodayRecord = !!todayRecord
+
     return {
       total: totalTasks,
       todayTasks: todayTasks.length,
+      completedTodayTasks: completedTodayTasks.length,
+      completionRate,
       totalEstimatedTime,
       totalElapsedTimeMinutes,
+      routineTasks: routineTasks.length,
+      routineCompletionRate,
+      hasTodayRecord,
     }
-  }, [tasks])
+  }, [tasks, routineExecutions, dailyRecords])
 
   if (loading) {
     return (
@@ -278,10 +325,6 @@ export default function Dashboard() {
       </div>
     )
   }
-
-  const progressPercent = stats.totalEstimatedTime > 0 
-    ? Math.round((stats.totalElapsedTimeMinutes / stats.totalEstimatedTime) * 100)
-    : 0
 
   const widgetIds = sortedWidgets.map(w => w.id)
 
@@ -385,52 +428,6 @@ export default function Dashboard() {
             if (!widgetData) return null
 
             switch (widget.id) {
-              case 'stats-grid':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="animate-fade-in-up stagger-1">
-                        <StatsCard
-                          title="Total Tasks"
-                          value={stats.total}
-                          icon="▣"
-                          color="blue"
-                        />
-                      </div>
-                      <div className="animate-fade-in-up stagger-2">
-                        <StatsCard
-                          title="Today's Tasks"
-                          value={stats.todayTasks}
-                          icon="◈"
-                          color="green"
-                        />
-                      </div>
-                      <div className="animate-fade-in-up stagger-3">
-                        <StatsCard
-                          title="Estimated"
-                          value={`${stats.totalEstimatedTime}m`}
-                          icon="◇"
-                          color="purple"
-                        />
-                      </div>
-                      <div className="animate-fade-in-up stagger-4">
-                        <StatsCard
-                          title="Actual"
-                          value={`${stats.totalElapsedTimeMinutes}m`}
-                          icon="◎"
-                          color="orange"
-                        />
-                      </div>
-                    </div>
-                  </DashboardWidget>
-                )
-
               case 'weather-card':
                 return (
                   <DashboardWidget
@@ -470,7 +467,7 @@ export default function Dashboard() {
                   </DashboardWidget>
                 )
 
-              case 'daily-review':
+              case 'tasks-summary':
                 return (
                   <DashboardWidget
                     key={widget.id}
@@ -479,12 +476,19 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <DailyReflection tasks={tasks} dailyRecords={dailyRecords} projects={projects} modes={modes} tags={tags} />
+                    <SummaryCard
+                      title="タスク"
+                      icon="▣"
+                      value={stats.todayTasks}
+                      subtitle={`完了率: ${stats.completionRate}%`}
+                      linkTo="/tasks"
+                      linkLabel="タスク一覧を見る"
+                      color="green"
+                    />
                   </DashboardWidget>
                 )
 
-              case 'time-summary':
-                if (stats.totalEstimatedTime === 0) return null
+              case 'routine-summary':
                 return (
                   <DashboardWidget
                     key={widget.id}
@@ -493,71 +497,19 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <div className="card-industrial p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="font-display text-sm tracking-[0.1em] uppercase text-[var(--color-text-primary)]">
-                          Today's Progress
-                        </h2>
-                        <span className={`font-display text-2xl font-semibold ${
-                          progressPercent > 100 ? 'text-[var(--color-error)]' : 
-                          progressPercent > 80 ? 'text-[var(--color-warning)]' : 
-                          'text-[var(--color-secondary)]'
-                        }`}>
-                          {progressPercent}%
-                        </span>
-                      </div>
-                      
-                      {/* Progress Bar */}
-                      <div className="progress-industrial mb-6">
-                        <div 
-                          className="progress-industrial-bar"
-                          style={{ width: `${Math.min(progressPercent, 100)}%` }}
-                        />
-                      </div>
-                      
-                      {/* Time Details */}
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
-                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                            Estimated
-                          </p>
-                          <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                            {stats.totalEstimatedTime}
-                            <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
-                          </p>
-                        </div>
-                        <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
-                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                            Actual
-                          </p>
-                          <p className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                            {stats.totalElapsedTimeMinutes}
-                            <span className="text-sm text-[var(--color-text-tertiary)] ml-1">min</span>
-                          </p>
-                        </div>
-                        <div className={`p-4 border ${
-                          stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
-                            ? 'bg-[var(--color-error)]/10 border-[var(--color-error)]/30'
-                            : 'bg-[var(--color-secondary)]/10 border-[var(--color-secondary)]/30'
-                        }`}>
-                          <p className="font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                            {stats.totalElapsedTimeMinutes > stats.totalEstimatedTime ? 'Over' : 'Remaining'}
-                          </p>
-                          <p className={`font-display text-xl font-semibold ${
-                            stats.totalElapsedTimeMinutes > stats.totalEstimatedTime
-                              ? 'text-[var(--color-error)]'
-                              : 'text-[var(--color-secondary)]'
-                          }`}>
-                            {Math.abs(stats.totalEstimatedTime - stats.totalElapsedTimeMinutes)}
-                            <span className="text-sm opacity-70 ml-1">min</span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    <SummaryCard
+                      title="ルーティン"
+                      icon="◎"
+                      value={stats.routineCompletionRate}
+                      subtitle={`${stats.routineTasks}件のルーティン`}
+                      linkTo="/routine-checker"
+                      linkLabel="ルーティンチェッカーを見る"
+                      color="purple"
+                    />
                   </DashboardWidget>
                 )
 
-              case 'time-axis-chart':
+              case 'analyze-summary':
                 return (
                   <DashboardWidget
                     key={widget.id}
@@ -566,25 +518,36 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <div className="card-industrial p-6">
-                      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
-                        <div>
-                          <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-                            Timeline
-                          </p>
-                          <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                            時間軸分析
-                          </h2>
-                        </div>
-                      </div>
-                      <TimeAxisChart
-                        tasks={tasks}
-                        projects={projects}
-                        modes={modes}
-                        tags={tags}
-                        date={new Date()}
-                      />
-                    </div>
+                    <SummaryCard
+                      title="分析"
+                      icon="◆"
+                      value="分析"
+                      subtitle="タスク分析・振り返り"
+                      linkTo="/analyze"
+                      linkLabel="詳細分析を見る"
+                      color="blue"
+                    />
+                  </DashboardWidget>
+                )
+
+              case 'daily-records-summary':
+                return (
+                  <DashboardWidget
+                    key={widget.id}
+                    id={widget.id}
+                    isEditMode={isEditMode}
+                    visible={widgetData.visible}
+                    onToggleVisible={() => handleToggleVisible(widget.id)}
+                  >
+                    <SummaryCard
+                      title="日次記録"
+                      icon="📊"
+                      value={stats.hasTodayRecord ? '記録済み' : '未記録'}
+                      subtitle="統計・履歴の確認"
+                      linkTo="/daily-records"
+                      linkLabel="統計を確認"
+                      color={stats.hasTodayRecord ? 'green' : 'orange'}
+                    />
                   </DashboardWidget>
                 )
 

@@ -1,6 +1,9 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import { useNotification } from '../../context/NotificationContext'
+import { useSelectedDate } from '../../context/SelectedDateContext'
 import Toast from '../common/Toast'
 
 interface HeaderProps {
@@ -12,6 +15,7 @@ export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: He
   const navigate = useNavigate()
   const location = useLocation()
   const { notifications, removeNotification } = useNotification()
+  const { selectedDate, goToPrevDay, goToNextDay, goToToday, isToday } = useSelectedDate()
 
   const handleLogoClick = () => {
     navigate('/')
@@ -95,16 +99,37 @@ export default function Header({ onMenuClick, sidebarAlwaysVisible = false }: He
 
         {/* Right Section */}
         <div className="flex items-center gap-4 flex-shrink-0">
-          {/* Time Display */}
-          <div className="hidden md:flex items-center gap-2">
-            <span className="font-display text-sm tracking-wider text-[var(--color-text-secondary)]">
-              {new Date().toLocaleDateString('ja-JP', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit',
-                weekday: 'short'
-              })}
-            </span>
+          {/* Date Navigation */}
+          <div className="hidden md:flex items-center gap-1">
+            <button
+              onClick={goToPrevDay}
+              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors"
+              aria-label="前日"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              onClick={goToToday}
+              className={`font-display text-sm tracking-wider px-2 py-1 transition-colors ${
+                isToday 
+                  ? 'text-[var(--color-text-secondary)]' 
+                  : 'text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10'
+              }`}
+              title={isToday ? '今日' : '今日に戻る'}
+            >
+              {format(selectedDate, 'yyyy/MM/dd(E)', { locale: ja })}
+            </button>
+            <button
+              onClick={goToNextDay}
+              className="p-1.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)] transition-colors"
+              aria-label="翌日"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
           
           {/* Status Indicator */}

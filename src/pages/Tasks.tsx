@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import { Task } from '../types'
 import { useTasks } from '../hooks/useTasks'
+import { useSelectedDate } from '../context/SelectedDateContext'
 import TaskList from '../components/tasks/TaskList'
 import TaskForm from '../components/tasks/TaskForm'
 
@@ -22,11 +25,13 @@ export default function Tasks() {
     routineExecutions,
   } = useTasks()
   
+  const { selectedDate, isToday } = useSelectedDate()
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addTask(taskData)
+    // 選択日付をベースにタスクを作成（今日以外の日付が選択されている場合）
+    addTask(taskData, isToday ? undefined : selectedDate)
     setShowForm(false)
   }
 
@@ -76,7 +81,12 @@ export default function Tasks() {
             Tasks
           </p>
           <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-            今日のタスク
+            {format(selectedDate, 'M/d(E)', { locale: ja })} のタスク
+            {isToday && (
+              <span className="ml-3 text-sm font-normal text-[var(--color-accent)]">
+                今日
+              </span>
+            )}
           </h1>
         </div>
         {!showForm && (
@@ -119,6 +129,7 @@ export default function Tasks() {
           modes={modes}
           tags={tags}
           routineExecutions={routineExecutions}
+          referenceDate={selectedDate}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onStartTimer={startTaskTimer}

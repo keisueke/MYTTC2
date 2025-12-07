@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react'
 import { useTasks } from '../hooks/useTasks'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
+import DailyReflection from '../components/dashboard/DailyReflection'
 
 type TimePeriod = 'week' | 'month' | '3months'
-type AnalysisTab = 'overview' | 'category' | 'timeline' | 'trends'
+type AnalysisTab = 'overview' | 'category' | 'timeline' | 'trends' | 'reflection'
 
 export default function Analyze() {
-  const { tasks, projects, modes, tags, loading } = useTasks()
+  const { tasks, projects, modes, tags, dailyRecords, loading } = useTasks()
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('week')
   const [activeTab, setActiveTab] = useState<AnalysisTab>('overview')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -98,6 +99,7 @@ export default function Analyze() {
     { id: 'category', label: 'カテゴリー', icon: '◇' },
     { id: 'timeline', label: 'タイムライン', icon: '◎' },
     { id: 'trends', label: 'トレンド', icon: '▣' },
+    { id: 'reflection', label: '振り返り', icon: '💭' },
   ]
 
   return (
@@ -415,6 +417,18 @@ export default function Analyze() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'reflection' && (
+        <div>
+          <DailyReflection 
+            tasks={tasks} 
+            dailyRecords={dailyRecords} 
+            projects={projects} 
+            modes={modes} 
+            tags={tags} 
+          />
         </div>
       )}
     </div>

@@ -13,13 +13,21 @@ interface DailyReflectionProps {
   tags?: Tag[]
 }
 
+// ローカル日付文字列を取得
+const toLocalDateStr = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function DailyReflection({ tasks, dailyRecords, projects, modes, tags }: DailyReflectionProps) {
   const { showNotification } = useNotification()
   const [primaryConfig, setPrimaryConfig] = useState(aiConfig.getPrimaryConfig())
   const [reflection, setReflection] = useState<DailyReflectionType | null>(null)
   const [generating, setGenerating] = useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = toLocalDateStr(new Date())
 
   useEffect(() => {
     const config = aiConfig.getPrimaryConfig()

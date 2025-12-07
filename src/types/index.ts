@@ -39,6 +39,8 @@ export interface Task {
   reminders?: TaskReminder[] // リマインダー配列
   // ルーティンチェッカー表示設定
   showInRoutineChecker?: boolean // ルーティンチェッカーで表示するかどうか（デフォルト: true）
+  // 時間セクション
+  timeSectionId?: string // 時間セクションのID（自動判定または手動設定）
 }
 
 export interface RepeatConfig {
@@ -194,15 +196,13 @@ export interface SummaryConfig {
 }
 
 export type DashboardWidgetId = 
-  | 'stats-grid'
   | 'weather-card'
   | 'habit-tracker'
   | 'daily-record-input'
-  | 'time-summary'
-  | 'time-axis-chart'
-  | 'recent-tasks'
-  | 'daily-reflection'
-  | 'daily-review'
+  | 'tasks-summary'
+  | 'routine-summary'
+  | 'analyze-summary'
+  | 'daily-records-summary'
 
 export interface DashboardWidget {
   id: DashboardWidgetId
@@ -213,6 +213,9 @@ export interface DashboardWidget {
 export interface DashboardLayoutConfig {
   widgets: DashboardWidget[]
 }
+
+// 週の開始日設定
+export type WeekStartDay = 'sunday' | 'monday'
 
 export interface AppData {
   tasks: Task[]
@@ -232,6 +235,8 @@ export interface AppData {
   subTasks?: SubTask[] // 詳細タスク（ルーティンチェッカー用）
   dashboardLayout?: DashboardLayoutConfig // ダッシュボードレイアウト設定
   routineExecutions?: RoutineExecution[] // ルーティン実行記録
+  timeSectionSettings?: TimeSectionSettings // 時間セクション設定
+  weekStartDay?: WeekStartDay // 週の開始日（デフォルト: 'monday'）
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string
@@ -276,5 +281,30 @@ export interface DailyReflection {
   suggestions: string[] // 改善提案
   provider?: AIProvider // 使用したAPIプロバイダー
   createdAt: string // ISO date string
+}
+
+// 時間セクション（朝時間、仕事、夜など）
+export interface TimeSection {
+  id: string
+  name: string // セクション名（例: 朝時間、仕事、夜）
+  start: string // 開始時刻 HH:mm
+  end: string // 終了時刻 HH:mm
+  color?: string // バッジ表示用のカラー
+  order: number // 表示順序
+}
+
+// 曜日（0=日曜日, 1=月曜日, ..., 6=土曜日）
+export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+// 曜日ごとの時間セクション設定
+export interface TimeSectionDayConfig {
+  weekday: Weekday
+  sections: TimeSection[]
+}
+
+// 時間セクション設定全体
+export interface TimeSectionSettings {
+  enabled: boolean // 時間セクション機能を有効にするか
+  dayConfigs: TimeSectionDayConfig[] // 曜日ごとの設定（7日分）
 }
 

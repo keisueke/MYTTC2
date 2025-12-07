@@ -7,7 +7,7 @@ import { loadData, clearAllData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { applyTheme, Theme } from '../utils/theme'
-import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth } from '../services/taskService'
+import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth, getWeekStartDay, saveWeekStartDay } from '../services/taskService'
 import { getCoordinatesFromCity } from '../services/weatherService'
 import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
 import { SummaryConfig } from '../types'
@@ -22,6 +22,7 @@ import ModeForm from '../components/modes/ModeForm'
 import TagList from '../components/tags/TagList'
 import TagForm from '../components/tags/TagForm'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
+import TimeSectionSettingsComponent from '../components/settings/TimeSectionSettings'
 
 type TabType = 'project' | 'mode' | 'tag'
 
@@ -84,6 +85,7 @@ export default function Settings() {
   const [savingWeather, setSavingWeather] = useState(false)
   const [summaryConfig, setSummaryConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [sidebarAlwaysVisible, setSidebarAlwaysVisible] = useState(getSidebarVisibility())
+  const [weekStartDay, setWeekStartDay] = useState<'sunday' | 'monday'>(getWeekStartDay())
   const [showTemplateForm, setShowTemplateForm] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<{ id?: string; title: string; content: string } | undefined>(undefined)
   const [templateTitle, setTemplateTitle] = useState('')
@@ -527,6 +529,63 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* 週の開始日設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Week Start
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              週の開始日
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-display text-sm text-[var(--color-text-primary)] mb-1">
+                週の開始日
+              </p>
+              <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+                ハビットトラッカーなどで使用する週の開始日を設定
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setWeekStartDay('sunday')
+                  saveWeekStartDay('sunday')
+                  showNotification('週の開始日を日曜日に設定しました', 'success')
+                }}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                  weekStartDay === 'sunday'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                日曜日
+              </button>
+              <button
+                onClick={() => {
+                  setWeekStartDay('monday')
+                  saveWeekStartDay('monday')
+                  showNotification('週の開始日を月曜日に設定しました', 'success')
+                }}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                  weekStartDay === 'monday'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                月曜日
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* サイドバー表示設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -648,6 +707,11 @@ export default function Settings() {
         <p className="font-display text-xs text-[var(--color-text-tertiary)]">
           アプリの機能に関する設定
         </p>
+      </div>
+
+      {/* 時間セクション設定 */}
+      <div className="mb-6">
+        <TimeSectionSettingsComponent />
       </div>
 
       {/* 今日のまとめ設定 */}

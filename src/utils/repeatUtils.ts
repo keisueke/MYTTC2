@@ -84,15 +84,15 @@ export function generateNextRepeatTask(_task: Task): Task | null {
 }
 
 /**
- * 繰り返しタスクが今日の日付に該当するかチェック
+ * 繰り返しタスクが指定日付に該当するかチェック
  */
-export function isRepeatTaskForToday(task: Task): boolean {
+export function isRepeatTaskForDate(task: Task, baseDate: Date): boolean {
   if (task.repeatPattern === 'none' || !task.repeatConfig) {
     return false
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const targetDate = new Date(baseDate)
+  targetDate.setHours(0, 0, 0, 0)
   const taskCreatedDate = new Date(task.createdAt)
   taskCreatedDate.setHours(0, 0, 0, 0)
 
@@ -100,7 +100,7 @@ export function isRepeatTaskForToday(task: Task): boolean {
   if (task.repeatConfig.endDate) {
     const endDate = new Date(task.repeatConfig.endDate)
     endDate.setHours(0, 0, 0, 0)
-    if (today > endDate) {
+    if (targetDate > endDate) {
       return false
     }
   }
@@ -108,33 +108,40 @@ export function isRepeatTaskForToday(task: Task): boolean {
   switch (task.repeatPattern) {
     case 'daily':
       const interval = task.repeatConfig.interval || 1
-      const daysSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      const daysSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
       return daysSinceCreation >= 0 && daysSinceCreation % interval === 0
 
     case 'weekly':
       if (task.repeatConfig.daysOfWeek && task.repeatConfig.daysOfWeek.length > 0) {
-        return task.repeatConfig.daysOfWeek.includes(today.getDay())
+        return task.repeatConfig.daysOfWeek.includes(targetDate.getDay())
       }
       // 曜日指定がない場合は、作成日からの週数で判定
-      const weeksSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
+      const weeksSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
       const weekInterval = task.repeatConfig.interval || 1
       return weeksSinceCreation >= 0 && weeksSinceCreation % weekInterval === 0
 
     case 'monthly':
       if (task.repeatConfig.dayOfMonth) {
-        return today.getDate() === task.repeatConfig.dayOfMonth
+        return targetDate.getDate() === task.repeatConfig.dayOfMonth
       }
       // 日付指定がない場合は、作成日と同じ日付かチェック
-      return today.getDate() === taskCreatedDate.getDate()
+      return targetDate.getDate() === taskCreatedDate.getDate()
 
     case 'custom':
       const customInterval = task.repeatConfig.interval || 1
-      const customDaysSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      const customDaysSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
       return customDaysSinceCreation >= 0 && customDaysSinceCreation % customInterval === 0
 
     default:
       return false
   }
+}
+
+/**
+ * 繰り返しタスクが今日の日付に該当するかチェック
+ */
+export function isRepeatTaskForToday(task: Task): boolean {
+  return isRepeatTaskForDate(task, new Date())
 }
 
 /**
@@ -214,60 +221,86 @@ export function getRepeatDescription(repeatPattern: RepeatPattern, repeatConfig?
 }
 
 /**
- * タスクが今日のタスクかどうかを判定
+ * ローカル日付文字列を取得（YYYY-MM-DD形式）
  */
-export function isTaskForToday(task: Task): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayEnd = new Date(today)
-  todayEnd.setHours(23, 59, 59, 999)
-  const todayStr = today.toISOString().split('T')[0]
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
-  // 繰り返しタスクの場合は、最初にチェックしてcreatedAtが今日の日付でない場合は除外
+/**
+ * 日付文字列からローカル日付部分を抽出（YYYY-MM-DD形式）
+ * ISO文字列またはローカルISO文字列の両方に対応
+ */
+function extractLocalDateFromString(dateStr: string): string {
+  // 日付文字列をDateオブジェクトに変換してローカル日付を取得
+  const date = new Date(dateStr)
+  return toLocalDateString(date)
+}
+
+/**
+ * タスクが指定日付のタスクかどうかを判定
+ */
+export function isTaskForDate(task: Task, baseDate: Date): boolean {
+  const targetDate = new Date(baseDate)
+  targetDate.setHours(0, 0, 0, 0)
+  const targetDateEnd = new Date(targetDate)
+  targetDateEnd.setHours(23, 59, 59, 999)
+  const targetDateStr = toLocalDateString(targetDate)
+
+  // 繰り返しタスクの場合は、最初にチェックしてcreatedAtがその日付でない場合は除外
   if (task.repeatPattern !== 'none') {
-    // 繰り返しタスクの場合は、createdAtが今日の日付であることを必須条件とする
-    // これにより、昨日作成された繰り返しタスクは「今日のタスク」として表示されない
-    if (!task.createdAt || !task.createdAt.startsWith(todayStr)) {
+    // 繰り返しタスクの場合は、createdAtがその日付であることを必須条件とする
+    // これにより、別の日に作成された繰り返しタスクは表示されない
+    if (!task.createdAt) {
       return false
     }
-    return isRepeatTaskForToday(task)
+    const createdDateStr = extractLocalDateFromString(task.createdAt)
+    if (createdDateStr !== targetDateStr) {
+      return false
+    }
+    return isRepeatTaskForDate(task, baseDate)
   }
 
-  // 1. 今日作成されたタスク（繰り返しタスク以外）
+  // 1. 指定日付に作成されたタスク（繰り返しタスク以外）
   if (task.createdAt) {
-    // 日付文字列で比較（より確実）
-    if (task.createdAt.startsWith(todayStr)) {
-      return true
-    }
-    // Dateオブジェクトでも比較
-    const createdDate = new Date(task.createdAt)
-    if (createdDate >= today && createdDate <= todayEnd) {
+    const createdDateStr = extractLocalDateFromString(task.createdAt)
+    if (createdDateStr === targetDateStr) {
       return true
     }
   }
 
-  // 2. 今日が期限日のタスク（繰り返しタスク以外）
+  // 2. 指定日付が期限日のタスク（繰り返しタスク以外）
   if (task.dueDate) {
-    // 日付文字列で比較
-    if (task.dueDate.startsWith(todayStr)) {
+    // dueDateは通常YYYY-MM-DD形式なのでそのまま比較
+    if (task.dueDate.startsWith(targetDateStr)) {
       return true
     }
-    // Dateオブジェクトでも比較
+    // Dateオブジェクトでも比較（タイムゾーン考慮）
     const dueDate = new Date(task.dueDate)
-    dueDate.setHours(0, 0, 0, 0)
-    if (dueDate.getTime() === today.getTime()) {
+    const dueDateStr = toLocalDateString(dueDate)
+    if (dueDateStr === targetDateStr) {
       return true
     }
   }
 
-  // 3. 今日作業を開始したタスク（繰り返しタスク以外）
+  // 3. 指定日付に作業を開始したタスク（繰り返しタスク以外）
   if (task.startTime) {
-    const startDate = new Date(task.startTime)
-    if (startDate >= today && startDate <= todayEnd) {
+    const startDateStr = extractLocalDateFromString(task.startTime)
+    if (startDateStr === targetDateStr) {
       return true
     }
   }
 
   return false
+}
+
+/**
+ * タスクが今日のタスクかどうかを判定
+ */
+export function isTaskForToday(task: Task): boolean {
+  return isTaskForDate(task, new Date())
 }
 

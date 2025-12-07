@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Task, RoutineExecution } from '../../types'
+import { getWeekStartDay } from '../../services/taskService'
 
 interface HabitTrackerProps {
   tasks: Task[]
@@ -7,34 +8,42 @@ interface HabitTrackerProps {
 }
 
 /**
- * 今週の範囲（月曜日〜日曜日）を取得
+ * 今週の範囲を取得（週の開始日設定に基づく）
  */
-const getWeekRange = () => {
+const getWeekRange = (weekStartDay: 'sunday' | 'monday') => {
   const today = new Date()
   const dayOfWeek = today.getDay() // 0 (日曜日) から 6 (土曜日)
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // 月曜日までのオフセット
   
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + mondayOffset)
-  monday.setHours(0, 0, 0, 0)
+  let startOffset: number
+  if (weekStartDay === 'sunday') {
+    // 日曜日始まり: 今日が日曜(0)なら0、月曜(1)なら-1、...、土曜(6)なら-6
+    startOffset = -dayOfWeek
+  } else {
+    // 月曜日始まり: 今日が日曜(0)なら-6、月曜(1)なら0、...、土曜(6)なら-5
+    startOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  }
   
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate() + 6)
-  sunday.setHours(23, 59, 59, 999)
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() + startOffset)
+  weekStart.setHours(0, 0, 0, 0)
   
-  return { monday, sunday }
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  weekEnd.setHours(23, 59, 59, 999)
+  
+  return { weekStart, weekEnd }
 }
 
 /**
- * 今週の各日（月〜日）を取得
+ * 今週の各日を取得（週の開始日設定に基づく）
  */
-const getWeekDays = () => {
-  const { monday } = getWeekRange()
+const getWeekDays = (weekStartDay: 'sunday' | 'monday') => {
+  const { weekStart } = getWeekRange(weekStartDay)
   const days: Date[] = []
   
   for (let i = 0; i < 7; i++) {
-    const day = new Date(monday)
-    day.setDate(monday.getDate() + i)
+    const day = new Date(weekStart)
+    day.setDate(weekStart.getDate() + i)
     days.push(day)
   }
   
@@ -61,11 +70,21 @@ const getMonthDays = () => {
 }
 
 /**
+ * ローカル日付文字列を取得（YYYY-MM-DD形式）
+ */
+const toLocalDateStr = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
  * 指定された日付にルーティンが完了したかどうかを判定
  * RoutineExecutionから実行履歴を取得
  */
 const isCompletedOnDate = (routineTaskId: string, routineExecutions: RoutineExecution[], date: Date): boolean => {
-  const dateStr = date.toISOString().split('T')[0]
+  const dateStr = toLocalDateStr(date)
   
   // 指定された日付の実行記録を探す
   const execution = routineExecutions.find(e => 
@@ -91,6 +110,9 @@ const isToday = (date: Date): boolean => {
 export default function HabitTracker({ tasks, routineExecutions = [] }: HabitTrackerProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
   
+  // 週の開始日設定を取得
+  const weekStartDay = useMemo(() => getWeekStartDay(), [])
+  
   // 繰り返しパターンが設定されているタスクのみをフィルタリング
   const repeatTasks = tasks.filter(task => task.repeatPattern !== 'none')
   
@@ -114,12 +136,32 @@ export default function HabitTracker({ tasks, routineExecutions = [] }: HabitTra
       }
     }
     
-    return Array.from(groups.values())
+    // ルーティンページと同じ順番（orderプロパティ優先）でソート
+    const result = Array.from(groups.values())
+    result.sort((a, b) => {
+      // orderが設定されている場合はそれを優先
+      const aOrder = a.representative.order
+      const bOrder = b.representative.order
+      
+      if (aOrder !== undefined && bOrder !== undefined) {
+        return aOrder - bOrder
+      }
+      if (aOrder !== undefined) return -1
+      if (bOrder !== undefined) return 1
+      
+      // orderが設定されていない場合は作成日順（新しい順）
+      return new Date(b.representative.createdAt).getTime() - new Date(a.representative.createdAt).getTime()
+    })
+    
+    return result
   }, [repeatTasks])
   
-  const weekDays = getWeekDays()
+  const weekDays = useMemo(() => getWeekDays(weekStartDay), [weekStartDay])
   const monthDays = getMonthDays()
-  const dayLabels = ['月', '火', '水', '木', '金', '土', '日']
+  // 週の開始日に応じた曜日ラベル
+  const dayLabels = weekStartDay === 'sunday' 
+    ? ['日', '月', '火', '水', '木', '金', '土']
+    : ['月', '火', '水', '木', '金', '土', '日']
   
   const displayDays = viewMode === 'daily' ? weekDays : monthDays
   

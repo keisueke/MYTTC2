@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal, TaskReminder } from '../../types'
+import { useState, useEffect, useMemo } from 'react'
+import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal, TaskReminder, Weekday } from '../../types'
+import { getTimeSectionSettings, getTimeSectionsForWeekday, findTimeSectionForDateTime } from '../../services/taskService'
 
 interface TaskFormProps {
   task?: Task
@@ -132,7 +133,34 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           .filter((m): m is number => m !== null)
       : []
   )
+  // 時間セクション
+  const [timeSectionId, setTimeSectionId] = useState<string | undefined>(task?.timeSectionId)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  
+  // 時間セクション設定
+  const timeSectionSettings = useMemo(() => getTimeSectionSettings(), [])
+  
+  // 現在の日付の曜日に基づくセクション一覧
+  const availableSections = useMemo(() => {
+    if (!timeSectionSettings.enabled) return []
+    const weekday = new Date().getDay() as Weekday
+    return getTimeSectionsForWeekday(weekday)
+  }, [timeSectionSettings])
+  
+  // 自動判定されたセクション
+  const autoDetectedSection = useMemo(() => {
+    if (!timeSectionSettings.enabled) return undefined
+    
+    // startTimeがあればその時刻で判定
+    if (startTime) {
+      return findTimeSectionForDateTime(new Date(startTime))
+    }
+    // dueDateがあればその時刻で判定
+    if (dueDate) {
+      return findTimeSectionForDateTime(new Date(dueDate))
+    }
+    return undefined
+  }, [timeSectionSettings, startTime, dueDate])
   
   // 過去の類似タスクを検索
   const similarTasks = title.trim() 
@@ -255,6 +283,9 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       })
     }
     
+    // 時間セクションの決定（手動設定 > 自動判定）
+    const finalTimeSectionId = timeSectionId || autoDetectedSection?.id
+    
     const submitData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -269,14 +300,17 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       estimatedTime: estimatedTime !== '' ? (typeof estimatedTime === 'number' ? estimatedTime : parseInt(String(estimatedTime)) || undefined) : undefined,
       dueDate: newDueDate,
       reminders,
+      timeSectionId: finalTimeSectionId,
     }
     
-    // 開始時間と終了時間の両方がある場合、経過時間を再計算
+    // 開始時間と終了時間の両方がある場合、経過時間を再計算し、タイマーを停止
     if (newStartTime && newEndTime) {
       const start = new Date(newStartTime).getTime()
       const end = new Date(newEndTime).getTime()
       const elapsed = Math.floor((end - start) / 1000)
       submitData.elapsedTime = elapsed > 0 ? elapsed : (task?.elapsedTime || 0)
+      // 手動で開始・終了時刻を設定した場合はタイマーを停止状態にする
+      submitData.isRunning = false
     } else if (task?.elapsedTime !== undefined) {
       submitData.elapsedTime = task.elapsedTime
     }
@@ -406,6 +440,47 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           </p>
         )}
       </div>
+
+      {/* 時間セクション */}
+      {timeSectionSettings.enabled && availableSections.length > 0 && (
+        <div>
+          <label htmlFor="timeSection" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+            時間セクション
+          </label>
+          <div className="flex items-center gap-3">
+            <select
+              id="timeSection"
+              value={timeSectionId || ''}
+              onChange={(e) => setTimeSectionId(e.target.value || undefined)}
+              className="input-industrial flex-1"
+            >
+              <option value="">自動判定</option>
+              {availableSections.map(section => (
+                <option key={section.id} value={section.id}>
+                  {section.name} ({section.start}〜{section.end})
+                </option>
+              ))}
+            </select>
+            {!timeSectionId && autoDetectedSection && (
+              <span 
+                className="px-2 py-1 text-xs rounded"
+                style={{ 
+                  backgroundColor: `${autoDetectedSection.color}20`,
+                  color: autoDetectedSection.color,
+                  border: `1px solid ${autoDetectedSection.color}40`
+                }}
+              >
+                → {autoDetectedSection.name}
+              </span>
+            )}
+          </div>
+          {!timeSectionId && !autoDetectedSection && (
+            <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+              開始時間または期限を設定すると、時間帯が自動判定されます
+            </p>
+          )}
+        </div>
+      )}
 
       <div>
         <label htmlFor="description" className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">

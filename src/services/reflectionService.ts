@@ -66,7 +66,31 @@ export async function generateReflection(
     throw new Error('プライマリAI APIが設定されていません。設定画面でAPIキーを設定してください。')
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  // ローカル日付文字列を取得
+  const toLocalDateStr = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  // ローカルISO文字列を取得
+  const toLocalISOStr = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    const ms = String(date.getMilliseconds()).padStart(3, '0')
+    const tzOffset = -date.getTimezoneOffset()
+    const tzSign = tzOffset >= 0 ? '+' : '-'
+    const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0')
+    const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`
+  }
+
+  const today = toLocalDateStr(new Date())
   
   // 既存の振り返りをチェック
   const existing = getReflectionByDate(today)
@@ -77,10 +101,12 @@ export async function generateReflection(
   // 今日のタスクを集計
   const todayTasks = tasks.filter(task => {
     if (task.completedAt) {
-      return task.completedAt.startsWith(today)
+      const completedDateStr = toLocalDateStr(new Date(task.completedAt))
+      return completedDateStr === today
     }
     if (task.createdAt) {
-      return task.createdAt.startsWith(today)
+      const createdDateStr = toLocalDateStr(new Date(task.createdAt))
+      return createdDateStr === today
     }
     return false
   })
@@ -112,7 +138,7 @@ export async function generateReflection(
     insights: result.insights,
     suggestions: result.suggestions,
     provider: config.provider,
-    createdAt: new Date().toISOString(),
+    createdAt: toLocalISOStr(new Date()),
   }
 
   // 保存

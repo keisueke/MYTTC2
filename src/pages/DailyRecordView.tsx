@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { getDailyRecordsByPeriod } from '../services/taskService'
+import { getDailyRecordsByPeriod, getWeekStartDay } from '../services/taskService'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import WeightChart from '../components/dailyRecord/WeightChart'
@@ -10,11 +10,17 @@ import Insights from '../components/dailyRecord/Insights'
 export default function DailyRecordView() {
   const [period, setPeriod] = useState<'week' | 'month'>('week')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  
+  // 週の開始日設定を取得（0: 日曜日, 1: 月曜日）
+  const weekStartsOn = useMemo(() => {
+    const setting = getWeekStartDay()
+    return setting === 'sunday' ? 0 : 1
+  }, [])
 
   // 週の開始日と終了日を計算
   const getWeekRange = (date: Date) => {
-    const start = startOfWeek(date, { weekStartsOn: 0 }) // 日曜日開始
-    const end = endOfWeek(date, { weekStartsOn: 0 })
+    const start = startOfWeek(date, { weekStartsOn })
+    const end = endOfWeek(date, { weekStartsOn })
     return { start, end }
   }
 
@@ -28,7 +34,7 @@ export default function DailyRecordView() {
   // 現在の期間の範囲を取得
   const currentRange = useMemo(() => {
     return period === 'week' ? getWeekRange(selectedDate) : getMonthRange(selectedDate)
-  }, [period, selectedDate])
+  }, [period, selectedDate, weekStartsOn])
 
   // 前の期間の範囲を取得（比較用）
   const previousRange = useMemo(() => {
@@ -39,7 +45,7 @@ export default function DailyRecordView() {
       const prevDate = subMonths(selectedDate, 1)
       return getMonthRange(prevDate)
     }
-  }, [period, selectedDate])
+  }, [period, selectedDate, weekStartsOn])
 
   // 記録を取得
   const records = useMemo(() => {

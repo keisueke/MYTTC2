@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig, RoutineExecution } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig, RoutineExecution, TimeSectionSettings, TimeSectionDayConfig, TimeSection, Weekday } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 import { isRepeatTaskForToday, generateTodayRepeatTask } from '../utils/repeatUtils'
@@ -90,9 +90,30 @@ export function getTaskById(id: string): Task | undefined {
 }
 
 /**
- * タスクを追加する
+ * ローカル時間をISO形式の文字列に変換（タイムゾーンを保持）
  */
-export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
+function toLocalISOString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  const ms = String(date.getMilliseconds()).padStart(3, '0')
+  // タイムゾーンオフセットを取得
+  const tzOffset = -date.getTimezoneOffset()
+  const tzSign = tzOffset >= 0 ? '+' : '-'
+  const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0')
+  const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`
+}
+
+/**
+ * タスクを追加する
+ * @param task タスクデータ
+ * @param referenceDate 基準日付（指定された場合、その日付の現在時刻でcreatedAtを設定）
+ */
+export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, referenceDate?: Date): Task {
   const data = loadData()
   
   // 順序が指定されていない場合、最大のorder + 1を設定
@@ -104,11 +125,23 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Tas
     order = maxOrder + 1
   }
   
+  // createdAtの日付を決定
+  // referenceDateが指定された場合、その日付の現在時刻を使用
+  let createdAt: string
+  if (referenceDate) {
+    const now = new Date()
+    const refDate = new Date(referenceDate)
+    refDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds())
+    createdAt = toLocalISOString(refDate)
+  } else {
+    createdAt = toLocalISOString(new Date())
+  }
+  
   const newTask: Task = {
     ...task,
     id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt,
+    updatedAt: toLocalISOString(new Date()),
     order,
   }
   
@@ -310,6 +343,16 @@ export function copyTask(id: string): Task {
 }
 
 /**
+ * ローカル日付文字列を取得（YYYY-MM-DD形式）
+ */
+function toLocalDateStr(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
  * タスクのタイマーを開始
  */
 export function startTaskTimer(id: string): Task {
@@ -327,11 +370,12 @@ export function startTaskTimer(id: string): Task {
     }
   })
   
-  const startTime = new Date().toISOString()
+  const now = new Date()
+  const startTime = toLocalISOString(now)
+  const today = toLocalDateStr(now)
   
   // ルーティンタスクの場合は、RoutineExecutionも更新
   if (task.repeatPattern !== 'none') {
-    const today = new Date().toISOString().split('T')[0]
     if (!data.routineExecutions) {
       data.routineExecutions = []
     }
@@ -373,7 +417,10 @@ export function stopTaskTimer(id: string): Task {
     throw new Error(`Task with id ${id} not found`)
   }
   
-  const endTime = new Date().toISOString()
+  const now = new Date()
+  const endTime = toLocalISOString(now)
+  const today = toLocalDateStr(now)
+  
   let updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {
     isRunning: false,
     endTime,
@@ -383,7 +430,7 @@ export function stopTaskTimer(id: string): Task {
   // タイマーが実行中の場合、経過時間を計算
   let elapsed = 0
   if (task.isRunning && task.startTime) {
-    elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
+    elapsed = Math.floor((now.getTime() - new Date(task.startTime).getTime()) / 1000)
     const totalElapsed = (task.elapsedTime || 0) + elapsed
     updates.elapsedTime = totalElapsed
     // 開始時間は保持する
@@ -394,7 +441,6 @@ export function stopTaskTimer(id: string): Task {
   
   // ルーティンタスクの場合は、RoutineExecutionも更新
   if (task.repeatPattern !== 'none') {
-    const today = new Date().toISOString().split('T')[0]
     if (!data.routineExecutions) {
       data.routineExecutions = []
     }
@@ -961,7 +1007,7 @@ export function getDailyRecord(date: Date): DailyRecord | undefined {
     return undefined
   }
   
-  const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD形式
+  const dateStr = toLocalDateStr(date) // YYYY-MM-DD形式
   return data.dailyRecords.find(record => record.date === dateStr)
 }
 
@@ -974,8 +1020,8 @@ export function getDailyRecordsByPeriod(startDate: Date, endDate: Date): DailyRe
     return []
   }
   
-  const startStr = startDate.toISOString().split('T')[0]
-  const endStr = endDate.toISOString().split('T')[0]
+  const startStr = toLocalDateStr(startDate)
+  const endStr = toLocalDateStr(endDate)
   
   return data.dailyRecords.filter(record => {
     return record.date >= startStr && record.date <= endStr
@@ -1243,13 +1289,13 @@ export function toggleSubTaskComplete(id: string, completed: boolean): void {
 function getDefaultDashboardLayout(): DashboardLayoutConfig {
   return {
     widgets: [
-      { id: 'stats-grid', order: 0, visible: true },
-      { id: 'weather-card', order: 1, visible: true },
-      { id: 'habit-tracker', order: 2, visible: true },
-      { id: 'daily-record-input', order: 3, visible: true },
-      { id: 'daily-review', order: 4, visible: true },
-      { id: 'time-summary', order: 5, visible: true },
-      { id: 'time-axis-chart', order: 6, visible: true },
+      { id: 'tasks-summary', order: 0, visible: true },
+      { id: 'routine-summary', order: 1, visible: true },
+      { id: 'analyze-summary', order: 2, visible: true },
+      { id: 'daily-records-summary', order: 3, visible: true },
+      { id: 'weather-card', order: 4, visible: true },
+      { id: 'habit-tracker', order: 5, visible: true },
+      { id: 'daily-record-input', order: 6, visible: true },
     ]
   }
 }
@@ -1261,11 +1307,24 @@ export function getDashboardLayout(): DashboardLayoutConfig {
   const data = loadData()
   let currentLayout = data.dashboardLayout || getDefaultDashboardLayout()
 
-  // 新しいウィジェットを既存のレイアウトに追加
+  // 削除対象のウィジェット（完全に削除）
+  const removedWidgets = ['stats-grid', 'time-summary', 'time-axis-chart', 'daily-review', 'daily-reflection', 'recent-tasks']
+  
+  // 新しいデフォルトウィジェット
   const defaultWidgets = getDefaultDashboardLayout().widgets
-  const existingWidgetIds = new Set(currentLayout.widgets.map(w => w.id))
+  const validWidgetIds = new Set(defaultWidgets.map(w => w.id))
 
   let needsUpdate = false
+
+  // 削除対象のウィジェットを除去
+  const filteredWidgets = currentLayout.widgets.filter(w => !removedWidgets.includes(w.id))
+  if (filteredWidgets.length !== currentLayout.widgets.length) {
+    currentLayout.widgets = filteredWidgets
+    needsUpdate = true
+  }
+
+  // 新しいウィジェットを既存のレイアウトに追加
+  const existingWidgetIds = new Set(currentLayout.widgets.map(w => w.id))
   for (const defaultWidget of defaultWidgets) {
     if (!existingWidgetIds.has(defaultWidget.id)) {
       currentLayout.widgets.push(defaultWidget)
@@ -1273,16 +1332,18 @@ export function getDashboardLayout(): DashboardLayoutConfig {
     }
   }
 
-  // 削除されたウィジェットをクリーンアップ (daily-reflectionを削除)
-  const validWidgetIds = new Set(defaultWidgets.map(w => w.id))
-  const filteredWidgets = currentLayout.widgets.filter(w => validWidgetIds.has(w.id))
-  if (filteredWidgets.length !== currentLayout.widgets.length) {
-    currentLayout.widgets = filteredWidgets
+  // 無効なウィジェットを削除
+  const finalFilteredWidgets = currentLayout.widgets.filter(w => validWidgetIds.has(w.id))
+  if (finalFilteredWidgets.length !== currentLayout.widgets.length) {
+    currentLayout.widgets = finalFilteredWidgets
     needsUpdate = true
   }
 
-  // orderが重複しないようにソートし直す
-  currentLayout.widgets.sort((a, b) => a.order - b.order)
+  // orderを再割り当て
+  currentLayout.widgets = currentLayout.widgets.map((widget, index) => ({
+    ...widget,
+    order: index,
+  }))
 
   if (needsUpdate) {
     saveDashboardLayout(currentLayout)
@@ -1315,7 +1376,7 @@ export function getIncompleteRoutinesFromYesterday(): Task[] {
     yesterday.setDate(yesterday.getDate() - 1)
   }
   yesterday.setHours(0, 0, 0, 0)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const yesterdayStr = toLocalDateStr(yesterday)
   
   // 昨日のルーティン実行記録を取得
   const yesterdayExecutions = data.routineExecutions?.filter(execution => {
@@ -1346,7 +1407,7 @@ export function processIncompleteTasksFromYesterday(): void {
     yesterday.setDate(yesterday.getDate() - 1)
   }
   yesterday.setHours(0, 0, 0, 0)
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const yesterdayStr = toLocalDateStr(yesterday)
   
   // 昨日作成されたタスクで、完了していないタスクを検出
   const incompleteTasks = data.tasks.filter(task => {
@@ -1359,8 +1420,8 @@ export function processIncompleteTasksFromYesterday(): void {
   // 未完了タスクに`skippedAt`を設定
   let hasUpdates = false
   for (const task of incompleteTasks) {
-    task.skippedAt = new Date().toISOString()
-    task.updatedAt = new Date().toISOString()
+    task.skippedAt = toLocalISOString(new Date())
+    task.updatedAt = toLocalISOString(new Date())
     hasUpdates = true
   }
   
@@ -1377,7 +1438,7 @@ export function processIncompleteTasksFromYesterday(): void {
  */
 export function ensureTodayRepeatTasks(): void {
   const data = loadData()
-  const today = new Date().toISOString().split('T')[0]
+  const today = toLocalDateStr(new Date())
   
   // 繰り返しタスクを取得（元のタスクのみ、今日作成されたタスクは除外）
   // 元のタスクは、createdAtが今日の日付でない繰り返しタスク
@@ -1510,7 +1571,7 @@ export function deleteRoutineExecution(id: string): void {
  */
 export function ensureTodayRoutineExecutions(): void {
   const data = loadData()
-  const today = new Date().toISOString().split('T')[0]
+  const today = toLocalDateStr(new Date())
   
   // 繰り返しタスク（テンプレート）を取得
   const routineTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
@@ -1544,5 +1605,216 @@ export function ensureTodayRoutineExecutions(): void {
     // saveDataはaddRoutineExecution内で既に呼ばれているが、念のため
     saveData(data)
   }
+}
+
+// =====================================
+// 時間セクション設定
+// =====================================
+
+/**
+ * デフォルトの時間セクション設定を生成
+ */
+function getDefaultTimeSectionSettings(): TimeSectionSettings {
+  // デフォルトのセクション（全曜日共通）
+  const defaultSections: TimeSection[] = [
+    { id: 'morning', name: '朝', start: '06:00', end: '09:00', color: '#FFB74D', order: 0 },
+    { id: 'work', name: '仕事', start: '09:00', end: '18:00', color: '#64B5F6', order: 1 },
+    { id: 'evening', name: '夕方', start: '18:00', end: '21:00', color: '#81C784', order: 2 },
+    { id: 'night', name: '夜', start: '21:00', end: '24:00', color: '#9575CD', order: 3 },
+  ]
+
+  // 全曜日に同じデフォルト設定を適用
+  const dayConfigs: TimeSectionDayConfig[] = []
+  for (let i = 0; i < 7; i++) {
+    dayConfigs.push({
+      weekday: i as Weekday,
+      sections: defaultSections.map(s => ({ ...s, id: `${s.id}-${i}` })),
+    })
+  }
+
+  return {
+    enabled: false, // デフォルトは無効
+    dayConfigs,
+  }
+}
+
+/**
+ * 時間セクション設定を取得
+ */
+export function getTimeSectionSettings(): TimeSectionSettings {
+  const data = loadData()
+  if (!data.timeSectionSettings) {
+    return getDefaultTimeSectionSettings()
+  }
+  return data.timeSectionSettings
+}
+
+/**
+ * 時間セクション設定を保存
+ */
+export function saveTimeSectionSettings(settings: TimeSectionSettings): void {
+  const data = loadData()
+  
+  // バリデーション
+  validateTimeSectionSettings(settings)
+  
+  data.timeSectionSettings = settings
+  saveData(data)
+}
+
+/**
+ * 時間セクション設定のバリデーション
+ */
+function validateTimeSectionSettings(settings: TimeSectionSettings): void {
+  for (const dayConfig of settings.dayConfigs) {
+    const sections = dayConfig.sections
+    
+    // セクション数は2〜5
+    if (sections.length < 2 || sections.length > 5) {
+      throw new Error(`曜日 ${dayConfig.weekday} のセクション数は2〜5である必要があります（現在: ${sections.length}）`)
+    }
+    
+    // 各セクションのバリデーション
+    for (const section of sections) {
+      // 名前が空でないこと
+      if (!section.name.trim()) {
+        throw new Error('セクション名は空にできません')
+      }
+      
+      // 開始時刻 < 終了時刻（24:00は特別扱い）
+      const startMinutes = timeToMinutes(section.start)
+      const endMinutes = section.end === '24:00' ? 24 * 60 : timeToMinutes(section.end)
+      
+      if (startMinutes >= endMinutes) {
+        throw new Error(`セクション「${section.name}」の開始時刻は終了時刻より前である必要があります`)
+      }
+    }
+    
+    // セクション間の重なりチェック（orderでソートして隣接チェック）
+    const sortedSections = [...sections].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
+    for (let i = 0; i < sortedSections.length - 1; i++) {
+      const current = sortedSections[i]
+      const next = sortedSections[i + 1]
+      
+      const currentEnd = current.end === '24:00' ? 24 * 60 : timeToMinutes(current.end)
+      const nextStart = timeToMinutes(next.start)
+      
+      if (currentEnd > nextStart) {
+        throw new Error(`セクション「${current.name}」と「${next.name}」の時間帯が重なっています`)
+      }
+    }
+  }
+}
+
+/**
+ * HH:mm形式の時刻を分に変換
+ */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+/**
+ * 指定された曜日の時間セクション設定を取得
+ */
+export function getTimeSectionsForWeekday(weekday: Weekday): TimeSection[] {
+  const settings = getTimeSectionSettings()
+  if (!settings.enabled) {
+    return []
+  }
+  
+  const dayConfig = settings.dayConfigs.find(dc => dc.weekday === weekday)
+  return dayConfig?.sections || []
+}
+
+/**
+ * 指定された日時が属する時間セクションを取得
+ */
+export function findTimeSectionForDateTime(date: Date): TimeSection | undefined {
+  const settings = getTimeSectionSettings()
+  if (!settings.enabled) {
+    return undefined
+  }
+  
+  const weekday = date.getDay() as Weekday
+  const sections = getTimeSectionsForWeekday(weekday)
+  
+  if (sections.length === 0) {
+    return undefined
+  }
+  
+  const hours = date.getHours()
+  const minutes = date.getMinutes()
+  const currentMinutes = hours * 60 + minutes
+  
+  for (const section of sections) {
+    const startMinutes = timeToMinutes(section.start)
+    const endMinutes = section.end === '24:00' ? 24 * 60 : timeToMinutes(section.end)
+    
+    if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+      return section
+    }
+  }
+  
+  return undefined
+}
+
+/**
+ * タスクの時間セクションを自動判定
+ * startTime, dueDate, createdAtの順で判定
+ */
+export function findTimeSectionForTask(task: Task, baseDate?: Date): TimeSection | undefined {
+  // 既にtimeSectionIdが設定されている場合はそれを使用
+  if (task.timeSectionId) {
+    const settings = getTimeSectionSettings()
+    if (!settings.enabled) {
+      return undefined
+    }
+    
+    // 全曜日から該当するセクションを探す
+    for (const dayConfig of settings.dayConfigs) {
+      const section = dayConfig.sections.find(s => s.id === task.timeSectionId)
+      if (section) {
+        return section
+      }
+    }
+    return undefined
+  }
+  
+  // startTimeがあればその時刻で判定
+  if (task.startTime) {
+    return findTimeSectionForDateTime(new Date(task.startTime))
+  }
+  
+  // dueDateがあればその時刻で判定
+  if (task.dueDate) {
+    return findTimeSectionForDateTime(new Date(task.dueDate))
+  }
+  
+  // baseDateが指定されていればその日の最初のセクションを返す
+  if (baseDate) {
+    const weekday = baseDate.getDay() as Weekday
+    const sections = getTimeSectionsForWeekday(weekday)
+    return sections[0]
+  }
+  
+  return undefined
+}
+
+/**
+ * 週の開始日を取得
+ */
+export function getWeekStartDay(): 'sunday' | 'monday' {
+  const data = loadData()
+  return data.weekStartDay || 'monday'
+}
+
+/**
+ * 週の開始日を保存
+ */
+export function saveWeekStartDay(weekStartDay: 'sunday' | 'monday'): void {
+  const data = loadData()
+  data.weekStartDay = weekStartDay
+  saveData(data)
 }
 
