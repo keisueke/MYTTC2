@@ -11,6 +11,7 @@ import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } fr
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
 import HabitTracker from '../components/dashboard/HabitTracker'
+import TimeAxisChart from '../components/dashboard/TimeAxisChart'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
 import SummaryCard from '../components/dashboard/SummaryCard'
 import { isTaskForToday } from '../utils/repeatUtils'
@@ -524,13 +525,16 @@ export default function Dashboard() {
                       value="分析"
                       subtitle="タスク分析・振り返り"
                       linkTo="/analyze"
-                      linkLabel="詳細分析を見る"
+                      linkLabel="詳細分析"
                       color="blue"
+                      additionalLinks={[
+                        { to: '/analyze?tab=reflection', label: '振り返り' }
+                      ]}
                     />
                   </DashboardWidget>
                 )
 
-              case 'daily-records-summary':
+              case 'daily-timeline':
                 return (
                   <DashboardWidget
                     key={widget.id}
@@ -539,14 +543,12 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <SummaryCard
-                      title="日次記録"
-                      icon="📊"
-                      value={stats.hasTodayRecord ? '記録済み' : '未記録'}
-                      subtitle="統計・履歴の確認"
-                      linkTo="/daily-records"
-                      linkLabel="統計を確認"
-                      color={stats.hasTodayRecord ? 'green' : 'orange'}
+                    <TimeAxisChart
+                      tasks={tasks}
+                      projects={projects}
+                      modes={modes}
+                      tags={tags}
+                      date={selectedDate}
                     />
                   </DashboardWidget>
                 )

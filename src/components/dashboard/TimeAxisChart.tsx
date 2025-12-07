@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Task, Project, Mode, Tag } from '../../types'
+import { getTimeAxisSettings, saveTimeAxisSettings } from '../../services/taskService'
 
 interface TimeAxisChartProps {
   tasks: Task[]
@@ -23,6 +24,21 @@ interface TaskTimeBlock {
 }
 
 export default function TimeAxisChart({ tasks, projects, modes, tags, date }: TimeAxisChartProps) {
+  // 表示時間範囲の設定
+  const [showSettings, setShowSettings] = useState(false)
+  const [settings, setSettings] = useState(() => getTimeAxisSettings())
+  const { startHour, endHour } = settings
+  
+  const handleSaveSettings = (newStartHour: number, newEndHour: number) => {
+    const newSettings = { startHour: newStartHour, endHour: newEndHour }
+    setSettings(newSettings)
+    saveTimeAxisSettings(newSettings)
+    setShowSettings(false)
+  }
+  
+  // 表示する時間数
+  const displayHours = endHour - startHour
+  
   // 指定日のタスクを時間軸で整理
   const timeBlocks = useMemo(() => {
     const blocks: TaskTimeBlock[] = []
@@ -129,11 +145,14 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
     return Math.max(...timeBlocks.map(b => b.layer)) + 1
   }, [timeBlocks])
   
-  // タスクブロックの位置とサイズを計算
+  // タスクブロックの位置とサイズを計算（表示範囲を考慮）
   const getBlockStyle = (block: TaskTimeBlock) => {
     const startMinutes = block.startHour * 60 + block.startMinute
     const endMinutes = block.endHour * 60 + block.endMinute
-    const top = (startMinutes / 60) * hourHeight
+    const rangeStartMinutes = startHour * 60
+    
+    // 表示範囲の開始時刻からの相対位置
+    const top = ((startMinutes - rangeStartMinutes) / 60) * hourHeight
     const height = ((endMinutes - startMinutes) / 60) * hourHeight
     
     // レイヤーごとに横にずらす（各レイヤーは幅の一部を使用）
@@ -165,39 +184,111 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
     )
   }
   
+  // 表示範囲内のタスクのみをフィルタリング
+  const visibleBlocks = useMemo(() => {
+    return timeBlocks.filter(block => {
+      // タスクの終了時間が表示開始時間より後 かつ タスクの開始時間が表示終了時間より前
+      return block.endHour > startHour && block.startHour < endHour
+    })
+  }, [timeBlocks, startHour, endHour])
+  
   return (
     <div className="space-y-4">
-      {/* 日付表示 */}
+      {/* ヘッダー */}
       <div className="flex items-center justify-between">
-        <p className="font-display text-xs tracking-[0.1em] uppercase text-[var(--color-text-tertiary)]">
-          {date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-        </p>
-        <p className="font-display text-xs text-[var(--color-text-secondary)]">
-          {timeBlocks.length}件のタスク
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="font-display text-xs tracking-[0.1em] uppercase text-[var(--color-text-tertiary)]">
+            {date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+          </p>
+          <p className="font-display text-xs text-[var(--color-text-secondary)]">
+            {visibleBlocks.length}件のタスク
+          </p>
+        </div>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="btn-industrial text-xs px-3 py-1.5"
+        >
+          {startHour}:00 - {endHour}:00 ⚙
+        </button>
       </div>
+      
+      {/* 設定パネル */}
+      {showSettings && (
+        <div className="card-industrial p-4 bg-[var(--color-bg-secondary)]">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="font-display text-xs text-[var(--color-text-secondary)]">開始:</label>
+              <select
+                value={settings.startHour}
+                onChange={(e) => setSettings({ ...settings, startHour: parseInt(e.target.value) })}
+                className="input-industrial text-xs px-2 py-1"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="font-display text-xs text-[var(--color-text-secondary)]">終了:</label>
+              <select
+                value={settings.endHour}
+                onChange={(e) => setSettings({ ...settings, endHour: parseInt(e.target.value) })}
+                className="input-industrial text-xs px-2 py-1"
+              >
+                {Array.from({ length: 24 }, (_, i) => i + 1).map(i => (
+                  <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => handleSaveSettings(settings.startHour, settings.endHour)}
+              className="btn-industrial text-xs px-3 py-1.5 bg-[var(--color-accent)] text-[var(--color-bg-primary)]"
+              disabled={settings.startHour >= settings.endHour}
+            >
+              保存
+            </button>
+            <button
+              onClick={() => {
+                setSettings(getTimeAxisSettings())
+                setShowSettings(false)
+              }}
+              className="btn-industrial text-xs px-3 py-1.5"
+            >
+              キャンセル
+            </button>
+          </div>
+          {settings.startHour >= settings.endHour && (
+            <p className="text-xs text-[var(--color-error)] mt-2">
+              開始時間は終了時間より前に設定してください
+            </p>
+          )}
+        </div>
+      )}
       
       {/* 時間軸チャート */}
       <div className="relative border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]">
         {/* 時間軸ラベル（左側） */}
         <div className="absolute left-0 top-0 bottom-0 w-16 border-r border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-          {Array.from({ length: 24 }, (_, i) => (
-            <div
-              key={i}
-              className="absolute left-0 right-0 px-2 py-1 border-b border-[var(--color-border)]"
-              style={{ top: `${i * hourHeight}px`, height: `${hourHeight}px` }}
-            >
-              <span className="font-display text-[10px] tracking-wider text-[var(--color-text-tertiary)]">
-                {i.toString().padStart(2, '0')}:00
-              </span>
-            </div>
-          ))}
+          {Array.from({ length: displayHours }, (_, i) => {
+            const hour = startHour + i
+            return (
+              <div
+                key={hour}
+                className="absolute left-0 right-0 px-2 py-1 border-b border-[var(--color-border)]"
+                style={{ top: `${i * hourHeight}px`, height: `${hourHeight}px` }}
+              >
+                <span className="font-display text-[10px] tracking-wider text-[var(--color-text-tertiary)]">
+                  {hour.toString().padStart(2, '0')}:00
+                </span>
+              </div>
+            )
+          })}
         </div>
         
         {/* タスクブロックエリア */}
-        <div className="relative ml-16" style={{ height: `${24 * hourHeight}px` }}>
+        <div className="relative ml-16" style={{ height: `${displayHours * hourHeight}px` }}>
           {/* 時間帯の背景（交互の色） */}
-          {Array.from({ length: 24 }, (_, i) => (
+          {Array.from({ length: displayHours }, (_, i) => (
             <div
               key={i}
               className="absolute left-0 right-0 border-b border-[var(--color-border)]"
@@ -210,7 +301,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
           ))}
           
           {/* タスクブロック */}
-          {timeBlocks.map((block) => {
+          {visibleBlocks.map((block) => {
             const style = getBlockStyle(block)
             const color = getBlockColor(block)
             

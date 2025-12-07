@@ -83,6 +83,27 @@ export function useTasks() {
     return () => clearInterval(interval)
   }, [loadData])
 
+  // ページがフォーカスされた時にデータを更新
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    
+    const handleFocus = () => {
+      loadData()
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [loadData])
+
   // タスクを追加
   const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, referenceDate?: Date) => {
     try {
@@ -96,16 +117,55 @@ export function useTasks() {
   }, [])
 
   // タスクを更新
-  const updateTask = useCallback((id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
+  const updateTask = useCallback((id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>, referenceDate?: Date) => {
     try {
       const updatedTask = taskService.updateTask(id, updates)
       setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      
+      // ルーティンタスクの場合、RoutineExecutionも更新
+      if (updatedTask.repeatPattern !== 'none') {
+        const today = referenceDate || new Date()
+        const todayStr = taskService.toLocalDateStr(today)
+        
+        // 今日のRoutineExecutionを検索
+        const existingExecution = routineExecutions.find(e => 
+          e.routineTaskId === id && e.date.startsWith(todayStr)
+        )
+        
+        if (existingExecution) {
+          // 更新に経過時間、開始時刻、終了時刻、完了時刻が含まれている場合はRoutineExecutionも更新
+          const executionUpdates: Partial<Omit<RoutineExecution, 'id' | 'createdAt'>> = {}
+          
+          if (updates.elapsedTime !== undefined) {
+            executionUpdates.elapsedTime = updates.elapsedTime
+          }
+          if (updates.startTime !== undefined) {
+            executionUpdates.startTime = updates.startTime
+          }
+          if (updates.endTime !== undefined) {
+            executionUpdates.endTime = updates.endTime
+          }
+          if (updates.completedAt !== undefined) {
+            executionUpdates.completedAt = updates.completedAt
+          }
+          // startTimeとendTimeの両方がある場合は完了とみなす
+          if (updates.startTime && updates.endTime && !updates.completedAt) {
+            executionUpdates.completedAt = updates.endTime
+          }
+          
+          if (Object.keys(executionUpdates).length > 0) {
+            taskService.updateRoutineExecution(existingExecution.id, executionUpdates)
+            setRoutineExecutions(taskService.getRoutineExecutions())
+          }
+        }
+      }
+      
       return updatedTask
     } catch (error) {
       console.error('Failed to update task:', error)
       throw error
     }
-  }, [])
+  }, [routineExecutions])
 
   // タスクを削除
   const deleteTask = useCallback((id: string) => {

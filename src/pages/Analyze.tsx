@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTasks } from '../hooks/useTasks'
 import CategoryTimeChart from '../components/dashboard/CategoryTimeChart'
 import TimeAxisChart from '../components/dashboard/TimeAxisChart'
@@ -9,9 +10,18 @@ type AnalysisTab = 'overview' | 'category' | 'timeline' | 'trends' | 'reflection
 
 export default function Analyze() {
   const { tasks, projects, modes, tags, dailyRecords, loading } = useTasks()
+  const [searchParams] = useSearchParams()
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('week')
   const [activeTab, setActiveTab] = useState<AnalysisTab>('overview')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+
+  // URLクエリパラメータからタブを設定
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam && ['overview', 'category', 'timeline', 'trends', 'reflection'].includes(tabParam)) {
+      setActiveTab(tabParam as AnalysisTab)
+    }
+  }, [searchParams])
 
   const stats = useMemo(() => {
     const now = new Date()

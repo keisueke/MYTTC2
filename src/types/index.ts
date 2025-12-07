@@ -202,7 +202,7 @@ export type DashboardWidgetId =
   | 'tasks-summary'
   | 'routine-summary'
   | 'analyze-summary'
-  | 'daily-records-summary'
+  | 'daily-timeline'
 
 export interface DashboardWidget {
   id: DashboardWidgetId
@@ -237,6 +237,7 @@ export interface AppData {
   routineExecutions?: RoutineExecution[] // ルーティン実行記録
   timeSectionSettings?: TimeSectionSettings // 時間セクション設定
   weekStartDay?: WeekStartDay // 週の開始日（デフォルト: 'monday'）
+  timeAxisSettings?: { startHour: number; endHour: number } // 時間軸チャートの表示範囲
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

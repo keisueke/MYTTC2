@@ -345,7 +345,7 @@ export function copyTask(id: string): Task {
 /**
  * ローカル日付文字列を取得（YYYY-MM-DD形式）
  */
-function toLocalDateStr(date: Date): string {
+export function toLocalDateStr(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -1292,8 +1292,8 @@ function getDefaultDashboardLayout(): DashboardLayoutConfig {
       { id: 'tasks-summary', order: 0, visible: true },
       { id: 'routine-summary', order: 1, visible: true },
       { id: 'analyze-summary', order: 2, visible: true },
-      { id: 'daily-records-summary', order: 3, visible: true },
-      { id: 'weather-card', order: 4, visible: true },
+      { id: 'weather-card', order: 3, visible: true },
+      { id: 'daily-timeline', order: 4, visible: true },
       { id: 'habit-tracker', order: 5, visible: true },
       { id: 'daily-record-input', order: 6, visible: true },
     ]
@@ -1308,7 +1308,7 @@ export function getDashboardLayout(): DashboardLayoutConfig {
   let currentLayout = data.dashboardLayout || getDefaultDashboardLayout()
 
   // 削除対象のウィジェット（完全に削除）
-  const removedWidgets = ['stats-grid', 'time-summary', 'time-axis-chart', 'daily-review', 'daily-reflection', 'recent-tasks']
+  const removedWidgets = ['stats-grid', 'time-summary', 'time-axis-chart', 'daily-review', 'daily-reflection', 'recent-tasks', 'daily-records-summary']
   
   // 新しいデフォルトウィジェット
   const defaultWidgets = getDefaultDashboardLayout().widgets
@@ -1815,6 +1815,31 @@ export function getWeekStartDay(): 'sunday' | 'monday' {
 export function saveWeekStartDay(weekStartDay: 'sunday' | 'monday'): void {
   const data = loadData()
   data.weekStartDay = weekStartDay
+  saveData(data)
+}
+
+/**
+ * 時間軸チャートの表示範囲設定
+ */
+export interface TimeAxisSettings {
+  startHour: number // 表示開始時間（0-23）
+  endHour: number // 表示終了時間（1-24）
+}
+
+/**
+ * 時間軸チャートの表示範囲設定を取得
+ */
+export function getTimeAxisSettings(): TimeAxisSettings {
+  const data = loadData()
+  return data.timeAxisSettings || { startHour: 0, endHour: 24 }
+}
+
+/**
+ * 時間軸チャートの表示範囲設定を保存
+ */
+export function saveTimeAxisSettings(settings: TimeAxisSettings): void {
+  const data = loadData()
+  data.timeAxisSettings = settings
   saveData(data)
 }
 

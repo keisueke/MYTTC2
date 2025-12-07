@@ -1,5 +1,10 @@
 import { Link } from 'react-router-dom'
 
+interface AdditionalLink {
+  to: string
+  label: string
+}
+
 interface SummaryCardProps {
   title: string
   icon: string
@@ -8,6 +13,7 @@ interface SummaryCardProps {
   linkTo: string
   linkLabel?: string
   color?: 'blue' | 'green' | 'purple' | 'orange' | 'red'
+  additionalLinks?: AdditionalLink[]
 }
 
 export default function SummaryCard({
@@ -18,6 +24,7 @@ export default function SummaryCard({
   linkTo,
   linkLabel = '詳細を見る',
   color = 'blue',
+  additionalLinks = [],
 }: SummaryCardProps) {
   const colorClasses = {
     blue: 'border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5',
@@ -36,12 +43,23 @@ export default function SummaryCard({
             {title}
           </h3>
         </div>
-        <Link
-          to={linkTo}
-          className="btn-industrial text-xs px-3 py-1.5 hover:bg-[var(--color-accent)] hover:text-[var(--color-bg-primary)] transition-colors whitespace-nowrap"
-        >
-          {linkLabel} →
-        </Link>
+        <div className="flex items-center gap-2">
+          {additionalLinks.map((link, index) => (
+            <Link
+              key={index}
+              to={link.to}
+              className="btn-industrial text-xs px-3 py-1.5 hover:bg-[var(--color-secondary)] hover:text-[var(--color-bg-primary)] transition-colors whitespace-nowrap"
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Link
+            to={linkTo}
+            className="btn-industrial text-xs px-3 py-1.5 hover:bg-[var(--color-accent)] hover:text-[var(--color-bg-primary)] transition-colors whitespace-nowrap"
+          >
+            {linkLabel} →
+          </Link>
+        </div>
       </div>
       
       <div className="flex items-baseline gap-3">

@@ -40,6 +40,7 @@ export default function TaskList({ tasks, projects, modes, tags, routineExecutio
   const [showCompleted, setShowCompleted] = useState<boolean>(true)
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [isFilterExpanded, setIsFilterExpanded] = useState<boolean>(false)
 
   // タスク一覧表示時にルーティン実行記録を生成
   useEffect(() => {
@@ -146,97 +147,153 @@ export default function TaskList({ tasks, projects, modes, tags, routineExecutio
     return filtered
   }, [tasks, projectFilter, modeFilter, tagFilter, sortBy, showCompleted, referenceDate, routineExecutions, baseDateStr, sectionOrderMap])
 
+  // アクティブなフィルター数を計算
+  const activeFilterCount = [
+    projectFilter !== 'all',
+    modeFilter !== 'all',
+    tagFilter !== 'all',
+  ].filter(Boolean).length
+
   return (
     <div className="space-y-4">
-      {/* フィルタとソート */}
-      <div className="card-industrial p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <div>
-            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-              プロジェクト
-            </label>
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className="input-industrial w-full"
-            >
-              <option value="all">すべて</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+      {/* フィルタとソート（折りたたみ式） */}
+      <div className="card-industrial">
+        {/* ヘッダー（クリックで折りたたみ） */}
+        <div 
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[var(--color-bg-secondary)]/50 transition-colors"
+          onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+        >
+          <div className="flex items-center gap-3">
+            <span className="font-display text-xs tracking-[0.1em] uppercase text-[var(--color-text-secondary)]">
+              フィルター・並び替え
+            </span>
+            {activeFilterCount > 0 && (
+              <span className="px-2 py-0.5 bg-[var(--color-accent)]/20 text-[var(--color-accent)] text-xs rounded">
+                {activeFilterCount}件適用中
+              </span>
+            )}
           </div>
-
-          <div>
-            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-              モード
-            </label>
-            <select
-              value={modeFilter}
-              onChange={(e) => setModeFilter(e.target.value)}
-              className="input-industrial w-full"
+          <div className="flex items-center gap-4">
+            {/* 完了タスク表示トグル（常に表示） */}
+            <label 
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
             >
-              <option value="all">すべて</option>
-              {modes.map((mode) => (
-                <option key={mode.id} value={mode.id}>
-                  {mode.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-              タグ
+              <input
+                type="checkbox"
+                checked={showCompleted}
+                onChange={(e) => setShowCompleted(e.target.checked)}
+                className="w-4 h-4 accent-[var(--color-accent)]"
+              />
+              <span className="font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-secondary)]">
+                完了済み
+              </span>
             </label>
-            <select
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              className="input-industrial w-full"
+            {/* 展開アイコン */}
+            <svg 
+              className={`w-4 h-4 text-[var(--color-text-tertiary)] transition-transform duration-200 ${isFilterExpanded ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
             >
-              <option value="all">すべて</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-              並び替え
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortType)}
-              className="input-industrial w-full"
-            >
-              <option value="createdAt">作成日（新しい順）</option>
-              <option value="title">タイトル</option>
-              {timeSectionSettings.enabled && sectionsForDay.length > 0 && (
-                <option value="timeSection">時間セクション順</option>
-              )}
-            </select>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
-      </div>
 
-      {/* 完了タスク表示トグル */}
-      <div className="flex items-center justify-end bg-[var(--color-bg-tertiary)] p-3 border border-[var(--color-border)]">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={(e) => setShowCompleted(e.target.checked)}
-            className="w-4 h-4 accent-[var(--color-accent)]"
-          />
-          <span className="font-display text-[10px] tracking-[0.1em] uppercase text-[var(--color-text-secondary)]">
-            完了済みを表示
-          </span>
-        </label>
+        {/* 折りたたみ可能なフィルターコンテンツ */}
+        {isFilterExpanded && (
+          <div className="p-4 pt-0 border-t border-[var(--color-border)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  プロジェクト
+                </label>
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="input-industrial w-full"
+                >
+                  <option value="all">すべて</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  モード
+                </label>
+                <select
+                  value={modeFilter}
+                  onChange={(e) => setModeFilter(e.target.value)}
+                  className="input-industrial w-full"
+                >
+                  <option value="all">すべて</option>
+                  {modes.map((mode) => (
+                    <option key={mode.id} value={mode.id}>
+                      {mode.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  タグ
+                </label>
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="input-industrial w-full"
+                >
+                  <option value="all">すべて</option>
+                  {tags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>
+                      {tag.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  並び替え
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortType)}
+                  className="input-industrial w-full"
+                >
+                  <option value="createdAt">作成日（新しい順）</option>
+                  <option value="title">タイトル</option>
+                  {timeSectionSettings.enabled && sectionsForDay.length > 0 && (
+                    <option value="timeSection">時間セクション順</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* フィルターリセットボタン */}
+            {activeFilterCount > 0 && (
+              <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+                <button
+                  onClick={() => {
+                    setProjectFilter('all')
+                    setModeFilter('all')
+                    setTagFilter('all')
+                  }}
+                  className="btn-industrial text-xs"
+                >
+                  フィルターをリセット
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* タスク一覧 */}
