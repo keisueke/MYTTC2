@@ -223,7 +223,17 @@ export function isTaskForToday(task: Task): boolean {
   todayEnd.setHours(23, 59, 59, 999)
   const todayStr = today.toISOString().split('T')[0]
 
-  // 1. 今日作成されたタスク
+  // 繰り返しタスクの場合は、最初にチェックしてcreatedAtが今日の日付でない場合は除外
+  if (task.repeatPattern !== 'none') {
+    // 繰り返しタスクの場合は、createdAtが今日の日付であることを必須条件とする
+    // これにより、昨日作成された繰り返しタスクは「今日のタスク」として表示されない
+    if (!task.createdAt || !task.createdAt.startsWith(todayStr)) {
+      return false
+    }
+    return isRepeatTaskForToday(task)
+  }
+
+  // 1. 今日作成されたタスク（繰り返しタスク以外）
   if (task.createdAt) {
     // 日付文字列で比較（より確実）
     if (task.createdAt.startsWith(todayStr)) {
@@ -236,7 +246,7 @@ export function isTaskForToday(task: Task): boolean {
     }
   }
 
-  // 2. 今日が期限日のタスク
+  // 2. 今日が期限日のタスク（繰り返しタスク以外）
   if (task.dueDate) {
     // 日付文字列で比較
     if (task.dueDate.startsWith(todayStr)) {
@@ -250,17 +260,12 @@ export function isTaskForToday(task: Task): boolean {
     }
   }
 
-  // 3. 今日作業を開始したタスク
+  // 3. 今日作業を開始したタスク（繰り返しタスク以外）
   if (task.startTime) {
     const startDate = new Date(task.startTime)
     if (startDate >= today && startDate <= todayEnd) {
       return true
     }
-  }
-
-  // 4. 繰り返しタスクで今日に該当するもの
-  if (task.repeatPattern !== 'none') {
-    return isRepeatTaskForToday(task)
   }
 
   return false

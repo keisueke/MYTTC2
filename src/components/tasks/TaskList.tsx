@@ -1,14 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Task, Project, Mode, Tag } from '../../types'
+import { Task, Project, Mode, Tag, RoutineExecution } from '../../types'
 import TaskItem from './TaskItem'
-import { ensureTodayRepeatTasks } from '../../services/taskService'
-import { isTaskForToday } from '../../utils/repeatUtils'
+import { ensureTodayRoutineExecutions } from '../../services/taskService'
+import { isTaskForToday, isRepeatTaskForToday } from '../../utils/repeatUtils'
 
 interface TaskListProps {
   tasks: Task[]
   projects: Project[]
   modes: Mode[]
   tags: Tag[]
+  routineExecutions?: RoutineExecution[]
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
@@ -19,7 +20,7 @@ interface TaskListProps {
 
 type SortType = 'createdAt' | 'title'
 
-export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelete, onStartTimer, onStopTimer, onCopy, onMoveTask }: TaskListProps) {
+export default function TaskList({ tasks, projects, modes, tags, routineExecutions = [], onEdit, onDelete, onStartTimer, onStopTimer, onCopy, onMoveTask }: TaskListProps) {
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [modeFilter, setModeFilter] = useState<string>('all')
@@ -28,18 +29,37 @@ export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelet
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // タスク一覧表示時に繰り返しタスクを生成
+  // タスク一覧表示時にルーティン実行記録を生成
   useEffect(() => {
-    ensureTodayRepeatTasks()
+    ensureTodayRoutineExecutions()
   }, [])
 
   const filteredAndSortedTasks = useMemo(() => {
-    // まず今日のタスクのみをフィルタリング
-    let filtered = tasks.filter(task => isTaskForToday(task))
+    const today = new Date().toISOString().split('T')[0]
+    
+    // 今日のタスクをフィルタリング
+    // ルーティンタスクの場合は、テンプレートを表示し、今日の実行状況をRoutineExecutionから取得
+    let filtered = tasks.filter(task => {
+      if (task.repeatPattern !== 'none') {
+        // ルーティンタスクの場合は、今日に該当するかチェック
+        return isRepeatTaskForToday(task)
+      }
+      // 通常のタスクは既存のロジックを使用
+      return isTaskForToday(task)
+    })
     
     // 完了したタスクのフィルタリング
     if (!showCompleted) {
-      filtered = filtered.filter(t => !t.completedAt)
+      filtered = filtered.filter(t => {
+        if (t.repeatPattern !== 'none') {
+          // ルーティンタスクの場合は、今日の実行記録の完了状態をチェック
+          const todayExecution = routineExecutions.find(e => 
+            e.routineTaskId === t.id && e.date.startsWith(today)
+          )
+          return todayExecution?.completedAt === undefined
+        }
+        return !t.completedAt
+      })
     }
 
     if (projectFilter !== 'all') {
@@ -234,6 +254,9 @@ export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelet
                     projects={projects}
                     modes={modes}
                     tags={tags}
+                    routineExecution={task.repeatPattern !== 'none' ? routineExecutions.find(e => 
+                      e.routineTaskId === task.id && e.date.startsWith(new Date().toISOString().split('T')[0])
+                    ) : undefined}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onStartTimer={onStartTimer}

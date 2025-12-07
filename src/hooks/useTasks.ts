@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask, DailyRecord } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask, DailyRecord, RoutineExecution } from '../types'
 import * as taskService from '../services/taskService'
 
 export function useTasks() {
@@ -13,6 +13,7 @@ export function useTasks() {
   const [memoTemplates, setMemoTemplates] = useState<MemoTemplate[]>([])
   const [subTasks, setSubTasks] = useState<SubTask[]>([])
   const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([])
+  const [routineExecutions, setRoutineExecutions] = useState<RoutineExecution[]>([])
   const [loading, setLoading] = useState(true)
 
   // データを読み込む
@@ -28,6 +29,7 @@ export function useTasks() {
       setMemoTemplates(taskService.getMemoTemplates())
       setSubTasks(taskService.getSubTasks())
       setDailyRecords(taskService.getDailyRecords())
+      setRoutineExecutions(taskService.getRoutineExecutions())
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -38,16 +40,44 @@ export function useTasks() {
   // 初回読み込み
   useEffect(() => {
     loadData()
-    // 日付が変わったときに繰り返しタスクを生成
-    taskService.ensureTodayRepeatTasks()
+    // 現在時刻が朝5時を過ぎている場合は、昨日の未完了タスクを処理
+    const now = new Date()
+    if (now.getHours() >= 5) {
+      taskService.processIncompleteTasksFromYesterday()
+    } else {
+      // 朝5時前の場合は、通常のルーティン実行記録生成のみ
+      taskService.ensureTodayRoutineExecutions()
+    }
   }, [loadData])
 
-  // 日付変更を監視（1分ごとにチェック）
+  // 朝5時のタイミングを監視
   useEffect(() => {
+    let lastProcessedHour = -1
+    
+    const checkMorning5AM = () => {
+      const now = new Date()
+      const hour = now.getHours()
+      const minute = now.getMinutes()
+      
+      // 朝5時00分〜5時01分の間で処理を実行（1回のみ）
+      if (hour === 5 && minute === 0 && lastProcessedHour !== 5) {
+        taskService.processIncompleteTasksFromYesterday()
+        // ルーティン実行記録も生成
+        taskService.ensureTodayRoutineExecutions()
+        loadData()
+        lastProcessedHour = 5
+      } else if (hour !== 5) {
+        // 5時以外の時間になったらリセット
+        lastProcessedHour = -1
+      }
+    }
+    
+    // 初回チェック
+    checkMorning5AM()
+    
+    // 1分ごとにチェック
     const interval = setInterval(() => {
-      taskService.ensureTodayRepeatTasks()
-      // データが更新された可能性があるので再読み込み
-      loadData()
+      checkMorning5AM()
     }, 60000) // 1分
     
     return () => clearInterval(interval)
@@ -117,6 +147,17 @@ export function useTasks() {
     try {
       const updatedTask = taskService.startTaskTimer(id)
       setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      // ルーティンタスクの場合は、routineExecutionsも更新
+      if (updatedTask.repeatPattern !== 'none') {
+        setRoutineExecutions(prev => {
+          const today = new Date().toISOString().split('T')[0]
+          const existing = prev.find(e => e.routineTaskId === id && e.date.startsWith(today))
+          if (existing) {
+            return prev.map(e => e.id === existing.id ? { ...e, startTime: new Date().toISOString() } : e)
+          }
+          return prev
+        })
+      }
       return updatedTask
     } catch (error) {
       console.error('Failed to start task timer:', error)
@@ -129,6 +170,23 @@ export function useTasks() {
     try {
       const updatedTask = taskService.stopTaskTimer(id)
       setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      // ルーティンタスクの場合は、routineExecutionsも更新
+      if (updatedTask.repeatPattern !== 'none') {
+        setRoutineExecutions(prev => {
+          const today = new Date().toISOString().split('T')[0]
+          const existing = prev.find(e => e.routineTaskId === id && e.date.startsWith(today))
+          if (existing) {
+            const endTime = new Date().toISOString()
+            return prev.map(e => e.id === existing.id ? { 
+              ...e, 
+              endTime, 
+              completedAt: endTime,
+              elapsedTime: updatedTask.elapsedTime || 0
+            } : e)
+          }
+          return prev
+        })
+      }
       return updatedTask
     } catch (error) {
       console.error('Failed to stop task timer:', error)
@@ -456,6 +514,46 @@ export function useTasks() {
     }
   }, [])
 
+  // RoutineExecutionを取得
+  const getRoutineExecutions = useCallback((routineTaskId?: string, date?: string): RoutineExecution[] => {
+    return taskService.getRoutineExecutions(routineTaskId, date)
+  }, [])
+
+  // RoutineExecutionを追加
+  const addRoutineExecution = useCallback((execution: Omit<RoutineExecution, 'id' | 'createdAt' | 'updatedAt'>): RoutineExecution => {
+    try {
+      const newExecution = taskService.addRoutineExecution(execution)
+      setRoutineExecutions(prev => [...prev, newExecution])
+      return newExecution
+    } catch (error) {
+      console.error('Failed to add routine execution:', error)
+      throw error
+    }
+  }, [])
+
+  // RoutineExecutionを更新
+  const updateRoutineExecution = useCallback((id: string, updates: Partial<Omit<RoutineExecution, 'id' | 'createdAt'>>): RoutineExecution => {
+    try {
+      const updatedExecution = taskService.updateRoutineExecution(id, updates)
+      setRoutineExecutions(prev => prev.map(e => e.id === id ? updatedExecution : e))
+      return updatedExecution
+    } catch (error) {
+      console.error('Failed to update routine execution:', error)
+      throw error
+    }
+  }, [])
+
+  // RoutineExecutionを削除
+  const deleteRoutineExecution = useCallback((id: string) => {
+    try {
+      taskService.deleteRoutineExecution(id)
+      setRoutineExecutions(prev => prev.filter(e => e.id !== id))
+    } catch (error) {
+      console.error('Failed to delete routine execution:', error)
+      throw error
+    }
+  }, [])
+
   return {
     tasks,
     projects,
@@ -502,6 +600,11 @@ export function useTasks() {
     deleteSubTask,
     toggleSubTaskComplete,
     dailyRecords,
+    routineExecutions,
+    getRoutineExecutions,
+    addRoutineExecution,
+    updateRoutineExecution,
+    deleteRoutineExecution,
     refresh: loadData,
   }
 }

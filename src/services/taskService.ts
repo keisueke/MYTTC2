@@ -1,4 +1,4 @@
-import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig } from '../types'
+import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig, RoutineExecution } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 import { isRepeatTaskForToday, generateTodayRepeatTask } from '../utils/repeatUtils'
@@ -30,6 +30,7 @@ export function loadData(): AppData {
     memoTemplates: [],
     dailyRecords: [],
     subTasks: [],
+    routineExecutions: [],
   }
 }
 
@@ -63,6 +64,7 @@ export function clearAllData(): void {
       memoTemplates: [],
       dailyRecords: [],
       subTasks: [],
+      routineExecutions: [],
     }
     saveData(defaultData)
   } catch (error) {
@@ -326,6 +328,33 @@ export function startTaskTimer(id: string): Task {
   })
   
   const startTime = new Date().toISOString()
+  
+  // ルーティンタスクの場合は、RoutineExecutionも更新
+  if (task.repeatPattern !== 'none') {
+    const today = new Date().toISOString().split('T')[0]
+    if (!data.routineExecutions) {
+      data.routineExecutions = []
+    }
+    
+    let execution = data.routineExecutions.find(e => 
+      e.routineTaskId === task.id && e.date.startsWith(today)
+    )
+    
+    if (!execution) {
+      // 実行記録が存在しない場合は作成
+      execution = addRoutineExecution({
+        routineTaskId: task.id,
+        date: today,
+        startTime,
+      })
+    } else {
+      // 既存の実行記録を更新
+      execution = updateRoutineExecution(execution.id, {
+        startTime,
+      })
+    }
+  }
+  
   return updateTask(id, {
     isRunning: true,
     startTime,
@@ -352,14 +381,37 @@ export function stopTaskTimer(id: string): Task {
   }
   
   // タイマーが実行中の場合、経過時間を計算
+  let elapsed = 0
   if (task.isRunning && task.startTime) {
-    const elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
+    elapsed = Math.floor((new Date(endTime).getTime() - new Date(task.startTime).getTime()) / 1000)
     const totalElapsed = (task.elapsedTime || 0) + elapsed
     updates.elapsedTime = totalElapsed
     // 開始時間は保持する
   } else if (!task.startTime) {
     // タイマーが開始されていない場合でも、終了時間を記録
     updates.startTime = endTime // 開始時間がない場合は終了時間を開始時間として記録
+  }
+  
+  // ルーティンタスクの場合は、RoutineExecutionも更新
+  if (task.repeatPattern !== 'none') {
+    const today = new Date().toISOString().split('T')[0]
+    if (!data.routineExecutions) {
+      data.routineExecutions = []
+    }
+    
+    let execution = data.routineExecutions.find(e => 
+      e.routineTaskId === task.id && e.date.startsWith(today)
+    )
+    
+    if (execution) {
+      // 既存の実行記録を更新
+      const executionElapsed = (execution.elapsedTime || 0) + elapsed
+      updateRoutineExecution(execution.id, {
+        endTime,
+        completedAt: endTime,
+        elapsedTime: executionElapsed,
+      })
+    }
   }
   
   return updateTask(id, updates)
@@ -1249,18 +1301,95 @@ export function saveDashboardLayout(layout: DashboardLayoutConfig): void {
 }
 
 /**
+ * 昨日の未完了ルーティンタスクを検出
+ * 朝5時時点で前日の未完了ルーティンを返す
+ */
+export function getIncompleteRoutinesFromYesterday(): Task[] {
+  const data = loadData()
+  const now = new Date()
+  
+  // 朝5時時点での「昨日」を計算
+  // 現在時刻が5時未満の場合は、さらに1日前を「昨日」とする
+  const yesterday = new Date(now)
+  if (now.getHours() < 5) {
+    yesterday.setDate(yesterday.getDate() - 1)
+  }
+  yesterday.setHours(0, 0, 0, 0)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  
+  // 昨日のルーティン実行記録を取得
+  const yesterdayExecutions = data.routineExecutions?.filter(execution => {
+    return execution.date.startsWith(yesterdayStr) && !execution.completedAt && !execution.skippedAt
+  }) || []
+  
+  // 未完了のルーティンタスク（テンプレート）を取得
+  const incompleteRoutines = yesterdayExecutions
+    .map(execution => data.tasks.find(task => task.id === execution.routineTaskId))
+    .filter((task): task is Task => task !== undefined && task.repeatPattern !== 'none')
+  
+  return incompleteRoutines
+}
+
+/**
+ * 昨日の未完了タスクを処理し、今日の繰り返しタスクを生成
+ * 朝5時時点で前日の未完了タスクを「やらなかったこと」として記録
+ * @deprecated この関数は後方互換性のため残しています。新しい実装ではgetIncompleteRoutinesFromYesterdayを使用してください。
+ */
+export function processIncompleteTasksFromYesterday(): void {
+  const data = loadData()
+  const now = new Date()
+  
+  // 朝5時時点での「昨日」を計算
+  // 現在時刻が5時未満の場合は、さらに1日前を「昨日」とする
+  const yesterday = new Date(now)
+  if (now.getHours() < 5) {
+    yesterday.setDate(yesterday.getDate() - 1)
+  }
+  yesterday.setHours(0, 0, 0, 0)
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  
+  // 昨日作成されたタスクで、完了していないタスクを検出
+  const incompleteTasks = data.tasks.filter(task => {
+    const taskDateStr = task.createdAt.split('T')[0]
+    return taskDateStr === yesterdayStr &&
+           !task.completedAt &&
+           !task.skippedAt
+  })
+  
+  // 未完了タスクに`skippedAt`を設定
+  let hasUpdates = false
+  for (const task of incompleteTasks) {
+    task.skippedAt = new Date().toISOString()
+    task.updatedAt = new Date().toISOString()
+    hasUpdates = true
+  }
+  
+  if (hasUpdates) {
+    saveData(data)
+  }
+  
+  // 今日のルーティン実行記録を生成
+  ensureTodayRoutineExecutions()
+}
+
+/**
  * 今日の日付に該当する繰り返しタスクを生成
  */
 export function ensureTodayRepeatTasks(): void {
   const data = loadData()
   const today = new Date().toISOString().split('T')[0]
   
-  // 繰り返しタスクを取得（元のタスク、完了済みも含む）
-  const repeatTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
+  // 繰り返しタスクを取得（元のタスクのみ、今日作成されたタスクは除外）
+  // 元のタスクは、createdAtが今日の日付でない繰り返しタスク
+  const originalRepeatTasks = data.tasks.filter(task => 
+    task.repeatPattern !== 'none' && 
+    task.createdAt && 
+    !task.createdAt.startsWith(today)
+  )
   
   let hasNewTasks = false
   
-  for (const repeatTask of repeatTasks) {
+  for (const repeatTask of originalRepeatTasks) {
     // 今日の日付に該当するかチェック
     if (!isRepeatTaskForToday(repeatTask)) {
       continue
@@ -1285,6 +1414,134 @@ export function ensureTodayRepeatTasks(): void {
   }
   
   if (hasNewTasks) {
+    saveData(data)
+  }
+}
+
+/**
+ * ルーティン実行記録を取得する
+ */
+export function getRoutineExecutions(routineTaskId?: string, date?: string): RoutineExecution[] {
+  const data = loadData()
+  if (!data.routineExecutions) {
+    return []
+  }
+  
+  let executions = data.routineExecutions
+  
+  if (routineTaskId) {
+    executions = executions.filter(e => e.routineTaskId === routineTaskId)
+  }
+  
+  if (date) {
+    const dateStr = date.split('T')[0]
+    executions = executions.filter(e => e.date.startsWith(dateStr))
+  }
+  
+  return executions.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/**
+ * ルーティン実行記録を追加する
+ */
+export function addRoutineExecution(execution: Omit<RoutineExecution, 'id' | 'createdAt' | 'updatedAt'>): RoutineExecution {
+  const data = loadData()
+  if (!data.routineExecutions) {
+    data.routineExecutions = []
+  }
+  
+  const newExecution: RoutineExecution = {
+    ...execution,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.routineExecutions.push(newExecution)
+  saveData(data)
+  return newExecution
+}
+
+/**
+ * ルーティン実行記録を更新する
+ */
+export function updateRoutineExecution(id: string, updates: Partial<Omit<RoutineExecution, 'id' | 'createdAt'>>): RoutineExecution {
+  const data = loadData()
+  if (!data.routineExecutions) {
+    throw new Error(`RoutineExecution with id ${id} not found`)
+  }
+  
+  const executionIndex = data.routineExecutions.findIndex(e => e.id === id)
+  if (executionIndex === -1) {
+    throw new Error(`RoutineExecution with id ${id} not found`)
+  }
+  
+  const updatedExecution: RoutineExecution = {
+    ...data.routineExecutions[executionIndex],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  data.routineExecutions[executionIndex] = updatedExecution
+  saveData(data)
+  return updatedExecution
+}
+
+/**
+ * ルーティン実行記録を削除する
+ */
+export function deleteRoutineExecution(id: string): void {
+  const data = loadData()
+  if (!data.routineExecutions) {
+    return
+  }
+  
+  const executionIndex = data.routineExecutions.findIndex(e => e.id === id)
+  if (executionIndex === -1) {
+    return
+  }
+  
+  data.routineExecutions.splice(executionIndex, 1)
+  saveData(data)
+}
+
+/**
+ * 今日のルーティン実行記録を生成
+ */
+export function ensureTodayRoutineExecutions(): void {
+  const data = loadData()
+  const today = new Date().toISOString().split('T')[0]
+  
+  // 繰り返しタスク（テンプレート）を取得
+  const routineTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
+  
+  if (!data.routineExecutions) {
+    data.routineExecutions = []
+  }
+  
+  let hasNewExecutions = false
+  
+  for (const routineTask of routineTasks) {
+    // 今日の実行記録が既に存在するかチェック
+    const todayExecution = data.routineExecutions.find(e => 
+      e.routineTaskId === routineTask.id && e.date.startsWith(today)
+    )
+    
+    // 存在しない場合、新しい実行記録を生成
+    if (!todayExecution) {
+      // 今日に該当するかチェック
+      if (isRepeatTaskForToday(routineTask)) {
+        addRoutineExecution({
+          routineTaskId: routineTask.id,
+          date: today,
+        })
+        hasNewExecutions = true
+      }
+    }
+  }
+  
+  if (hasNewExecutions) {
+    // saveDataはaddRoutineExecution内で既に呼ばれているが、念のため
     saveData(data)
   }
 }

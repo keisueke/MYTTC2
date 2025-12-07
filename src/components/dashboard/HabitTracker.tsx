@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Task } from '../../types'
+import { useState, useMemo } from 'react'
+import { Task, RoutineExecution } from '../../types'
 
 interface HabitTrackerProps {
   tasks: Task[]
+  routineExecutions?: RoutineExecution[]
 }
 
 /**
@@ -60,12 +61,23 @@ const getMonthDays = () => {
 }
 
 /**
- * 指定された日付にタスクが完了したかどうかを判定
+ * 指定された日付にルーティンが完了したかどうかを判定
+ * RoutineExecutionから実行履歴を取得
  */
-const isCompletedOnDate = (task: Task, date: Date): boolean => {
-  if (!task.completedAt) return false
-  const completedDate = new Date(task.completedAt)
-  return completedDate.toDateString() === date.toDateString()
+const isCompletedOnDate = (routineTaskId: string, routineExecutions: RoutineExecution[], date: Date): boolean => {
+  const dateStr = date.toISOString().split('T')[0]
+  
+  // 指定された日付の実行記録を探す
+  const execution = routineExecutions.find(e => 
+    e.routineTaskId === routineTaskId && e.date.startsWith(dateStr)
+  )
+  
+  if (execution && execution.completedAt) {
+    const completedDate = new Date(execution.completedAt)
+    return completedDate.toDateString() === date.toDateString()
+  }
+  
+  return false
 }
 
 /**
@@ -76,11 +88,34 @@ const isToday = (date: Date): boolean => {
   return date.toDateString() === today.toDateString()
 }
 
-export default function HabitTracker({ tasks }: HabitTrackerProps) {
+export default function HabitTracker({ tasks, routineExecutions = [] }: HabitTrackerProps) {
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
   
   // 繰り返しパターンが設定されているタスクのみをフィルタリング
   const repeatTasks = tasks.filter(task => task.repeatPattern !== 'none')
+  
+  // 同じタイトルと繰り返しパターンのタスクをグループ化
+  // 各グループの代表タスク（最初に作成されたタスク）を取得
+  const groupedTasks = useMemo(() => {
+    const groups = new Map<string, { representative: Task; allTasks: Task[] }>()
+    
+    for (const task of repeatTasks) {
+      const key = `${task.title}|${task.repeatPattern}`
+      
+      if (!groups.has(key)) {
+        groups.set(key, { representative: task, allTasks: [task] })
+      } else {
+        const group = groups.get(key)!
+        group.allTasks.push(task)
+        // 代表タスクは最初に作成されたもの（createdAtが最も古いもの）
+        if (new Date(task.createdAt) < new Date(group.representative.createdAt)) {
+          group.representative = task
+        }
+      }
+    }
+    
+    return Array.from(groups.values())
+  }, [repeatTasks])
   
   const weekDays = getWeekDays()
   const monthDays = getMonthDays()
@@ -88,7 +123,7 @@ export default function HabitTracker({ tasks }: HabitTrackerProps) {
   
   const displayDays = viewMode === 'daily' ? weekDays : monthDays
   
-  if (repeatTasks.length === 0) {
+  if (groupedTasks.length === 0) {
     return (
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -187,15 +222,15 @@ export default function HabitTracker({ tasks }: HabitTrackerProps) {
             </tr>
           </thead>
           <tbody>
-            {repeatTasks.map((task) => (
-              <tr key={task.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-tertiary)] transition-colors">
+            {groupedTasks.map((group) => (
+              <tr key={group.representative.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-tertiary)] transition-colors">
                 <td className="p-2 font-display text-xs text-[var(--color-text-primary)] leading-tight">
                   <div className="line-clamp-2">
-                    {task.title}
+                    {group.representative.title}
                   </div>
                 </td>
                 {displayDays.map((day, dayIndex) => {
-                  const completed = isCompletedOnDate(task, day)
+                  const completed = isCompletedOnDate(group.representative.id, routineExecutions, day)
                   const isTodayDate = isToday(day)
                   
                   return (

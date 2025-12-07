@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Task, Project, Mode, Tag } from '../../types'
+import { Task, Project, Mode, Tag, RoutineExecution } from '../../types'
 
 interface TaskItemProps {
   task: Task
   projects: Project[]
   modes: Mode[]
   tags: Tag[]
+  routineExecution?: RoutineExecution
   onEdit: (task: Task) => void
   onDelete: (id: string) => void
   onStartTimer: (id: string) => void
@@ -24,12 +25,22 @@ function formatTime(seconds: number): string {
   return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-export default function TaskItem({ task, projects, modes, tags, onEdit, onDelete, onStartTimer, onStopTimer, onCopy }: TaskItemProps) {
+export default function TaskItem({ task, projects, modes, tags, routineExecution, onEdit, onDelete, onStartTimer, onStopTimer, onCopy }: TaskItemProps) {
   const project = task.projectId ? projects.find(p => p.id === task.projectId) : undefined
   const mode = task.modeId ? modes.find(m => m.id === task.modeId) : undefined
   const taskTags = task.tagIds ? tags.filter(t => task.tagIds!.includes(t.id)) : []
   
   const [currentElapsed, setCurrentElapsed] = useState<number>(0)
+  
+  // ルーティンタスクの場合は、実行記録の経過時間を使用
+  const displayElapsedTime = task.repeatPattern !== 'none' 
+    ? (routineExecution?.elapsedTime || 0)
+    : (task.elapsedTime || 0)
+  
+  // ルーティンタスクの場合は、実行記録の完了状態を確認
+  const isCompleted = task.repeatPattern !== 'none' 
+    ? !!routineExecution?.completedAt 
+    : !!task.completedAt
   
   useEffect(() => {
     if (task.isRunning && task.startTime) {
@@ -37,15 +48,15 @@ export default function TaskItem({ task, projects, modes, tags, onEdit, onDelete
         const now = new Date().getTime()
         const start = new Date(task.startTime!).getTime()
         const elapsed = Math.floor((now - start) / 1000)
-        const totalElapsed = (task.elapsedTime || 0) + elapsed
+        const totalElapsed = displayElapsedTime + elapsed
         setCurrentElapsed(totalElapsed)
       }, 1000)
       
       return () => clearInterval(interval)
     } else {
-      setCurrentElapsed(task.elapsedTime || 0)
+      setCurrentElapsed(displayElapsedTime)
     }
-  }, [task.isRunning, task.startTime, task.elapsedTime])
+  }, [task.isRunning, task.startTime, displayElapsedTime])
   
   const handleStartTimer = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -56,8 +67,6 @@ export default function TaskItem({ task, projects, modes, tags, onEdit, onDelete
     e.stopPropagation()
     onStopTimer(task.id)
   }
-  
-  const isCompleted = !!task.completedAt
   
   return (
     <div className={`group card-industrial p-5 transition-all duration-300 hover:-translate-y-0.5 ${

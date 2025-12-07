@@ -32,6 +32,7 @@ export interface Task {
   isRunning?: boolean // 現在実行中かどうか
   estimatedTime?: number // 予定時間（分）
   completedAt?: string // ISO date string (完了時刻)
+  skippedAt?: string // ISO date string (未完了として記録された時刻)
   order?: number // 表示順序
   // リマインダー関連
   dueDate?: string // ISO date string（期限）
@@ -45,6 +46,20 @@ export interface RepeatConfig {
   endDate?: string // ISO date string（繰り返し終了日）
   daysOfWeek?: number[] // 0-6 (日-土) 週次繰り返しの場合
   dayOfMonth?: number // 1-31 月次繰り返しの場合
+}
+
+// ルーティン実行記録
+export interface RoutineExecution {
+  id: string
+  routineTaskId: string // ルーティンタスク（テンプレート）のID
+  date: string // ISO date string (実行日)
+  completedAt?: string // ISO date string (完了時刻)
+  skippedAt?: string // ISO date string (未完了として記録された時刻)
+  elapsedTime?: number // 経過時間（秒）
+  startTime?: string // ISO date string (開始時刻)
+  endTime?: string // ISO date string (終了時刻)
+  createdAt: string // ISO date string
+  updatedAt: string // ISO date string
 }
 
 export interface Project {
@@ -216,6 +231,7 @@ export interface AppData {
   sidebarWidth?: number // サイドバー幅（px、デフォルト: 320）
   subTasks?: SubTask[] // 詳細タスク（ルーティンチェッカー用）
   dashboardLayout?: DashboardLayoutConfig // ダッシュボードレイアウト設定
+  routineExecutions?: RoutineExecution[] // ルーティン実行記録
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

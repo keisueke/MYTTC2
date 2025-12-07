@@ -19,6 +19,7 @@ export default function Tasks() {
     moveTaskToPosition,
     startTaskTimer,
     stopTaskTimer,
+    routineExecutions,
   } = useTasks()
   
   const [showForm, setShowForm] = useState(false)
@@ -117,6 +118,7 @@ export default function Tasks() {
           projects={projects}
           modes={modes}
           tags={tags}
+          routineExecutions={routineExecutions}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onStartTimer={startTaskTimer}

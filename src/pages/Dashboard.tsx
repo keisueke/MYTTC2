@@ -16,16 +16,85 @@ import DailyReflection from '../components/dashboard/DailyReflection'
 import DashboardWidget from '../components/dashboard/DashboardWidget'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 import DatePickerModal from '../components/common/DatePickerModal'
+import IncompleteRoutineDialog from '../components/common/IncompleteRoutineDialog'
 import TaskForm from '../components/tasks/TaskForm'
+import { getIncompleteRoutinesFromYesterday } from '../services/taskService'
 
 export default function Dashboard() {
-  const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask } = useTasks()
+  const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask, routineExecutions, addRoutineExecution: addRoutineExecutionHook, updateRoutineExecution: updateRoutineExecutionHook, deleteTask: deleteTaskHook } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
   const { showNotification } = useNotification()
   const [isEditMode, setIsEditMode] = useState(false)
   const [layout, setLayout] = useState<DashboardLayoutConfig>(() => getDashboardLayout())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [incompleteRoutines, setIncompleteRoutines] = useState<Task[]>([])
+  const [showIncompleteDialog, setShowIncompleteDialog] = useState(false)
+  
+  // 未完了ルーティンの検出
+  useEffect(() => {
+    const routines = getIncompleteRoutinesFromYesterday()
+    if (routines.length > 0) {
+      setIncompleteRoutines(routines)
+      setShowIncompleteDialog(true)
+    }
+  }, [tasks, routineExecutions])
+  
+  const handleContinueRoutine = (taskId: string) => {
+    // 今日のルーティン実行記録を作成
+    const today = new Date().toISOString().split('T')[0]
+    addRoutineExecutionHook({
+      routineTaskId: taskId,
+      date: today,
+    })
+    // リストから削除
+    setIncompleteRoutines(prev => prev.filter(t => t.id !== taskId))
+    if (incompleteRoutines.length === 1) {
+      setShowIncompleteDialog(false)
+    }
+    showNotification('今日も実行するように設定しました', 'success')
+  }
+  
+  const handleSkipRoutine = (taskId: string) => {
+    // 昨日の実行記録にskippedAtを設定
+    const yesterday = new Date()
+    if (yesterday.getHours() < 5) {
+      yesterday.setDate(yesterday.getDate() - 1)
+    }
+    yesterday.setHours(0, 0, 0, 0)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    
+    const execution = routineExecutions.find(e => 
+      e.routineTaskId === taskId && e.date.startsWith(yesterdayStr)
+    )
+    if (execution) {
+      updateRoutineExecutionHook(execution.id, { skippedAt: new Date().toISOString() })
+    }
+    // リストから削除
+    setIncompleteRoutines(prev => prev.filter(t => t.id !== taskId))
+    if (incompleteRoutines.length === 1) {
+      setShowIncompleteDialog(false)
+    }
+    showNotification('今日はスキップしました', 'info')
+  }
+  
+  const handleEditRoutine = (_taskId: string) => {
+    // タスク編集ページに遷移（またはモーダルを表示）
+    setShowIncompleteDialog(false)
+    // ここでは一旦ダイアログを閉じるだけ。実際の編集は別途実装
+    showNotification('ルーティンを編集してください', 'info')
+  }
+  
+  const handleDeleteRoutine = (taskId: string) => {
+    if (confirm('このルーティンを削除しますか？')) {
+      deleteTaskHook(taskId)
+      setIncompleteRoutines(prev => prev.filter(t => t.id !== taskId))
+      if (incompleteRoutines.length === 1) {
+        setShowIncompleteDialog(false)
+      }
+      showNotification('ルーティンを削除しました', 'success')
+    }
+  }
   
   const handleSync = async () => {
     try {
@@ -384,7 +453,7 @@ export default function Dashboard() {
                     visible={widgetData.visible}
                     onToggleVisible={() => handleToggleVisible(widget.id)}
                   >
-                    <HabitTracker tasks={tasks} />
+                    <HabitTracker tasks={tasks} routineExecutions={routineExecutions} />
                   </DashboardWidget>
                 )
 
@@ -541,6 +610,17 @@ export default function Dashboard() {
       onConfirm={handleDatePickerConfirm}
       title="まとめの日付を選択"
     />
+    
+    {showIncompleteDialog && (
+      <IncompleteRoutineDialog
+        incompleteRoutines={incompleteRoutines}
+        onContinue={handleContinueRoutine}
+        onSkip={handleSkipRoutine}
+        onDelete={handleDeleteRoutine}
+        onEdit={handleEditRoutine}
+        onClose={() => setShowIncompleteDialog(false)}
+      />
+    )}
     </>
   )
 }
