@@ -38,6 +38,19 @@ export function useTasks() {
   // 初回読み込み
   useEffect(() => {
     loadData()
+    // 日付が変わったときに繰り返しタスクを生成
+    taskService.ensureTodayRepeatTasks()
+  }, [loadData])
+
+  // 日付変更を監視（1分ごとにチェック）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      taskService.ensureTodayRepeatTasks()
+      // データが更新された可能性があるので再読み込み
+      loadData()
+    }, 60000) // 1分
+    
+    return () => clearInterval(interval)
   }, [loadData])
 
   // タスクを追加

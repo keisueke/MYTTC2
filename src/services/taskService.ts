@@ -1,6 +1,7 @@
 import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, SummaryConfig, WeatherConfig, AppData, SubTask, DashboardLayoutConfig } from '../types'
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
+import { isRepeatTaskForToday, generateTodayRepeatTask } from '../utils/repeatUtils'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -1245,5 +1246,46 @@ export function saveDashboardLayout(layout: DashboardLayoutConfig): void {
   const data = loadData()
   data.dashboardLayout = layout
   saveData(data)
+}
+
+/**
+ * 今日の日付に該当する繰り返しタスクを生成
+ */
+export function ensureTodayRepeatTasks(): void {
+  const data = loadData()
+  const today = new Date().toISOString().split('T')[0]
+  
+  // 繰り返しタスクを取得（元のタスク、完了済みも含む）
+  const repeatTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
+  
+  let hasNewTasks = false
+  
+  for (const repeatTask of repeatTasks) {
+    // 今日の日付に該当するかチェック
+    if (!isRepeatTaskForToday(repeatTask)) {
+      continue
+    }
+    
+    // 今日の日付に該当するタスクが既に存在するかチェック
+    // 同じタイトル、同じ繰り返しパターン、今日作成されたタスク
+    const todayTask = data.tasks.find(task => {
+      return task.title === repeatTask.title &&
+             task.repeatPattern === repeatTask.repeatPattern &&
+             task.createdAt.startsWith(today)
+    })
+    
+    // 存在しない場合、新しいタスクを生成
+    if (!todayTask) {
+      const newTask = generateTodayRepeatTask(repeatTask)
+      if (newTask) {
+        data.tasks.push(newTask)
+        hasNewTasks = true
+      }
+    }
+  }
+  
+  if (hasNewTasks) {
+    saveData(data)
+  }
 }
 

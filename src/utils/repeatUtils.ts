@@ -84,6 +84,84 @@ export function generateNextRepeatTask(_task: Task): Task | null {
 }
 
 /**
+ * 繰り返しタスクが今日の日付に該当するかチェック
+ */
+export function isRepeatTaskForToday(task: Task): boolean {
+  if (task.repeatPattern === 'none' || !task.repeatConfig) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const taskCreatedDate = new Date(task.createdAt)
+  taskCreatedDate.setHours(0, 0, 0, 0)
+
+  // 終了日のチェック
+  if (task.repeatConfig.endDate) {
+    const endDate = new Date(task.repeatConfig.endDate)
+    endDate.setHours(0, 0, 0, 0)
+    if (today > endDate) {
+      return false
+    }
+  }
+
+  switch (task.repeatPattern) {
+    case 'daily':
+      const interval = task.repeatConfig.interval || 1
+      const daysSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      return daysSinceCreation >= 0 && daysSinceCreation % interval === 0
+
+    case 'weekly':
+      if (task.repeatConfig.daysOfWeek && task.repeatConfig.daysOfWeek.length > 0) {
+        return task.repeatConfig.daysOfWeek.includes(today.getDay())
+      }
+      // 曜日指定がない場合は、作成日からの週数で判定
+      const weeksSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
+      const weekInterval = task.repeatConfig.interval || 1
+      return weeksSinceCreation >= 0 && weeksSinceCreation % weekInterval === 0
+
+    case 'monthly':
+      if (task.repeatConfig.dayOfMonth) {
+        return today.getDate() === task.repeatConfig.dayOfMonth
+      }
+      // 日付指定がない場合は、作成日と同じ日付かチェック
+      return today.getDate() === taskCreatedDate.getDate()
+
+    case 'custom':
+      const customInterval = task.repeatConfig.interval || 1
+      const customDaysSinceCreation = Math.floor((today.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      return customDaysSinceCreation >= 0 && customDaysSinceCreation % customInterval === 0
+
+    default:
+      return false
+  }
+}
+
+/**
+ * 今日の日付に該当する繰り返しタスクを生成
+ */
+export function generateTodayRepeatTask(originalTask: Task): Task | null {
+  if (!isRepeatTaskForToday(originalTask)) {
+    return null
+  }
+
+  // 今日の日付に該当する新しいタスクを生成
+  const newTask: Task = {
+    ...originalTask,
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: undefined, // 未完了状態
+    startTime: undefined, // タイマー状態をリセット
+    endTime: undefined,
+    elapsedTime: undefined,
+    isRunning: false,
+  }
+
+  return newTask
+}
+
+/**
  * 繰り返しタスクが終了日を過ぎているかチェック
  */
 export function isRepeatTaskExpired(task: Task): boolean {
@@ -133,5 +211,58 @@ export function getRepeatDescription(repeatPattern: RepeatPattern, repeatConfig?
     default:
       return ''
   }
+}
+
+/**
+ * タスクが今日のタスクかどうかを判定
+ */
+export function isTaskForToday(task: Task): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayEnd = new Date(today)
+  todayEnd.setHours(23, 59, 59, 999)
+  const todayStr = today.toISOString().split('T')[0]
+
+  // 1. 今日作成されたタスク
+  if (task.createdAt) {
+    // 日付文字列で比較（より確実）
+    if (task.createdAt.startsWith(todayStr)) {
+      return true
+    }
+    // Dateオブジェクトでも比較
+    const createdDate = new Date(task.createdAt)
+    if (createdDate >= today && createdDate <= todayEnd) {
+      return true
+    }
+  }
+
+  // 2. 今日が期限日のタスク
+  if (task.dueDate) {
+    // 日付文字列で比較
+    if (task.dueDate.startsWith(todayStr)) {
+      return true
+    }
+    // Dateオブジェクトでも比較
+    const dueDate = new Date(task.dueDate)
+    dueDate.setHours(0, 0, 0, 0)
+    if (dueDate.getTime() === today.getTime()) {
+      return true
+    }
+  }
+
+  // 3. 今日作業を開始したタスク
+  if (task.startTime) {
+    const startDate = new Date(task.startTime)
+    if (startDate >= today && startDate <= todayEnd) {
+      return true
+    }
+  }
+
+  // 4. 繰り返しタスクで今日に該当するもの
+  if (task.repeatPattern !== 'none') {
+    return isRepeatTaskForToday(task)
+  }
+
+  return false
 }
 

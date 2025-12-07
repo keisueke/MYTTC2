@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Task, Project, Mode, Tag } from '../../types'
 import TaskItem from './TaskItem'
+import { ensureTodayRepeatTasks } from '../../services/taskService'
+import { isTaskForToday } from '../../utils/repeatUtils'
 
 interface TaskListProps {
   tasks: Task[]
@@ -26,9 +28,14 @@ export default function TaskList({ tasks, projects, modes, tags, onEdit, onDelet
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
+  // タスク一覧表示時に繰り返しタスクを生成
+  useEffect(() => {
+    ensureTodayRepeatTasks()
+  }, [])
+
   const filteredAndSortedTasks = useMemo(() => {
-    // すべてのタスクを表示
-    let filtered = [...tasks]
+    // まず今日のタスクのみをフィルタリング
+    let filtered = tasks.filter(task => isTaskForToday(task))
     
     // 完了したタスクのフィルタリング
     if (!showCompleted) {
