@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Project, Mode, Tag, GitHubConfig, ConflictResolution, AIProvider, AIConfig, AIConfigs } from '../types'
+import { Project, Mode, Tag, GitHubConfig, ConflictResolution, AIProvider, AIConfig, AIConfigs, UIMode } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
@@ -7,7 +7,7 @@ import { loadData, clearAllData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { applyTheme, Theme } from '../utils/theme'
-import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth, getWeekStartDay, saveWeekStartDay } from '../services/taskService'
+import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth, getWeekStartDay, saveWeekStartDay, getUIMode, saveUIMode } from '../services/taskService'
 import { getCoordinatesFromCity } from '../services/weatherService'
 import { getSummaryConfig, saveSummaryConfig } from '../services/taskService'
 import { SummaryConfig } from '../types'
@@ -86,6 +86,7 @@ export default function Settings() {
   const [summaryConfig, setSummaryConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [sidebarAlwaysVisible, setSidebarAlwaysVisible] = useState(getSidebarVisibility())
   const [weekStartDay, setWeekStartDay] = useState<'sunday' | 'monday'>(getWeekStartDay())
+  const [uiMode, setUIMode] = useState<UIMode>(getUIMode())
   const [showTemplateForm, setShowTemplateForm] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<{ id?: string; title: string; content: string } | undefined>(undefined)
   const [templateTitle, setTemplateTitle] = useState('')
@@ -291,9 +292,9 @@ export default function Settings() {
   const handleResolveConflict = async (resolution: ConflictResolution) => {
     try {
       if (resolution === 'cancel') {
-        return
-      }
-      
+      return
+    }
+
       const result = await resolveConflict(resolution)
       refresh()
       
@@ -460,7 +461,7 @@ export default function Settings() {
     <div className="space-y-8">
       {/* Page Header */}
       <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
-        <div>
+    <div>
           <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
             Settings
           </p>
@@ -504,7 +505,7 @@ export default function Settings() {
               </p>
             </div>
             <div className="flex gap-2">
-              <button
+        <button
                 onClick={() => handleThemeChange('light')}
                 className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
                   theme === 'light'
@@ -523,7 +524,7 @@ export default function Settings() {
                 }`}
               >
                 ダーク
-              </button>
+        </button>
             </div>
           </div>
         </div>
@@ -586,6 +587,63 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* UIモード設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              UI Mode
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              UIモード
+            </h2>
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-display text-sm text-[var(--color-text-primary)] mb-1">
+                UIモード
+              </p>
+              <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+                デスクトップUIまたはモバイルUI（ボトムナビゲーション）を選択
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setUIMode('desktop')
+                  saveUIMode('desktop')
+                  showNotification('UIモードをデスクトップに変更しました。ページをリロードしてください。', 'info')
+                }}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                  uiMode === 'desktop'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                デスクトップ
+              </button>
+              <button
+                onClick={() => {
+                  setUIMode('mobile')
+                  saveUIMode('mobile')
+                  showNotification('UIモードをモバイルに変更しました。ページをリロードしてください。', 'info')
+                }}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
+                  uiMode === 'mobile'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                モバイル
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* サイドバー表示設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
@@ -597,9 +655,9 @@ export default function Settings() {
               サイドバー表示設定
             </h2>
           </div>
-        </div>
-        
-        <div className="space-y-6">
+      </div>
+      
+      <div className="space-y-6">
           {/* ピンどめボタン */}
           <div className="flex items-center justify-between">
             <div>
@@ -1112,8 +1170,8 @@ export default function Settings() {
                 <ProjectForm
                   project={editingProject}
                   onSubmit={editingProject ? handleUpdateProject : handleCreateProject}
-                  onCancel={handleCancel}
-                />
+                onCancel={handleCancel}
+              />
               )}
               {activeTab === 'mode' && (
                 <ModeForm
@@ -1244,9 +1302,9 @@ export default function Settings() {
         <p className="font-display text-xs text-[var(--color-text-tertiary)]">
           GitHub同期やAI APIなどの外部サービスとの連携設定
         </p>
-      </div>
+        </div>
 
-      {/* GitHub設定 */}
+        {/* GitHub設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
           <div>
@@ -1291,9 +1349,9 @@ export default function Settings() {
                 </div>
               </div>
               
-              <button
+                <button
                 onClick={handleSync}
-                disabled={syncing}
+                  disabled={syncing}
                 className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
               >
                 {syncing ? (
@@ -1309,7 +1367,7 @@ export default function Settings() {
                     <span>同期</span>
                   </>
                 )}
-              </button>
+                </button>
 
               {githubError && (
               <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
@@ -1403,7 +1461,7 @@ export default function Settings() {
               </div>
             </div>
           )}
-      </div>
+        </div>
 
       {/* AI API設定 */}
       <div className="card-industrial p-6">
@@ -1415,8 +1473,8 @@ export default function Settings() {
             <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
               AI API設定
             </h2>
-          </div>
-        </div>
+      </div>
+    </div>
 
         {/* プライマリAPI選択 */}
         <div className="mb-6 space-y-3">

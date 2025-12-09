@@ -6,7 +6,7 @@ import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
 import { useSelectedDate } from '../context/SelectedDateContext'
 import { generateTodaySummary, copyToClipboard } from '../utils/export'
-import { getDashboardLayout, saveDashboardLayout } from '../services/taskService'
+import { getDashboardLayout, saveDashboardLayout, getUIMode } from '../services/taskService'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
@@ -335,70 +335,80 @@ export default function Dashboard() {
       <SortableContext items={widgetIds} strategy={verticalListSortingStrategy}>
         <div className={`space-y-8 ${isEditMode ? 'pl-8' : ''}`}>
       {/* Page Header */}
-      <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
-        <div>
-          <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
-            Overview
-          </p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-[var(--color-text-primary)]">
-            ダッシュボード
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {!showTaskForm && (
-            <button
-              onClick={() => setShowTaskForm(true)}
-              className="btn-industrial"
-            >
-              ＋新規タスク
-            </button>
-          )}
-          <button
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`btn-industrial flex items-center gap-2 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''}`}
-            title={isEditMode ? '編集モードを終了' : 'レイアウトを編集'}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            <span>{isEditMode ? '編集終了' : 'レイアウト編集'}</span>
-          </button>
-          <button
-            onClick={() => {
-              console.log('Date picker button clicked')
-              setShowDatePicker(true)
-            }}
-            className="btn-industrial flex items-center gap-2"
-            title="まとめをクリップボードにコピー（日付選択可）"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <span>まとめをコピー</span>
-          </button>
-          {githubConfig && (
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="btn-industrial flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {syncing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
-                  <span>同期中...</span>
-                </>
-              ) : (
-                <>
+      {(() => {
+        const uiMode = getUIMode()
+        const isMobile = uiMode === 'mobile'
+        
+        return (
+          <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-end justify-between'} border-b border-[var(--color-border)] pb-6`}>
+            <div>
+              <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
+                Overview
+              </p>
+              <h1 className={`font-display font-semibold tracking-tight text-[var(--color-text-primary)] ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
+                ダッシュボード
+              </h1>
+            </div>
+            <div className={`${isMobile ? 'grid grid-cols-2 gap-2 w-full' : 'flex items-center gap-2 flex-wrap'}`}>
+              {!showTaskForm && (
+                <button
+                  onClick={() => setShowTaskForm(true)}
+                  className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>github同期</span>
-                </>
+                  <span>{isMobile ? '新規' : '＋新規タスク'}</span>
+                </button>
               )}
-            </button>
-          )}
-        </div>
-      </div>
+              <button
+                onClick={() => setIsEditMode(!isEditMode)}
+                className={`btn-industrial flex items-center justify-center gap-1.5 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''} ${isMobile ? 'text-sm py-2.5' : ''}`}
+                title={isEditMode ? '編集モードを終了' : 'レイアウトを編集'}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span>{isMobile ? (isEditMode ? '終了' : '編集') : (isEditMode ? '編集終了' : 'レイアウト編集')}</span>
+              </button>
+              <button
+                onClick={() => {
+                  console.log('Date picker button clicked')
+                  setShowDatePicker(true)
+                }}
+                className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
+                title="まとめをクリップボードにコピー（日付選択可）"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>{isMobile ? 'コピー' : 'まとめをコピー'}</span>
+              </button>
+              {githubConfig && (
+                <button
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className={`btn-industrial flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${isMobile ? 'text-sm py-2.5' : ''}`}
+                >
+                  {syncing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                      <span>{isMobile ? '同期中' : '同期中...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>{isMobile ? '同期' : 'github同期'}</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {showTaskForm && (
         <div className="card-industrial p-6 animate-scale-in">

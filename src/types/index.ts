@@ -217,6 +217,9 @@ export interface DashboardLayoutConfig {
 // 週の開始日設定
 export type WeekStartDay = 'sunday' | 'monday'
 
+// UIモード設定
+export type UIMode = 'desktop' | 'mobile'
+
 export interface AppData {
   tasks: Task[]
   projects: Project[]
@@ -238,6 +241,7 @@ export interface AppData {
   timeSectionSettings?: TimeSectionSettings // 時間セクション設定
   weekStartDay?: WeekStartDay // 週の開始日（デフォルト: 'monday'）
   timeAxisSettings?: { startHour: number; endHour: number } // 時間軸チャートの表示範囲
+  uiMode?: UIMode // UIモード（デフォルト: 'desktop'）
   // 後方互換性のため残す（削除予定）
   categories?: Category[]
   lastSynced?: string

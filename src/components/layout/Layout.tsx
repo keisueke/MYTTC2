@@ -1,7 +1,9 @@
 import { ReactNode, useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
-import { getSidebarVisibility, getSidebarWidth } from '../../services/taskService'
+import MobileLayout from './MobileLayout'
+import { getSidebarVisibility, getSidebarWidth, getUIMode } from '../../services/taskService'
+import { UIMode } from '../../types'
 
 interface LayoutProps {
   children: ReactNode
@@ -11,11 +13,13 @@ export default function Layout({ children }: LayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [sidebarAlwaysVisible, setSidebarAlwaysVisible] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(getSidebarWidth())
+  const [uiMode, setUIMode] = useState<UIMode>(() => getUIMode())
 
   useEffect(() => {
     const alwaysVisible = getSidebarVisibility()
     setSidebarAlwaysVisible(alwaysVisible)
     setSidebarWidth(getSidebarWidth())
+    setUIMode(getUIMode())
     // 常時表示の設定に基づいてサイドバーの開閉状態を設定
     setIsMenuOpen(alwaysVisible)
     
@@ -25,6 +29,7 @@ export default function Layout({ children }: LayoutProps) {
       setSidebarAlwaysVisible(alwaysVisible)
       setIsMenuOpen(alwaysVisible)
       setSidebarWidth(getSidebarWidth())
+      setUIMode(getUIMode())
     }
     
     window.addEventListener('mytcc2:dataChanged', handleDataChange)
@@ -43,6 +48,12 @@ export default function Layout({ children }: LayoutProps) {
     }
   }
 
+  // モバイルUIの場合はMobileLayoutを表示
+  if (uiMode === 'mobile') {
+    return <MobileLayout>{children}</MobileLayout>
+  }
+
+  // デスクトップUI（既存のレイアウト）
   return (
     <div className="min-h-screen relative">
       {/* オーバーレイ */}

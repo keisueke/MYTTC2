@@ -1902,3 +1902,21 @@ export function saveTimeAxisSettings(settings: TimeAxisSettings): void {
   saveData(data)
 }
 
+/**
+ * UIモードを取得
+ */
+export function getUIMode(): 'desktop' | 'mobile' {
+  const data = loadData()
+  return data.uiMode || 'desktop'
+}
+
+/**
+ * UIモードを保存
+ */
+export function saveUIMode(mode: 'desktop' | 'mobile'): void {
+  const data = loadData()
+  data.uiMode = mode
+  saveData(data)
+  window.dispatchEvent(new Event('mytcc2:dataChanged'))
+}
+
