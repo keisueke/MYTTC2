@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Mode } from '../../types'
+import { validateTextInput } from '../../utils/validation'
 
 interface ModeFormProps {
   mode?: Mode
@@ -35,6 +36,12 @@ export default function ModeForm({ mode, onSubmit, onCancel }: ModeFormProps) {
     
     if (!name.trim()) {
       newErrors.name = 'モード名は必須です'
+    } else {
+      // モード名のバリデーション（制御文字チェック）
+      const nameValidation = validateTextInput(name, 'モード名')
+      if (!nameValidation.valid && nameValidation.errorMessage) {
+        newErrors.name = nameValidation.errorMessage
+      }
     }
     
     setErrors(newErrors)

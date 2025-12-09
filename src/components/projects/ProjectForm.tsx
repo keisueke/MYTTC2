@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Project } from '../../types'
+import { validateTextInput } from '../../utils/validation'
 
 interface ProjectFormProps {
   project?: Project
@@ -22,6 +23,12 @@ export default function ProjectForm({ project, onSubmit, onCancel }: ProjectForm
     
     if (!name.trim()) {
       newErrors.name = 'プロジェクト名は必須です'
+    } else {
+      // プロジェクト名のバリデーション（制御文字チェック）
+      const nameValidation = validateTextInput(name, 'プロジェクト名')
+      if (!nameValidation.valid && nameValidation.errorMessage) {
+        newErrors.name = nameValidation.errorMessage
+      }
     }
     
     setErrors(newErrors)

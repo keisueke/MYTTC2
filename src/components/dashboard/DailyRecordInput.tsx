@@ -6,6 +6,7 @@ import { DailyRecord, SummaryConfig } from '../../types'
 import { getDailyRecord, saveDailyRecord, getSummaryConfig } from '../../services/taskService'
 import { useNotification } from '../../context/NotificationContext'
 import { useSelectedDate } from '../../context/SelectedDateContext'
+import { validateTextInput } from '../../utils/validation'
 
 export default function DailyRecordInput() {
   const { showNotification } = useNotification()
@@ -13,6 +14,7 @@ export default function DailyRecordInput() {
   const [record, setRecord] = useState<Partial<DailyRecord>>({})
   const [config, setConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [saving, setSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   // ローカル日付文字列を取得
   const toLocalDateStr = (date: Date): string => {
@@ -44,6 +46,45 @@ export default function DailyRecordInput() {
   const handleSave = () => {
     if (!record.date) return
     
+    // バリデーション
+    const newErrors: Record<string, string> = {}
+    
+    if (record.breakfast) {
+      const breakfastValidation = validateTextInput(record.breakfast, '朝食')
+      if (!breakfastValidation.valid && breakfastValidation.errorMessage) {
+        newErrors.breakfast = breakfastValidation.errorMessage
+      }
+    }
+    
+    if (record.lunch) {
+      const lunchValidation = validateTextInput(record.lunch, '昼食')
+      if (!lunchValidation.valid && lunchValidation.errorMessage) {
+        newErrors.lunch = lunchValidation.errorMessage
+      }
+    }
+    
+    if (record.dinner) {
+      const dinnerValidation = validateTextInput(record.dinner, '夕食')
+      if (!dinnerValidation.valid && dinnerValidation.errorMessage) {
+        newErrors.dinner = dinnerValidation.errorMessage
+      }
+    }
+    
+    if (record.snack) {
+      const snackValidation = validateTextInput(record.snack, '間食')
+      if (!snackValidation.valid && snackValidation.errorMessage) {
+        newErrors.snack = snackValidation.errorMessage
+      }
+    }
+    
+    setErrors(newErrors)
+    
+    // エラーがある場合は保存しない
+    if (Object.keys(newErrors).length > 0) {
+      showNotification('入力内容に問題があります', 'error')
+      return
+    }
+    
     setSaving(true)
     try {
       saveDailyRecord({
@@ -58,6 +99,7 @@ export default function DailyRecordInput() {
         snack: record.snack,
       })
       showNotification('記録を保存しました', 'success')
+      setErrors({}) // エラーをクリア
     } catch (error) {
       console.error('Failed to save daily record:', error)
       showNotification('記録の保存に失敗しました', 'error')
@@ -202,10 +244,21 @@ export default function DailyRecordInput() {
             <input
               type="text"
               value={record.breakfast || ''}
-              onChange={(e) => setRecord({ ...record, breakfast: e.target.value || undefined })}
+              onChange={(e) => {
+                setRecord({ ...record, breakfast: e.target.value || undefined })
+                // エラーをクリア
+                if (errors.breakfast) {
+                  setErrors({ ...errors, breakfast: '' })
+                }
+              }}
               placeholder="例: パン、コーヒー"
-              className="input-industrial w-full"
+              className={`input-industrial w-full ${
+                errors.breakfast ? 'border-[var(--color-error)]' : ''
+              }`}
             />
+            {errors.breakfast && (
+              <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.breakfast}</p>
+            )}
           </div>
         )}
 
@@ -217,10 +270,20 @@ export default function DailyRecordInput() {
             <input
               type="text"
               value={record.lunch || ''}
-              onChange={(e) => setRecord({ ...record, lunch: e.target.value || undefined })}
+              onChange={(e) => {
+                setRecord({ ...record, lunch: e.target.value || undefined })
+                if (errors.lunch) {
+                  setErrors({ ...errors, lunch: '' })
+                }
+              }}
               placeholder="例: サラダ、スープ"
-              className="input-industrial w-full"
+              className={`input-industrial w-full ${
+                errors.lunch ? 'border-[var(--color-error)]' : ''
+              }`}
             />
+            {errors.lunch && (
+              <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.lunch}</p>
+            )}
           </div>
         )}
 
@@ -232,10 +295,20 @@ export default function DailyRecordInput() {
             <input
               type="text"
               value={record.dinner || ''}
-              onChange={(e) => setRecord({ ...record, dinner: e.target.value || undefined })}
+              onChange={(e) => {
+                setRecord({ ...record, dinner: e.target.value || undefined })
+                if (errors.dinner) {
+                  setErrors({ ...errors, dinner: '' })
+                }
+              }}
               placeholder="例: ご飯、味噌汁、魚"
-              className="input-industrial w-full"
+              className={`input-industrial w-full ${
+                errors.dinner ? 'border-[var(--color-error)]' : ''
+              }`}
             />
+            {errors.dinner && (
+              <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.dinner}</p>
+            )}
           </div>
         )}
 
@@ -247,10 +320,20 @@ export default function DailyRecordInput() {
             <input
               type="text"
               value={record.snack || ''}
-              onChange={(e) => setRecord({ ...record, snack: e.target.value || undefined })}
+              onChange={(e) => {
+                setRecord({ ...record, snack: e.target.value || undefined })
+                if (errors.snack) {
+                  setErrors({ ...errors, snack: '' })
+                }
+              }}
               placeholder="例: チョコレート"
-              className="input-industrial w-full"
+              className={`input-industrial w-full ${
+                errors.snack ? 'border-[var(--color-error)]' : ''
+              }`}
             />
+            {errors.snack && (
+              <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.snack}</p>
+            )}
           </div>
         )}
 

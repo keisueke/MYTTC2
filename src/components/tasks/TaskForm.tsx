@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Task, RepeatPattern, Project, Mode, Tag, RepeatConfig, Goal, TaskReminder, Weekday } from '../../types'
 import { getTimeSectionSettings, getTimeSectionsForWeekday, findTimeSectionForDateTime } from '../../services/taskService'
+import { validateTextInput } from '../../utils/validation'
 
 interface TaskFormProps {
   task?: Task
@@ -233,6 +234,20 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
     
     if (!title.trim()) {
       newErrors.title = 'タイトルは必須です'
+    } else {
+      // タイトルのバリデーション（制御文字チェック）
+      const titleValidation = validateTextInput(title, 'タイトル')
+      if (!titleValidation.valid && titleValidation.errorMessage) {
+        newErrors.title = titleValidation.errorMessage
+      }
+    }
+    
+    // 説明のバリデーション（制御文字チェック）
+    if (description.trim()) {
+      const descriptionValidation = validateTextInput(description, '説明')
+      if (!descriptionValidation.valid && descriptionValidation.errorMessage) {
+        newErrors.description = descriptionValidation.errorMessage
+      }
     }
     
     setErrors(newErrors)
@@ -491,9 +506,14 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="input-industrial w-full resize-none"
+          className={`input-industrial w-full resize-none ${
+            errors.description ? 'border-[var(--color-error)]' : ''
+          }`}
           placeholder="タスクの詳細を入力（任意）"
         />
+        {errors.description && (
+          <p className="mt-1 font-display text-xs text-[var(--color-error)]">{errors.description}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

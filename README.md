@@ -33,6 +33,9 @@ npm run build
 
 # GitHub Pagesにデプロイ
 npm run deploy
+
+# E2Eテスト実行
+npm run test:e2e
 ```
 
 ## GitHub API設定
@@ -45,6 +48,14 @@ npm run deploy
    - リポジトリ名（repo）
 
 データは指定したリポジトリの `data/tasks.json` に保存されます。
+
+## テスト
+
+E2EテストはPlaywrightを使用しています。
+
+- **テスト実行**: `npm run test:e2e`
+- **ドキュメント**: [docs/testing/playwright.md](./docs/testing/playwright.md)
+- **作業方法ガイド**: [docs/testing/playwright-workflow.md](./docs/testing/playwright-workflow.md)
 
 ## 開発計画
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Tag } from '../../types'
+import { validateTextInput } from '../../utils/validation'
 
 interface TagFormProps {
   tag?: Tag
@@ -22,6 +23,12 @@ export default function TagForm({ tag, onSubmit, onCancel }: TagFormProps) {
     
     if (!name.trim()) {
       newErrors.name = 'タグ名は必須です'
+    } else {
+      // タグ名のバリデーション（制御文字チェック）
+      const nameValidation = validateTextInput(name, 'タグ名')
+      if (!nameValidation.valid && nameValidation.errorMessage) {
+        newErrors.name = nameValidation.errorMessage
+      }
     }
     
     setErrors(newErrors)

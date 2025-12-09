@@ -28,11 +28,12 @@ interface TaskListProps {
   onCopy?: (id: string) => void
   onMoveTask?: (taskId: string, newIndex: number, filteredTaskIds: string[]) => void
   hideTimer?: boolean
+  skipDateFilter?: boolean // 日付フィルタリングをスキップ（ルーティン一覧用）
 }
 
 type SortType = 'createdAt' | 'title' | 'timeSection'
 
-export default function TaskList({ tasks, projects, modes, tags, routineExecutions = [], referenceDate, onEdit, onDelete, onStartTimer, onStopTimer, onCopy, onMoveTask, hideTimer = false }: TaskListProps) {
+export default function TaskList({ tasks, projects, modes, tags, routineExecutions = [], referenceDate, onEdit, onDelete, onStartTimer, onStopTimer, onCopy, onMoveTask, hideTimer = false, skipDateFilter = false }: TaskListProps) {
   const [sortBy, setSortBy] = useState<SortType>('createdAt')
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [modeFilter, setModeFilter] = useState<string>('all')
@@ -71,14 +72,16 @@ export default function TaskList({ tasks, projects, modes, tags, routineExecutio
   const filteredAndSortedTasks = useMemo(() => {
     // 基準日付のタスクをフィルタリング
     // ルーティンタスクの場合は、テンプレートを表示し、その日の実行状況をRoutineExecutionから取得
-    let filtered = tasks.filter(task => {
-      if (task.repeatPattern !== 'none') {
-        // ルーティンタスクの場合は、基準日付に該当するかチェック
-        return isRepeatTaskForDate(task, baseDate)
-      }
-      // 通常のタスクは既存のロジックを使用
-      return isTaskForDate(task, baseDate)
-    })
+    let filtered = skipDateFilter 
+      ? [...tasks] // 日付フィルタリングをスキップ（全タスクを表示）
+      : tasks.filter(task => {
+          if (task.repeatPattern !== 'none') {
+            // ルーティンタスクの場合は、基準日付に該当するかチェック
+            return isRepeatTaskForDate(task, baseDate)
+          }
+          // 通常のタスクは既存のロジックを使用
+          return isTaskForDate(task, baseDate)
+        })
     
     // 完了したタスクのフィルタリング
     if (!showCompleted) {
@@ -145,7 +148,7 @@ export default function TaskList({ tasks, projects, modes, tags, routineExecutio
     })
 
     return filtered
-  }, [tasks, projectFilter, modeFilter, tagFilter, sortBy, showCompleted, referenceDate, routineExecutions, baseDateStr, sectionOrderMap])
+  }, [tasks, projectFilter, modeFilter, tagFilter, sortBy, showCompleted, referenceDate, routineExecutions, baseDateStr, sectionOrderMap, skipDateFilter, baseDate])
 
   // アクティブなフィルター数を計算
   const activeFilterCount = [

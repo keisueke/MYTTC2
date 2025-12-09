@@ -2,6 +2,7 @@ import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, DailyRecord, 
 import { getStoredTheme, saveTheme as saveThemeToStorage } from '../utils/theme'
 import { getWeatherConfig as getWeatherConfigFromStorage, saveWeatherConfig as saveWeatherConfigToStorage } from '../utils/weatherConfig'
 import { isRepeatTaskForToday, generateTodayRepeatTask } from '../utils/repeatUtils'
+import { sanitizeText } from '../utils/validation'
 
 const STORAGE_KEY = 'mytcc2_data'
 
@@ -137,8 +138,15 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, refe
     createdAt = toLocalISOString(new Date())
   }
   
-  const newTask: Task = {
+  // 最終防衛線: テキストフィールドをサニタイズ（制御文字を削除）
+  const sanitizedTask = {
     ...task,
+    title: sanitizeText(task.title),
+    description: task.description ? sanitizeText(task.description) : undefined,
+  }
+  
+  const newTask: Task = {
+    ...sanitizedTask,
     id: crypto.randomUUID(),
     createdAt,
     updatedAt: toLocalISOString(new Date()),
@@ -161,9 +169,18 @@ export function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'creat
     throw new Error(`Task with id ${id} not found`)
   }
   
+  // 最終防衛線: テキストフィールドをサニタイズ（制御文字を削除）
+  const sanitizedUpdates: Partial<Omit<Task, 'id' | 'createdAt'>> = { ...updates }
+  if (updates.title !== undefined) {
+    sanitizedUpdates.title = sanitizeText(updates.title)
+  }
+  if (updates.description !== undefined && updates.description !== null) {
+    sanitizedUpdates.description = sanitizeText(updates.description)
+  }
+  
   const updatedTask: Task = {
     ...data.tasks[taskIndex],
-    ...updates,
+    ...sanitizedUpdates,
     updatedAt: new Date().toISOString(),
   }
   
@@ -488,8 +505,13 @@ export function getProjects(): Project[] {
  */
 export function addProject(project: Omit<Project, 'id' | 'createdAt'>): Project {
   const data = loadData()
-  const newProject: Project = {
+  // 最終防衛線: プロジェクト名をサニタイズ
+  const sanitizedProject = {
     ...project,
+    name: sanitizeText(project.name),
+  }
+  const newProject: Project = {
+    ...sanitizedProject,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
@@ -516,9 +538,15 @@ export function updateProject(id: string, updates: Partial<Omit<Project, 'id' | 
     throw new Error(`Project with id ${id} not found`)
   }
   
+  // 最終防衛線: プロジェクト名をサニタイズ
+  const sanitizedUpdates: Partial<Omit<Project, 'id' | 'createdAt'>> = { ...updates }
+  if (updates.name !== undefined) {
+    sanitizedUpdates.name = sanitizeText(updates.name)
+  }
+  
   const updatedProject: Project = {
     ...data.projects[projectIndex],
-    ...updates,
+    ...sanitizedUpdates,
   }
   
   data.projects[projectIndex] = updatedProject
@@ -564,8 +592,13 @@ export function getModes(): Mode[] {
  */
 export function addMode(mode: Omit<Mode, 'id' | 'createdAt'>): Mode {
   const data = loadData()
-  const newMode: Mode = {
+  // 最終防衛線: モード名をサニタイズ
+  const sanitizedMode = {
     ...mode,
+    name: sanitizeText(mode.name),
+  }
+  const newMode: Mode = {
+    ...sanitizedMode,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
@@ -592,9 +625,15 @@ export function updateMode(id: string, updates: Partial<Omit<Mode, 'id' | 'creat
     throw new Error(`Mode with id ${id} not found`)
   }
   
+  // 最終防衛線: モード名をサニタイズ
+  const sanitizedUpdates: Partial<Omit<Mode, 'id' | 'createdAt'>> = { ...updates }
+  if (updates.name !== undefined) {
+    sanitizedUpdates.name = sanitizeText(updates.name)
+  }
+  
   const updatedMode: Mode = {
     ...data.modes[modeIndex],
-    ...updates,
+    ...sanitizedUpdates,
   }
   
   data.modes[modeIndex] = updatedMode
@@ -640,8 +679,13 @@ export function getTags(): Tag[] {
  */
 export function addTag(tag: Omit<Tag, 'id' | 'createdAt'>): Tag {
   const data = loadData()
-  const newTag: Tag = {
+  // 最終防衛線: タグ名をサニタイズ
+  const sanitizedTag = {
     ...tag,
+    name: sanitizeText(tag.name),
+  }
+  const newTag: Tag = {
+    ...sanitizedTag,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
@@ -668,9 +712,15 @@ export function updateTag(id: string, updates: Partial<Omit<Tag, 'id' | 'created
     throw new Error(`Tag with id ${id} not found`)
   }
   
+  // 最終防衛線: タグ名をサニタイズ
+  const sanitizedUpdates: Partial<Omit<Tag, 'id' | 'createdAt'>> = { ...updates }
+  if (updates.name !== undefined) {
+    sanitizedUpdates.name = sanitizeText(updates.name)
+  }
+  
   const updatedTag: Tag = {
     ...data.tags[tagIndex],
-    ...updates,
+    ...sanitizedUpdates,
   }
   
   data.tags[tagIndex] = updatedTag
@@ -1038,14 +1088,23 @@ export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | '
     data.dailyRecords = []
   }
   
+  // 最終防衛線: テキストフィールドをサニタイズ
+  const sanitizedRecord: Omit<DailyRecord, 'id' | 'createdAt' | 'updatedAt'> = {
+    ...record,
+    breakfast: record.breakfast ? sanitizeText(record.breakfast) : undefined,
+    lunch: record.lunch ? sanitizeText(record.lunch) : undefined,
+    dinner: record.dinner ? sanitizeText(record.dinner) : undefined,
+    snack: record.snack ? sanitizeText(record.snack) : undefined,
+  }
+  
   // 既存の記録を検索
-  const existingIndex = data.dailyRecords.findIndex(r => r.date === record.date)
+  const existingIndex = data.dailyRecords.findIndex(r => r.date === sanitizedRecord.date)
   
   if (existingIndex !== -1) {
     // 既存の記録を更新
     const updatedRecord: DailyRecord = {
       ...data.dailyRecords[existingIndex],
-      ...record,
+      ...sanitizedRecord,
       updatedAt: new Date().toISOString(),
     }
     data.dailyRecords[existingIndex] = updatedRecord
@@ -1054,7 +1113,7 @@ export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | '
   } else {
     // 新しい記録を作成
     const newRecord: DailyRecord = {
-      ...record,
+      ...sanitizedRecord,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

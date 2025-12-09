@@ -137,6 +137,7 @@ export default function RepeatTasks() {
               onCopy={copyTask}
               onMoveTask={moveTaskToPosition}
               hideTimer={true}
+              skipDateFilter={true}
             />
           )}
         </>
