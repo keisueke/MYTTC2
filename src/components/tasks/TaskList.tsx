@@ -112,20 +112,44 @@ export default function TaskList({ tasks, projects, modes, tags, routineExecutio
     // ソート
     filtered.sort((a, b) => {
       // 完了したタスクを最後に表示
-      const aCompleted = a.completedAt ? 1 : 0
-      const bCompleted = b.completedAt ? 1 : 0
+      // ルーティンタスクの場合は、routineExecutionの完了状態をチェック
+      let aCompleted = 0
+      let bCompleted = 0
+      
+      if (a.repeatPattern !== 'none') {
+        const aExecution = routineExecutions.find(e => 
+          e.routineTaskId === a.id && e.date.startsWith(baseDateStr)
+        )
+        aCompleted = aExecution?.completedAt ? 1 : 0
+      } else {
+        aCompleted = a.completedAt ? 1 : 0
+      }
+      
+      if (b.repeatPattern !== 'none') {
+        const bExecution = routineExecutions.find(e => 
+          e.routineTaskId === b.id && e.date.startsWith(baseDateStr)
+        )
+        bCompleted = bExecution?.completedAt ? 1 : 0
+      } else {
+        bCompleted = b.completedAt ? 1 : 0
+      }
+      
       if (aCompleted !== bCompleted) {
         return aCompleted - bCompleted // 未完了を先に
       }
       
-      // 完了状態が同じ場合、orderでソート（orderが設定されている場合）
-      if (a.order !== undefined && b.order !== undefined) {
-        return a.order - b.order
+      // ルーティンページ（skipDateFilter=true）の場合のみ、orderを優先
+      // 通常のタスク一覧ページでは、sortByを優先
+      if (skipDateFilter) {
+        // ルーティンページ: orderを優先
+        if (a.order !== undefined && b.order !== undefined) {
+          return a.order - b.order
+        }
+        if (a.order !== undefined) return -1
+        if (b.order !== undefined) return 1
       }
-      if (a.order !== undefined) return -1
-      if (b.order !== undefined) return 1
       
-      // orderが設定されていない場合は、既存のソートロジックを使用
+      // 通常のタスク一覧ページまたはorderが設定されていない場合、sortByを使用
       switch (sortBy) {
         case 'title':
           return a.title.localeCompare(b.title, 'ja')
