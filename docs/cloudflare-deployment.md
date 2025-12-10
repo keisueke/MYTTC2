@@ -70,8 +70,13 @@ Cloudflare Dashboardで以下を設定：
    - **Build command**: `npm run build`
    - **Build output directory**: `dist`
    - **Root directory**: `/`（プロジェクトルート）
+   - **Deploy command**: **空欄**または`true`（削除できない場合は`true`を設定）
 
-#### 方法2: Wrangler CLI
+**重要**: Deploy commandには`npx wrangler deploy`などを設定しないでください。Cloudflare Pagesは静的ファイルを自動的にデプロイするため、追加のデプロイコマンドは不要です。
+
+**Deploy commandを空欄にできない場合**: `true`コマンドを設定してください。これは何も実行せず、常に成功を返すため、Cloudflare Pagesが自動的に静的ファイルをデプロイします。
+
+#### 方法2: Wrangler CLI（手動デプロイ用）
 
 ```bash
 # Pagesプロジェクトを作成
@@ -81,11 +86,33 @@ wrangler pages project create mytcc2
 wrangler pages deploy dist
 ```
 
+**注意**: 通常はGitHub連携を使用し、Wrangler CLIは手動デプロイが必要な場合のみ使用します。
+
 ### 6. カスタムドメインの設定（オプション）
 
 1. Cloudflare Dashboardで「Pages」→ プロジェクトを選択
 2. 「Custom domains」タブでドメインを追加
 3. DNS設定を確認
+
+## Workers(API)とPages(フロント)の役割分離
+
+このプロジェクトでは、以下のように役割を分離しています：
+
+- **Cloudflare Pages（フロントエンド）**: 
+  - GitHub連携で自動デプロイ
+  - 静的ファイル（`dist`）を配信
+  - ビルドコマンド: `npm run build`のみ
+  - Deploy command: 不要（空欄）
+
+- **Cloudflare Workers（API）**:
+  - ローカルから`wrangler deploy`で手動デプロイ
+  - D1データベースと連携
+  - REST APIエンドポイントを提供
+  - デプロイ先: `https://mytcc2-api.thesket129.workers.dev`
+
+**運用方針**:
+- フロントエンドの更新: GitHubにプッシュするだけで自動デプロイ
+- APIの更新: ローカルで`cd workers && npm run deploy`を実行
 
 ## 設定ファイル
 

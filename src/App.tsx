@@ -16,14 +16,25 @@ import Settings from './pages/Settings'
 import RoutineCheckerPage from './pages/RoutineChecker'
 import DailyRecordView from './pages/DailyRecordView'
 
-// GitHub Pages用のbaseパス（本番環境では/MYTTC2/、開発環境では/）
-// 開発環境ではwindow.location.pathnameで判定
+// ベースパスの判定
+// Cloudflare Pages: /、GitHub Pages: /MYTTC2、開発環境: /
 const getBasename = () => {
   if (typeof window !== 'undefined') {
-    // 開発環境（localhost）の場合は/、本番環境（GitHub Pages）の場合は/MYTTC2
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? '/'
-      : '/MYTTC2'
+    const hostname = window.location.hostname
+    // 開発環境（localhost）
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return '/'
+    }
+    // Cloudflare Pages（.pages.devドメイン）
+    if (hostname.includes('.pages.dev')) {
+      return '/'
+    }
+    // GitHub Pages（github.ioドメイン）の場合は/MYTTC2
+    if (hostname.includes('github.io')) {
+      return '/MYTTC2'
+    }
+    // その他の場合は/（Cloudflare Pagesのカスタムドメインなど）
+    return '/'
   }
   return '/'
 }
