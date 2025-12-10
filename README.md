@@ -38,7 +38,9 @@ npm run deploy
 npm run test:e2e
 ```
 
-## GitHub API設定
+## データ同期設定
+
+### GitHub API（現在の方法）
 
 1. GitHubでPersonal Access Token (PAT)を生成
    - スコープ: `repo`（リポジトリへのフルアクセス）
@@ -48,6 +50,19 @@ npm run test:e2e
    - リポジトリ名（repo）
 
 データは指定したリポジトリの `data/tasks.json` に保存されます。
+
+### Cloudflare（移行予定）
+
+Cloudflareへの移行計画については、[Cloudflare移行計画](.cursor/plans/cloudflare-migration_f03598b4.plan.md)を参照してください。
+
+- **データストレージ**: Cloudflare D1（SQLite）
+- **API**: Cloudflare Workers
+- **デプロイ**: Cloudflare Pages
+
+詳細は以下のドキュメントを参照:
+- [Cloudflare ストレージ比較](docs/cloudflare-storage-comparison.md)
+- [Cloudflare デプロイガイド](docs/cloudflare-deployment.md)
+- [Cloudflare テストガイド](docs/cloudflare-testing.md)
 
 ## テスト
 

@@ -1,0 +1,25 @@
+name = "mytcc2-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# D1データベースの設定
+[[d1_databases]]
+binding = "DB"
+database_name = "mytcc2-db"
+database_id = "465190eb-c82a-4966-b268-7bcd468db9fb"
+
+# 環境変数（本番環境用）
+# カスタムドメインを使用する場合は、以下を有効化してください
+# [env.production]
+# routes = [
+#   { pattern = "api.mytcc2.example.com", zone_name = "example.com" }
+# ]
+
+# 環境変数（開発環境用）
+# [env.development]
+# routes = []
+
+# シークレット（wrangler secret put で設定）
+# API_KEY: API認証用のキー
+# JWT_SECRET: JWT認証を使用する場合（オプション）
+

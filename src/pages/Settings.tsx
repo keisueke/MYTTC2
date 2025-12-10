@@ -15,6 +15,7 @@ import * as aiConfigService from '../services/aiConfig'
 import { geminiApiProvider } from '../services/aiApi/geminiApi'
 import { openaiApiProvider } from '../services/aiApi/openaiApi'
 import { claudeApiProvider } from '../services/aiApi/claudeApi'
+import { loadCloudflareConfig, saveCloudflareConfig, CloudflareConfig } from '../services/cloudflareApi'
 import ProjectList from '../components/projects/ProjectList'
 import ProjectForm from '../components/projects/ProjectForm'
 import ModeList from '../components/modes/ModeList'
@@ -80,6 +81,10 @@ export default function Settings() {
   const [githubRepo, setGitHubRepo] = useState(githubConfig?.repo || '')
   const [githubDataPath, setGitHubDataPath] = useState(githubConfig?.dataPath || 'data/tasks.json')
   const [validating, setValidating] = useState(false)
+  const [cloudflareConfig, setCloudflareConfig] = useState<CloudflareConfig | null>(() => loadCloudflareConfig())
+  const [showCloudflareForm, setShowCloudflareForm] = useState(!cloudflareConfig)
+  const [cloudflareApiUrl, setCloudflareApiUrl] = useState(cloudflareConfig?.apiUrl || '')
+  const [cloudflareApiKey, setCloudflareApiKey] = useState(cloudflareConfig?.apiKey || '')
   const [theme, setTheme] = useState<Theme>(getTheme())
   const [weatherCityName, setWeatherCityName] = useState(getWeatherConfig().cityName)
   const [savingWeather, setSavingWeather] = useState(false)
@@ -262,6 +267,33 @@ export default function Settings() {
       setGitHubRepo('')
       setGitHubDataPath('data/tasks.json')
       setShowGitHubForm(true)
+    }
+  }
+
+  const handleSaveCloudflareConfig = () => {
+    if (!cloudflareApiUrl.trim()) {
+      showNotification('API URLを入力してください', 'error')
+      return
+    }
+
+    const config: CloudflareConfig = {
+      apiUrl: cloudflareApiUrl.trim(),
+      apiKey: cloudflareApiKey.trim() || undefined,
+    }
+
+    saveCloudflareConfig(config)
+    setCloudflareConfig(config)
+    setShowCloudflareForm(false)
+    showNotification('Cloudflare設定を保存しました', 'success')
+  }
+
+  const handleRemoveCloudflareConfig = () => {
+    if (confirm('Cloudflare設定を削除しますか？')) {
+      localStorage.removeItem('mytcc2_cloudflare_config')
+      setCloudflareConfig(null)
+      setCloudflareApiUrl('')
+      setCloudflareApiKey('')
+      setShowCloudflareForm(true)
     }
   }
 
@@ -1457,6 +1489,108 @@ export default function Settings() {
                 className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {validating ? '検証中...' : '保存'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Cloudflare設定 */}
+        <div className="card-industrial p-6">
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+            <div>
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                Cloudflare Sync
+              </p>
+              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                Cloudflare設定
+              </h2>
+            </div>
+            {cloudflareConfig && !showCloudflareForm && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCloudflareForm(true)}
+                  className="btn-industrial"
+                >
+                  編集
+                </button>
+                <button
+                  onClick={handleRemoveCloudflareConfig}
+                  className="btn-industrial"
+                  style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                >
+                  削除
+                </button>
+              </div>
+            )}
+          </div>
+
+          {cloudflareConfig && !showCloudflareForm ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
+                <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
+                  ✅ Cloudflare設定が有効です
+                </p>
+                <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
+                  <p>API URL: {cloudflareConfig.apiUrl}</p>
+                  {cloudflareConfig.apiKey && (
+                    <p>API Key: {cloudflareConfig.apiKey.substring(0, 8)}...</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  API URL <span className="text-[var(--color-error)]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={cloudflareApiUrl}
+                  onChange={(e) => setCloudflareApiUrl(e.target.value)}
+                  placeholder="https://your-api.workers.dev"
+                  className="input-industrial w-full"
+                />
+                <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                  Cloudflare Workers APIのURLを入力してください
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  API Key（オプション）
+                </label>
+                <input
+                  type="password"
+                  value={cloudflareApiKey}
+                  onChange={(e) => setCloudflareApiKey(e.target.value)}
+                  placeholder="API認証キー（設定している場合）"
+                  className="input-industrial w-full"
+                />
+                <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                  API認証キーを設定している場合は入力してください
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+                {cloudflareConfig && (
+                  <button
+                    onClick={() => {
+                      setShowCloudflareForm(false)
+                      setCloudflareApiUrl(cloudflareConfig.apiUrl)
+                      setCloudflareApiKey(cloudflareConfig.apiKey || '')
+                    }}
+                    className="btn-industrial"
+                  >
+                    キャンセル
+                  </button>
+                )}
+                <button
+                  onClick={handleSaveCloudflareConfig}
+                  className="btn-industrial"
+                >
+                  保存
                 </button>
               </div>
             </div>

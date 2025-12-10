@@ -256,6 +256,21 @@ export interface ConflictInfo {
   remoteLastModified: Date | null
 }
 
+// ユーザー設定（Cloudflare D1用）
+export interface UserSettings {
+  userId: string // デフォルト: 'default'
+  theme?: string
+  sidebarAlwaysVisible?: number // 0 or 1
+  sidebarWidth?: number
+  weekStartDay?: string
+  timeSectionSettings?: string // JSON文字列
+  timeAxisSettings?: string // JSON文字列
+  dashboardLayout?: string // JSON文字列
+  summaryConfig?: string // JSON文字列
+  weatherConfig?: string // JSON文字列
+  updatedAt?: string
+}
+
 // 後方互換性のため残す（削除予定）
 export interface GeminiConfig {
   apiKey: string

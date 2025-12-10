@@ -1,0 +1,13 @@
+# Cloudflare Pages 設定ファイル
+
+[build]
+command = "npm ci && npm run build"
+cwd = "."
+
+[build.environment_variables]
+CF_PAGES = "1"
+
+# 環境変数（Cloudflare Dashboardで設定）
+# CLOUDFLARE_API_URL: Cloudflare Workers APIのURL
+# CLOUDFLARE_API_KEY: API認証キー（オプション）
+
