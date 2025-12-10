@@ -11,6 +11,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
+    "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
+    "deploy:cloudflare:project": "npm run build && wrangler pages deploy dist --project-name=mytcc",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"
