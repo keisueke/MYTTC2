@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { NotificationProvider } from './context/NotificationContext'
 import { SelectedDateProvider } from './context/SelectedDateContext'
+import { SyncProvider } from './context/SyncContext'
 import { useReminders } from './hooks/useReminders'
 import Layout from './components/layout/Layout'
 import InstallPrompt from './components/common/InstallPrompt'
@@ -70,8 +71,10 @@ function App() {
   return (
     <NotificationProvider>
       <SelectedDateProvider>
-        <AppContent />
-        <InstallPrompt />
+        <SyncProvider>
+          <AppContent />
+          <InstallPrompt />
+        </SyncProvider>
       </SelectedDateProvider>
     </NotificationProvider>
   )

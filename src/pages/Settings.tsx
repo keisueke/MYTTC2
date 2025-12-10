@@ -1418,19 +1418,33 @@ export default function Settings() {
             </div>
           </div>
 
-          <p className="font-display text-xs text-[var(--color-text-tertiary)] pt-2">
-            GitHub/Cloudflare同期を設定すると、データがクラウドにバックアップされ、複数デバイスで同期できます。
-            詳しい設定方法は
-            <a 
-              href="https://github.com/keisueke/MYTTC2/blob/main/docs/self-hosting-guide.md" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[var(--color-accent)] hover:underline ml-1"
-            >
-              セルフホストガイド
-            </a>
-            をご覧ください。
-          </p>
+          <div className="space-y-2 pt-2">
+            <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+              GitHub/Cloudflare同期を設定すると、データがクラウドにバックアップされ、複数デバイスで同期できます。
+            </p>
+            <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded p-3">
+              <p className="font-display text-xs font-medium text-[var(--color-text-primary)] mb-1">
+                自動同期について
+              </p>
+              <ul className="font-display text-xs text-[var(--color-text-secondary)] space-y-1 list-disc list-inside">
+                <li>データが変更されると、数秒後に自動的にクラウドに同期されます</li>
+                <li>ページを閉じる際も、可能な範囲で最終同期を試みます</li>
+                <li>ネットワークエラー時は、次回の操作時に再試行されます</li>
+              </ul>
+            </div>
+            <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+              詳しい設定方法は
+              <a 
+                href="https://github.com/keisueke/MYTTC2/blob/main/docs/self-hosting-guide.md" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-[var(--color-accent)] hover:underline ml-1"
+              >
+                セルフホストガイド
+              </a>
+              をご覧ください。
+            </p>
+          </div>
         </div>
       </div>
 

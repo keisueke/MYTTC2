@@ -7,6 +7,7 @@ import { getDailyRecord, saveDailyRecord, getSummaryConfig } from '../../service
 import { useNotification } from '../../context/NotificationContext'
 import { useSelectedDate } from '../../context/SelectedDateContext'
 import { validateTextInput } from '../../utils/validation'
+import { notifyDataChanged } from '../../hooks/useSyncBackend'
 
 export default function DailyRecordInput() {
   const { showNotification } = useNotification()
@@ -100,6 +101,7 @@ export default function DailyRecordInput() {
       })
       showNotification('記録を保存しました', 'success')
       setErrors({}) // エラーをクリア
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to save daily record:', error)
       showNotification('記録の保存に失敗しました', 'error')

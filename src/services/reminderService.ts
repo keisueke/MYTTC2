@@ -1,6 +1,7 @@
 import { Task } from '../types'
 import * as taskService from './taskService'
 import { showNotification, scheduleNotification } from './notificationService'
+import { notifyDataChanged } from '../hooks/useSyncBackend'
 
 /**
  * リマインダー管理サービス
@@ -157,6 +158,7 @@ export function cancelReminder(taskId: string, reminderId: string): void {
     ...task,
     reminders: updatedReminders.length > 0 ? updatedReminders : undefined,
   })
+  notifyDataChanged()
 }
 
 /**
@@ -176,6 +178,7 @@ export function markReminderAsNotified(taskId: string, reminderId: string): void
     ...task,
     reminders: updatedReminders,
   })
+  notifyDataChanged()
 }
 
 /**

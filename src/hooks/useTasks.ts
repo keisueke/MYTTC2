@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Task, Project, Mode, Tag, Wish, Goal, Memo, MemoTemplate, SubTask, DailyRecord, RoutineExecution } from '../types'
 import * as taskService from '../services/taskService'
+import { notifyDataChanged } from './useSyncBackend'
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -109,6 +110,7 @@ export function useTasks() {
     try {
       const newTask = taskService.addTask(task, referenceDate)
       setTasks(prev => [...prev, newTask])
+      notifyDataChanged()
       return newTask
     } catch (error) {
       console.error('Failed to add task:', error)
@@ -160,6 +162,7 @@ export function useTasks() {
         }
       }
       
+      notifyDataChanged()
       return updatedTask
     } catch (error) {
       console.error('Failed to update task:', error)
@@ -172,6 +175,7 @@ export function useTasks() {
     try {
       taskService.deleteTask(id)
       setTasks(prev => prev.filter(t => t.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete task:', error)
       throw error
@@ -183,6 +187,7 @@ export function useTasks() {
     try {
       const newTask = taskService.copyTask(id)
       setTasks(prev => [...prev, newTask])
+      notifyDataChanged()
       return newTask
     } catch (error) {
       console.error('Failed to copy task:', error)
@@ -195,6 +200,7 @@ export function useTasks() {
     try {
       taskService.moveTaskToPosition(taskId, newIndex, filteredTaskIds)
       loadData() // 順番が変わったので全体を再読み込み
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to move task:', error)
       throw error
@@ -232,6 +238,7 @@ export function useTasks() {
           })
         }
       }
+      notifyDataChanged()
       return updatedTask
     } catch (error) {
       console.error('Failed to start task timer:', error)
@@ -261,6 +268,7 @@ export function useTasks() {
           })
         }
       }
+      notifyDataChanged()
       return updatedTask
     } catch (error) {
       console.error('Failed to stop task timer:', error)
@@ -273,6 +281,7 @@ export function useTasks() {
     try {
       const updatedTask = taskService.resetTaskTimer(id)
       setTasks(prev => prev.map(t => t.id === id ? updatedTask : t))
+      notifyDataChanged()
       return updatedTask
     } catch (error) {
       console.error('Failed to reset task timer:', error)
@@ -285,6 +294,7 @@ export function useTasks() {
     try {
       const newProject = taskService.addProject(project)
       setProjects(prev => [...prev, newProject])
+      notifyDataChanged()
       return newProject
     } catch (error) {
       console.error('Failed to add project:', error)
@@ -297,6 +307,7 @@ export function useTasks() {
     try {
       const updatedProject = taskService.updateProject(id, updates)
       setProjects(prev => prev.map(p => p.id === id ? updatedProject : p))
+      notifyDataChanged()
       return updatedProject
     } catch (error) {
       console.error('Failed to update project:', error)
@@ -310,6 +321,7 @@ export function useTasks() {
       taskService.deleteProject(id)
       setProjects(prev => prev.filter(p => p.id !== id))
       setTasks(taskService.getTasks())
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete project:', error)
       throw error
@@ -321,6 +333,7 @@ export function useTasks() {
     try {
       const newMode = taskService.addMode(mode)
       setModes(prev => [...prev, newMode])
+      notifyDataChanged()
       return newMode
     } catch (error) {
       console.error('Failed to add mode:', error)
@@ -333,6 +346,7 @@ export function useTasks() {
     try {
       const updatedMode = taskService.updateMode(id, updates)
       setModes(prev => prev.map(m => m.id === id ? updatedMode : m))
+      notifyDataChanged()
       return updatedMode
     } catch (error) {
       console.error('Failed to update mode:', error)
@@ -346,6 +360,7 @@ export function useTasks() {
       taskService.deleteMode(id)
       setModes(prev => prev.filter(m => m.id !== id))
       setTasks(taskService.getTasks())
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete mode:', error)
       throw error
@@ -357,6 +372,7 @@ export function useTasks() {
     try {
       const newTag = taskService.addTag(tag)
       setTags(prev => [...prev, newTag])
+      notifyDataChanged()
       return newTag
     } catch (error) {
       console.error('Failed to add tag:', error)
@@ -369,6 +385,7 @@ export function useTasks() {
     try {
       const updatedTag = taskService.updateTag(id, updates)
       setTags(prev => prev.map(t => t.id === id ? updatedTag : t))
+      notifyDataChanged()
       return updatedTag
     } catch (error) {
       console.error('Failed to update tag:', error)
@@ -382,6 +399,7 @@ export function useTasks() {
       taskService.deleteTag(id)
       setTags(prev => prev.filter(t => t.id !== id))
       setTasks(taskService.getTasks())
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete tag:', error)
       throw error
@@ -393,6 +411,7 @@ export function useTasks() {
     try {
       const newWish = taskService.addWish(wish)
       setWishes(prev => [...prev, newWish])
+      notifyDataChanged()
       return newWish
     } catch (error) {
       console.error('Failed to add wish:', error)
@@ -405,6 +424,7 @@ export function useTasks() {
     try {
       const updatedWish = taskService.updateWish(id, updates)
       setWishes(prev => prev.map(w => w.id === id ? updatedWish : w))
+      notifyDataChanged()
       return updatedWish
     } catch (error) {
       console.error('Failed to update wish:', error)
@@ -417,6 +437,7 @@ export function useTasks() {
     try {
       taskService.deleteWish(id)
       setWishes(prev => prev.filter(w => w.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete wish:', error)
       throw error
@@ -428,6 +449,7 @@ export function useTasks() {
     try {
       const newGoal = taskService.addGoal(goal)
       setGoals(prev => [...prev, newGoal])
+      notifyDataChanged()
       return newGoal
     } catch (error) {
       console.error('Failed to add goal:', error)
@@ -440,6 +462,7 @@ export function useTasks() {
     try {
       const updatedGoal = taskService.updateGoal(id, updates)
       setGoals(prev => prev.map(g => g.id === id ? updatedGoal : g))
+      notifyDataChanged()
       return updatedGoal
     } catch (error) {
       console.error('Failed to update goal:', error)
@@ -452,6 +475,7 @@ export function useTasks() {
     try {
       taskService.deleteGoal(id)
       setGoals(prev => prev.filter(g => g.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete goal:', error)
       throw error
@@ -463,6 +487,7 @@ export function useTasks() {
     try {
       const newMemo = taskService.addMemo(memo)
       setMemos(prev => [...prev, newMemo])
+      notifyDataChanged()
       return newMemo
     } catch (error) {
       console.error('Failed to add memo:', error)
@@ -475,6 +500,7 @@ export function useTasks() {
     try {
       const updatedMemo = taskService.updateMemo(id, updates)
       setMemos(prev => prev.map(m => m.id === id ? updatedMemo : m))
+      notifyDataChanged()
       return updatedMemo
     } catch (error) {
       console.error('Failed to update memo:', error)
@@ -487,6 +513,7 @@ export function useTasks() {
     try {
       taskService.deleteMemo(id)
       setMemos(prev => prev.filter(m => m.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete memo:', error)
       throw error
@@ -498,6 +525,7 @@ export function useTasks() {
     try {
       const newTemplate = taskService.addMemoTemplate(template)
       setMemoTemplates(prev => [...prev, newTemplate])
+      notifyDataChanged()
       return newTemplate
     } catch (error) {
       console.error('Failed to add memo template:', error)
@@ -510,6 +538,7 @@ export function useTasks() {
     try {
       const updatedTemplate = taskService.updateMemoTemplate(id, updates)
       setMemoTemplates(prev => prev.map(t => t.id === id ? updatedTemplate : t))
+      notifyDataChanged()
       return updatedTemplate
     } catch (error) {
       console.error('Failed to update memo template:', error)
@@ -522,6 +551,7 @@ export function useTasks() {
     try {
       taskService.deleteMemoTemplate(id)
       setMemoTemplates(prev => prev.filter(t => t.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete memo template:', error)
       throw error
@@ -543,6 +573,7 @@ export function useTasks() {
     try {
       const newSubTask = taskService.addSubTask(subTask)
       setSubTasks(prev => [...prev, newSubTask])
+      notifyDataChanged()
       return newSubTask
     } catch (error) {
       console.error('Failed to add sub task:', error)
@@ -555,6 +586,7 @@ export function useTasks() {
     try {
       const updatedSubTask = taskService.updateSubTask(id, updates)
       setSubTasks(prev => prev.map(st => st.id === id ? updatedSubTask : st))
+      notifyDataChanged()
       return updatedSubTask
     } catch (error) {
       console.error('Failed to update sub task:', error)
@@ -567,6 +599,7 @@ export function useTasks() {
     try {
       taskService.deleteSubTask(id)
       setSubTasks(prev => prev.filter(st => st.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete sub task:', error)
       throw error
@@ -582,6 +615,7 @@ export function useTasks() {
           ? { ...st, completedAt: completed ? new Date().toISOString() : undefined, updatedAt: new Date().toISOString() }
           : st
       ))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to toggle sub task complete:', error)
       throw error
@@ -598,6 +632,7 @@ export function useTasks() {
     try {
       const newExecution = taskService.addRoutineExecution(execution)
       setRoutineExecutions(prev => [...prev, newExecution])
+      notifyDataChanged()
       return newExecution
     } catch (error) {
       console.error('Failed to add routine execution:', error)
@@ -610,6 +645,7 @@ export function useTasks() {
     try {
       const updatedExecution = taskService.updateRoutineExecution(id, updates)
       setRoutineExecutions(prev => prev.map(e => e.id === id ? updatedExecution : e))
+      notifyDataChanged()
       return updatedExecution
     } catch (error) {
       console.error('Failed to update routine execution:', error)
@@ -622,6 +658,7 @@ export function useTasks() {
     try {
       taskService.deleteRoutineExecution(id)
       setRoutineExecutions(prev => prev.filter(e => e.id !== id))
+      notifyDataChanged()
     } catch (error) {
       console.error('Failed to delete routine execution:', error)
       throw error
