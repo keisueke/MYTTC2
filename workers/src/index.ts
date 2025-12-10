@@ -1,20 +1,40 @@
 // Cloudflare Workers メインエントリーポイント
 
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { apiKeyAuth, handleOptions, corsHeaders } from './auth'
+import { apiKeyAuth, handleOptions, corsHeaders, isAllowedOrigin } from './auth'
 import { getTasks, getTask, createTask, updateTask, deleteTask } from './routes/tasks'
 import { getSync, postSync } from './routes/sync'
 import { Env } from './types'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// CORS設定
-app.use('/*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'X-API-Key'],
-}))
+// 動的CORS設定ミドルウェア
+app.use('/*', async (c, next) => {
+  const origin = c.req.header('Origin')
+  const allowedOrigins = c.env.ALLOWED_ORIGINS
+  
+  // オリジンが許可されているかチェック
+  if (origin && !isAllowedOrigin(origin, allowedOrigins)) {
+    return c.json(
+      {
+        success: false,
+        error: 'Forbidden',
+        message: 'Origin not allowed',
+      },
+      403
+    )
+  }
+  
+  await next()
+  
+  // レスポンスにCORSヘッダーを追加
+  const headers = corsHeaders(origin, allowedOrigins)
+  Object.entries(headers).forEach(([key, value]) => {
+    if (value) {
+      c.res.headers.set(key, value)
+    }
+  })
+})
 
 // OPTIONSリクエストのハンドリング
 app.options('/*', handleOptions)
@@ -24,7 +44,9 @@ app.use('/api/*', apiKeyAuth)
 
 // ヘルスチェック
 app.get('/health', (c) => {
-  return c.json({ status: 'ok' }, 200, corsHeaders())
+  const origin = c.req.header('Origin')
+  const allowedOrigins = c.env.ALLOWED_ORIGINS
+  return c.json({ status: 'ok' }, 200, corsHeaders(origin, allowedOrigins))
 })
 
 // タスク関連のエンドポイント
@@ -40,6 +62,8 @@ app.post('/api/sync', postSync)
 
 // 404ハンドラー
 app.notFound((c) => {
+  const origin = c.req.header('Origin')
+  const allowedOrigins = c.env.ALLOWED_ORIGINS
   return c.json(
     {
       success: false,
@@ -47,13 +71,15 @@ app.notFound((c) => {
       message: 'Endpoint not found',
     },
     404,
-    corsHeaders()
+    corsHeaders(origin, allowedOrigins)
   )
 })
 
 // エラーハンドラー
 app.onError((err, c) => {
   console.error('Error:', err)
+  const origin = c.req.header('Origin')
+  const allowedOrigins = c.env.ALLOWED_ORIGINS
   return c.json(
     {
       success: false,
@@ -61,7 +87,7 @@ app.onError((err, c) => {
       message: err.message,
     },
     500,
-    corsHeaders()
+    corsHeaders(origin, allowedOrigins)
   )
 })
 

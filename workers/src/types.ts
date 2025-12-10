@@ -6,6 +6,7 @@ export interface Env {
   DB: D1Database
   API_KEY?: string
   JWT_SECRET?: string
+  ALLOWED_ORIGINS?: string // カンマ区切りの許可オリジン（例: "https://user.github.io,http://localhost:5173"）
 }
 
 export interface Task {

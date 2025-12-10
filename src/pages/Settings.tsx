@@ -15,7 +15,7 @@ import * as aiConfigService from '../services/aiConfig'
 import { geminiApiProvider } from '../services/aiApi/geminiApi'
 import { openaiApiProvider } from '../services/aiApi/openaiApi'
 import { claudeApiProvider } from '../services/aiApi/claudeApi'
-import { loadCloudflareConfig, saveCloudflareConfig, CloudflareConfig } from '../services/cloudflareApi'
+import { loadCloudflareConfig, saveCloudflareConfig, CloudflareConfig, checkCloudflareHealth } from '../services/cloudflareApi'
 import ProjectList from '../components/projects/ProjectList'
 import ProjectForm from '../components/projects/ProjectForm'
 import ModeList from '../components/modes/ModeList'
@@ -102,6 +102,7 @@ export default function Settings() {
   const [editingEnabled, setEditingEnabled] = useState(false)
   const [editingModel, setEditingModel] = useState('')
   const [validatingProvider, setValidatingProvider] = useState<AIProvider | null>(null)
+  const [testingCloudflare, setTestingCloudflare] = useState(false)
   const [primaryProvider, setPrimaryProvider] = useState<AIProvider | null>(aiConfigs.primaryProvider)
   const [exportDate, setExportDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0]
@@ -1533,11 +1534,47 @@ export default function Settings() {
                 </p>
                 <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
                   <p>API URL: {cloudflareConfig.apiUrl}</p>
-                  {cloudflareConfig.apiKey && (
+                  {cloudflareConfig.apiKey ? (
                     <p>API Key: {cloudflareConfig.apiKey.substring(0, 8)}...</p>
+                  ) : (
+                    <p>API Key: 未設定（Cloudflare Access使用時は不要）</p>
                   )}
                 </div>
               </div>
+              
+              <button
+                onClick={async () => {
+                  setTestingCloudflare(true)
+                  try {
+                    const isHealthy = await checkCloudflareHealth(cloudflareConfig)
+                    if (isHealthy) {
+                      showNotification('Cloudflare APIに接続できました', 'success')
+                    } else {
+                      showNotification('Cloudflare APIに接続できませんでした', 'error')
+                    }
+                  } catch (error) {
+                    showNotification(`接続テストに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+                  } finally {
+                    setTestingCloudflare(false)
+                  }
+                }}
+                disabled={testingCloudflare}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
+              >
+                {testingCloudflare ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                    <span>接続テスト中...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>接続テスト</span>
+                  </>
+                )}
+              </button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -1549,11 +1586,11 @@ export default function Settings() {
                   type="text"
                   value={cloudflareApiUrl}
                   onChange={(e) => setCloudflareApiUrl(e.target.value)}
-                  placeholder="https://your-api.workers.dev"
+                  placeholder="https://mytcc2-api.xxxxx.workers.dev"
                   className="input-industrial w-full"
                 />
                 <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                  Cloudflare Workers APIのURLを入力してください
+                  Cloudflare Workers APIのURLを入力してください（例: https://mytcc2-api.xxxxx.workers.dev）
                 </p>
               </div>
 
@@ -1565,11 +1602,11 @@ export default function Settings() {
                   type="password"
                   value={cloudflareApiKey}
                   onChange={(e) => setCloudflareApiKey(e.target.value)}
-                  placeholder="API認証キー（設定している場合）"
+                  placeholder="API認証キー（Cloudflare Access使用時は不要）"
                   className="input-industrial w-full"
                 />
                 <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                  API認証キーを設定している場合は入力してください
+                  Cloudflare Accessで保護している場合は空欄のままでOKです
                 </p>
               </div>
 
