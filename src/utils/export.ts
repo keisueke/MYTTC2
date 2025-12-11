@@ -391,30 +391,55 @@ export async function generateTodaySummary(
 
 /**
  * テキストをクリップボードにコピー
+ * iOS/iPadOS Safariでも動作するように対応
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch (error) {
-    console.error('Failed to copy to clipboard:', error)
-    // フォールバック: 古い方法を試す
+  // iOS/iPadOS検出（iPad on iOS 13+はMacIntelとして報告されるため、タッチポイントも確認）
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+  // 最初にClipboard APIを試す（iOS以外）
+  if (navigator.clipboard && !isIOS) {
     try {
-      const textArea = document.createElement('textarea')
-      textArea.value = text
-      textArea.style.position = 'fixed'
-      textArea.style.left = '-999999px'
-      textArea.style.top = '-999999px'
-      document.body.appendChild(textArea)
-      textArea.focus()
-      textArea.select()
-      const successful = document.execCommand('copy')
-      document.body.removeChild(textArea)
-      return successful
-    } catch (fallbackError) {
-      console.error('Fallback copy failed:', fallbackError)
-      return false
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch (error) {
+      console.error('Clipboard API failed:', error)
     }
   }
+
+  // フォールバック: iOS対応版
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.setAttribute('readonly', '') // キーボードが表示されないようにする
+    // iOS Safariでは要素が画面上に表示されている必要があるため、
+    // 画面中央に配置し、opacity: 0で非表示にする
+    textArea.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0;z-index:-1;width:1px;height:1px;'
+    document.body.appendChild(textArea)
+    
+    if (isIOS) {
+      // iOS用の選択方法
+      const range = document.createRange()
+      range.selectNodeContents(textArea)
+      const selection = window.getSelection()
+      if (selection) {
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+      textArea.setSelectionRange(0, text.length)
+    } else {
+      textArea.focus()
+      textArea.select()
+    }
+    
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+    return successful
+  } catch (fallbackError) {
+    console.error('Fallback copy failed:', fallbackError)
+    return false
+  }
 }
+
 
