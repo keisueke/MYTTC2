@@ -35,23 +35,23 @@ function findSimilarTasks(tasks: Task[], title: string, currentTaskId?: string):
   if (!title.trim()) {
     return []
   }
-  
+
   const titleLower = title.trim().toLowerCase()
   const titleWords = titleLower.split(/\s+/).filter(w => w.length > 0)
-  
+
   // 現在編集中のタスクを除外
   const pastTasks = tasks.filter(t => t.id !== currentTaskId)
-  
+
   if (pastTasks.length === 0) {
     return []
   }
-  
+
   // タイトルが部分一致するタスクを検索
   // 1. 完全一致を優先
-  let matchedTasks = pastTasks.filter(t => 
+  let matchedTasks = pastTasks.filter(t =>
     t.title.toLowerCase() === titleLower
   )
-  
+
   // 2. 完全一致がない場合、タイトルに含まれるキーワードで部分一致
   if (matchedTasks.length === 0 && titleWords.length > 0) {
     matchedTasks = pastTasks.filter(t => {
@@ -61,7 +61,7 @@ function findSimilarTasks(tasks: Task[], title: string, currentTaskId?: string):
       return matchedWords.length >= Math.ceil(titleWords.length * 0.5)
     })
   }
-  
+
   // 3. それでも見つからない場合、タイトルが部分的に含まれている場合
   if (matchedTasks.length === 0) {
     matchedTasks = pastTasks.filter(t => {
@@ -70,7 +70,7 @@ function findSimilarTasks(tasks: Task[], title: string, currentTaskId?: string):
       return taskTitleLower.includes(titleLower) || titleLower.includes(taskTitleLower)
     })
   }
-  
+
   // 作成日が新しい順にソート（最大5件）
   return matchedTasks
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -82,14 +82,14 @@ function findSimilarTasks(tasks: Task[], title: string, currentTaskId?: string):
  */
 function calculateAverageElapsedTime(tasks: Task[], title: string, currentTaskId?: string): number | null {
   const similarTasks = findSimilarTasks(tasks, title, currentTaskId)
-  const tasksWithElapsedTime = similarTasks.filter(t => 
+  const tasksWithElapsedTime = similarTasks.filter(t =>
     t.elapsedTime !== undefined && t.elapsedTime > 0
   )
-  
+
   if (tasksWithElapsedTime.length === 0) {
     return null
   }
-  
+
   // 秒を分に変換して平均を計算
   const totalMinutes = tasksWithElapsedTime.reduce((sum, t) => sum + Math.floor((t.elapsedTime || 0) / 60), 0)
   return Math.round(totalMinutes / tasksWithElapsedTime.length)
@@ -125,33 +125,33 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
   const [reminderMinutes, setReminderMinutes] = useState<number[]>(
     task?.reminders && task.reminders.length > 0
       ? task.reminders
-          .map(r => {
-            if (!task.dueDate) return null
-            const due = new Date(task.dueDate)
-            const reminder = new Date(r.reminderTime)
-            return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
-          })
-          .filter((m): m is number => m !== null)
+        .map(r => {
+          if (!task.dueDate) return null
+          const due = new Date(task.dueDate)
+          const reminder = new Date(r.reminderTime)
+          return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
+        })
+        .filter((m): m is number => m !== null)
       : []
   )
   // 時間セクション
   const [timeSectionId, setTimeSectionId] = useState<string | undefined>(task?.timeSectionId)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  
+
   // 時間セクション設定
   const timeSectionSettings = useMemo(() => getTimeSectionSettings(), [])
-  
+
   // 現在の日付の曜日に基づくセクション一覧
   const availableSections = useMemo(() => {
     if (!timeSectionSettings.enabled) return []
     const weekday = new Date().getDay() as Weekday
     return getTimeSectionsForWeekday(weekday)
   }, [timeSectionSettings])
-  
+
   // 自動判定されたセクション
   const autoDetectedSection = useMemo(() => {
     if (!timeSectionSettings.enabled) return undefined
-    
+
     // startTimeがあればその時刻で判定
     if (startTime) {
       return findTimeSectionForDateTime(new Date(startTime))
@@ -162,29 +162,29 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
     }
     return undefined
   }, [timeSectionSettings, startTime, dueDate])
-  
+
   // 過去の類似タスクを検索
-  const similarTasks = title.trim() 
+  const similarTasks = title.trim()
     ? findSimilarTasks(tasks, title.trim(), task?.id)
     : []
-  
+
   // 過去の実績時間を計算
   const averageElapsedTime = similarTasks.length > 0
     ? calculateAverageElapsedTime(tasks, title.trim(), task?.id)
     : null
-  
+
   // 類似タスクを選択したときにフォームに反映
   const handleSelectSimilarTask = (similarTask: Task) => {
     // タイトルを設定
     setTitle(similarTask.title)
-    
+
     // 予定時間を設定（実績時間がある場合はそれを分に変換、なければ既存の予定時間）
     if (similarTask.elapsedTime && similarTask.elapsedTime > 0) {
       setEstimatedTime(Math.floor(similarTask.elapsedTime / 60))
     } else if (similarTask.estimatedTime) {
       setEstimatedTime(similarTask.estimatedTime)
     }
-    
+
     // プロジェクト、モード、タグを設定
     if (similarTask.projectId) {
       setProjectId(similarTask.projectId)
@@ -217,13 +217,13 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       setReminderMinutes(
         task?.reminders && task.reminders.length > 0
           ? task.reminders
-              .map(r => {
-                if (!task.dueDate) return null
-                const due = new Date(task.dueDate)
-                const reminder = new Date(r.reminderTime)
-                return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
-              })
-              .filter((m): m is number => m !== null)
+            .map(r => {
+              if (!task.dueDate) return null
+              const due = new Date(task.dueDate)
+              const reminder = new Date(r.reminderTime)
+              return Math.floor((due.getTime() - reminder.getTime()) / (1000 * 60))
+            })
+            .filter((m): m is number => m !== null)
           : []
       )
     }
@@ -231,7 +231,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
-    
+
     if (!title.trim()) {
       newErrors.title = 'タイトルは必須です'
     } else {
@@ -241,7 +241,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
         newErrors.title = titleValidation.errorMessage
       }
     }
-    
+
     // 説明のバリデーション（制御文字チェック）
     if (description.trim()) {
       const descriptionValidation = validateTextInput(description, '説明')
@@ -249,30 +249,30 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
         newErrors.description = descriptionValidation.errorMessage
       }
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validate()) {
       return
     }
 
     let repeatConfig: RepeatConfig | undefined = undefined
-    
+
     if (repeatPattern !== 'none') {
       repeatConfig = {
         interval: repeatInterval,
         endDate: repeatEndDate || undefined,
       }
-      
+
       if (repeatPattern === 'weekly' && repeatDaysOfWeek.length > 0) {
         repeatConfig.daysOfWeek = repeatDaysOfWeek
       }
-      
+
       if (repeatPattern === 'monthly') {
         repeatConfig.dayOfMonth = repeatDayOfMonth
       }
@@ -281,7 +281,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
     const newStartTime = startTime ? new Date(startTime).toISOString() : undefined
     const newEndTime = endTime ? new Date(endTime).toISOString() : undefined
     const newDueDate = dueDate ? new Date(dueDate).toISOString() : undefined
-    
+
     // リマインダーを生成
     let reminders: TaskReminder[] | undefined = undefined
     if (newDueDate && reminderMinutes.length > 0) {
@@ -297,10 +297,10 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
         }
       })
     }
-    
+
     // 時間セクションの決定（手動設定 > 自動判定）
     const finalTimeSectionId = timeSectionId || autoDetectedSection?.id
-    
+
     const submitData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -317,7 +317,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
       reminders,
       timeSectionId: finalTimeSectionId,
     }
-    
+
     // 開始時間と終了時間の両方がある場合、経過時間を再計算し、タイマーを停止
     if (newStartTime && newEndTime) {
       const start = new Date(newStartTime).getTime()
@@ -329,7 +329,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
     } else if (task?.elapsedTime !== undefined) {
       submitData.elapsedTime = task.elapsedTime
     }
-    
+
     onSubmit(submitData)
   }
 
@@ -344,9 +344,8 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className={`input-industrial w-full ${
-            errors.title ? 'border-[var(--color-error)]' : ''
-          }`}
+          className={`input-industrial w-full ${errors.title ? 'border-[var(--color-error)]' : ''
+            }`}
           placeholder="タスクのタイトルを入力"
         />
         {errors.title && (
@@ -367,16 +366,16 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           </p>
           <div className="space-y-2">
             {similarTasks.map((similarTask) => {
-              const elapsedMinutes = similarTask.elapsedTime 
+              const elapsedMinutes = similarTask.elapsedTime
                 ? Math.floor(similarTask.elapsedTime / 60)
                 : null
               const estimatedMinutes = similarTask.estimatedTime || null
               const project = projects.find(p => p.id === similarTask.projectId)
               const mode = modes.find(m => m.id === similarTask.modeId)
-              const taskTags = similarTask.tagIds 
+              const taskTags = similarTask.tagIds
                 ? tags.filter(t => similarTask.tagIds!.includes(t.id))
                 : []
-              
+
               return (
                 <button
                   key={similarTask.id}
@@ -406,7 +405,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                           </span>
                         )}
                         {mode && (
-                          <span 
+                          <span
                             className="tag-industrial text-xs"
                             style={mode.color ? { backgroundColor: mode.color, borderColor: mode.color, color: '#0c0c0c' } : {}}
                           >
@@ -414,7 +413,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                           </span>
                         )}
                         {taskTags.map(tag => (
-                          <span 
+                          <span
                             key={tag.id}
                             className="tag-industrial text-xs"
                             style={tag.color ? { borderColor: tag.color, color: tag.color } : {}}
@@ -477,9 +476,9 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
               ))}
             </select>
             {!timeSectionId && autoDetectedSection && (
-              <span 
+              <span
                 className="px-2 py-1 text-xs rounded"
-                style={{ 
+                style={{
                   backgroundColor: `${autoDetectedSection.color}20`,
                   color: autoDetectedSection.color,
                   border: `1px solid ${autoDetectedSection.color}40`
@@ -506,9 +505,8 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className={`input-industrial w-full resize-none ${
-            errors.description ? 'border-[var(--color-error)]' : ''
-          }`}
+          className={`input-industrial w-full resize-none ${errors.description ? 'border-[var(--color-error)]' : ''
+            }`}
           placeholder="タスクの詳細を入力（任意）"
         />
         {errors.description && (
@@ -605,7 +603,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                 acc[goal.year].push(goal)
                 return acc
               }, {} as Record<number, typeof goals>)
-              
+
               const categoryLabels: Record<string, string> = {
                 'social-contribution': '社会貢献',
                 'family': '家族',
@@ -617,7 +615,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                 'intelligence': '知性',
                 'other': 'その他',
               }
-              
+
               return Object.keys(goalsByYear)
                 .sort((a, b) => Number(b) - Number(a))
                 .map(year => {
@@ -629,7 +627,7 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                     acc[goal.category].push(goal)
                     return acc
                   }, {} as Record<string, typeof yearGoals>)
-                  
+
                   return (
                     <optgroup key={year} label={`${year}年`}>
                       {Object.keys(goalsByCategory)
@@ -667,29 +665,28 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                     : [...selectedTagIds, tag.id]
                   setSelectedTagIds(newTagIds)
                 }}
-                className={`tag-industrial transition-all duration-200 relative ${
-                  isSelected
-                    ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)] ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-bg-primary)] shadow-lg scale-105'
-                    : 'hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)]'
-                }`}
-                style={isSelected && tag.color ? { 
-                  backgroundColor: tag.color, 
-                  borderColor: tag.color, 
+                className={`tag-industrial transition-all duration-200 relative ${isSelected
+                  ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)] ring-2 ring-[var(--color-accent)] ring-offset-2 ring-offset-[var(--color-bg-primary)] shadow-lg scale-105'
+                  : 'hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-tertiary)]'
+                  }`}
+                style={isSelected && tag.color ? {
+                  backgroundColor: tag.color,
+                  borderColor: tag.color,
                   color: '#0c0c0c',
                   boxShadow: `0 4px 6px -1px ${tag.color}40, 0 2px 4px -1px ${tag.color}20`
                 } : {}}
               >
                 {isSelected && (
-                  <svg 
-                    className="w-3 h-3 mr-1.5 flex-shrink-0" 
-                    fill="currentColor" 
+                  <svg
+                    className="w-3 h-3 mr-1.5 flex-shrink-0"
+                    fill="currentColor"
                     viewBox="0 0 20 20"
                     aria-hidden="true"
                   >
-                    <path 
-                      fillRule="evenodd" 
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
-                      clipRule="evenodd" 
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
                     />
                   </svg>
                 )}
@@ -749,23 +746,31 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                   <button
                     key={index}
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      console.log('Day clicked:', index)
                       const newDays = repeatDaysOfWeek.includes(index)
                         ? repeatDaysOfWeek.filter(d => d !== index)
-                        : [...repeatDaysOfWeek, index].sort()
+                        : [...repeatDaysOfWeek, index].sort((a, b) => a - b)
                       setRepeatDaysOfWeek(newDays)
                     }}
-                    className={`tag-industrial transition-all duration-200 ${
-                      repeatDaysOfWeek.includes(index)
-                        ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                        : 'hover:border-[var(--color-accent)]'
-                    }`}
+                    className={`tag-industrial transition-all duration-200 relative z-10 cursor-pointer ${repeatDaysOfWeek.includes(index)
+                      ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                      : 'hover:border-[var(--color-accent)] hover:bg-[var(--color-bg-elevated)]'
+                      }`}
                   >
                     {day}
                   </button>
                 ))}
               </div>
+              {repeatDaysOfWeek.length > 0 && (
+                <p className="mt-2 font-display text-xs text-[var(--color-accent)] animate-fade-in">
+                  選択中: {repeatDaysOfWeek.map(d => ['日', '月', '火', '水', '木', '金', '土'][d]).join('・')}
+                </p>
+              )}
             </div>
+
           )}
 
           {repeatPattern === 'monthly' && (
@@ -825,9 +830,9 @@ export default function TaskForm({ task, tasks, projects, modes, tags, goals = [
                   minutes === 0
                     ? '期限時刻'
                     : hours > 0
-                    ? `${hours}時間${mins > 0 ? `${mins}分` : ''}前`
-                    : `${minutes}分前`
-                
+                      ? `${hours}時間${mins > 0 ? `${mins}分` : ''}前`
+                      : `${minutes}分前`
+
                 return (
                   <label key={minutes} className="flex items-center gap-2 cursor-pointer">
                     <input
