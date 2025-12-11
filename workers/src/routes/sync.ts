@@ -296,37 +296,6 @@ export async function getSync(c: Context<{ Bindings: Env }>) {
 }
 
 /**
- * ローカルに存在しないIDをDBから削除するクエリを生成
- * @param tableName テーブル名
- * @param ids ローカルに存在するIDの配列（空配列の場合は全削除）
- * @returns 削除クエリ（undefinedが渡された場合はnullを返す＝何もしない）
- */
-function buildDeleteMissingQuery(
-  tableName: string,
-  ids: string[] | undefined
-): { sql: string; params: any[] } | null {
-  // undefinedの場合は削除しない（互換性維持）
-  if (ids === undefined) {
-    return null
-  }
-  
-  // 空配列の場合は全削除
-  if (ids.length === 0) {
-    return {
-      sql: `DELETE FROM ${tableName}`,
-      params: [],
-    }
-  }
-  
-  // 1件以上ある場合は、送られてきたID以外を削除
-  const placeholders = ids.map(() => '?').join(', ')
-  return {
-    sql: `DELETE FROM ${tableName} WHERE id NOT IN (${placeholders})`,
-    params: ids,
-  }
-}
-
-/**
  * データ同期（POST: データを送信して同期）
  */
 export async function postSync(c: Context<{ Bindings: Env }>) {
@@ -349,18 +318,8 @@ export async function postSync(c: Context<{ Bindings: Env }>) {
     // トランザクションでデータを保存
     const queries: Array<{ sql: string; params: any[] }> = []
 
-    // ============================================
-    // タスクの削除処理（ローカルに無いものをDBから削除）
-    // ============================================
-    if (body.data.tasks !== undefined) {
-      const taskIds = body.data.tasks.map((t: any) => t.id)
-      const deleteQuery = buildDeleteMissingQuery('tasks', taskIds)
-      if (deleteQuery) {
-        queries.push(deleteQuery)
-      }
-    }
-
     // タスクを保存（camelCase から snake_case に変換）
+    // 注意: 削除はフロント側のマージロジックで処理するため、ここでは INSERT OR REPLACE のみ
     if (body.data.tasks) {
       for (const task of body.data.tasks) {
         queries.push({
@@ -399,83 +358,6 @@ export async function postSync(c: Context<{ Bindings: Env }>) {
         })
       }
     }
-
-    // ============================================
-    // 他エンティティの削除処理
-    // ============================================
-    // プロジェクト
-    if (body.data.projects !== undefined) {
-      const projectIds = body.data.projects.map((p: any) => p.id)
-      const deleteQuery = buildDeleteMissingQuery('projects', projectIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // モード
-    if (body.data.modes !== undefined) {
-      const modeIds = body.data.modes.map((m: any) => m.id)
-      const deleteQuery = buildDeleteMissingQuery('modes', modeIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // タグ
-    if (body.data.tags !== undefined) {
-      const tagIds = body.data.tags.map((t: any) => t.id)
-      const deleteQuery = buildDeleteMissingQuery('tags', tagIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // ルーティン実行記録
-    if (body.data.routineExecutions !== undefined) {
-      const executionIds = body.data.routineExecutions.map((e: any) => e.id)
-      const deleteQuery = buildDeleteMissingQuery('routine_executions', executionIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // 日次記録
-    if (body.data.dailyRecords !== undefined) {
-      const recordIds = body.data.dailyRecords.map((r: any) => r.id)
-      const deleteQuery = buildDeleteMissingQuery('daily_records', recordIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // 目標
-    if (body.data.goals !== undefined) {
-      const goalIds = body.data.goals.map((g: any) => g.id)
-      const deleteQuery = buildDeleteMissingQuery('goals', goalIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // メモ
-    if (body.data.memos !== undefined) {
-      const memoIds = body.data.memos.map((m: any) => m.id)
-      const deleteQuery = buildDeleteMissingQuery('memos', memoIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // メモテンプレート
-    if (body.data.memoTemplates !== undefined) {
-      const templateIds = body.data.memoTemplates.map((t: any) => t.id)
-      const deleteQuery = buildDeleteMissingQuery('memo_templates', templateIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // Wish
-    if (body.data.wishes !== undefined) {
-      const wishIds = body.data.wishes.map((w: any) => w.id)
-      const deleteQuery = buildDeleteMissingQuery('wishes', wishIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // サブタスク
-    if (body.data.subTasks !== undefined) {
-      const subTaskIds = body.data.subTasks.map((s: any) => s.id)
-      const deleteQuery = buildDeleteMissingQuery('sub_tasks', subTaskIds)
-      if (deleteQuery) queries.push(deleteQuery)
-    }
-
-    // ============================================
-    // 各エンティティのINSERT OR REPLACE
-    // ============================================
 
     // モードを保存
     if (body.data.modes) {

@@ -1,10 +1,75 @@
 // Cloudflare APIを使用するためのフック
 
 import { useState, useCallback } from 'react'
-import { AppData } from '../types'
+import { AppData, Task, Project, Mode, Tag, RoutineExecution, DailyRecord, Goal, Memo, MemoTemplate, Wish, SubTask } from '../types'
 import { CloudflareConfig } from '../services/cloudflareApi'
 import * as cloudflareApi from '../services/cloudflareApi'
 import * as taskService from '../services/taskService'
+
+// ============================================
+// タイムスタンプベースのマージユーティリティ
+// ============================================
+
+/**
+ * updatedAtを持つエンティティをタイムスタンプでマージ
+ * - 同じIDのエンティティ: updatedAt が新しい方を採用
+ * - ローカルにしか存在しない: ローカルのデータを採用
+ * - リモートにしか存在しない: リモートのデータを採用
+ */
+function mergeEntities<T extends { id: string; updatedAt?: string; createdAt?: string }>(
+  local: T[],
+  remote: T[]
+): T[] {
+  const merged = new Map<string, T>()
+  
+  // リモートのデータを先に追加
+  for (const item of remote) {
+    merged.set(item.id, item)
+  }
+  
+  // ローカルのデータをマージ（より新しい場合は上書き）
+  for (const item of local) {
+    const existing = merged.get(item.id)
+    if (!existing) {
+      // リモートに存在しない → ローカルのデータを採用
+      merged.set(item.id, item)
+    } else {
+      // 両方に存在する → updatedAtを比較
+      const localTime = new Date(item.updatedAt || item.createdAt || 0).getTime()
+      const remoteTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime()
+      if (localTime > remoteTime) {
+        merged.set(item.id, item)
+      }
+    }
+  }
+  
+  return Array.from(merged.values())
+}
+
+/**
+ * createdAtのみを持つエンティティをマージ（Project, Mode, Tagなど）
+ * これらは基本的にリモートとローカルを統合するだけ
+ */
+function mergeSimpleEntities<T extends { id: string; createdAt?: string }>(
+  local: T[],
+  remote: T[]
+): T[] {
+  const merged = new Map<string, T>()
+  
+  // リモートのデータを先に追加
+  for (const item of remote) {
+    merged.set(item.id, item)
+  }
+  
+  // ローカルのデータをマージ（リモートに無いものを追加）
+  for (const item of local) {
+    if (!merged.has(item.id)) {
+      merged.set(item.id, item)
+    }
+  }
+  
+  return Array.from(merged.values())
+}
 
 /**
  * Cloudflare APIを使用するためのフック
@@ -103,15 +168,11 @@ export function useCloudflare() {
     }
   }, [config])
 
-  // 両方向の同期（自動的に最新の状態に合わせる）
+  // 両方向の同期（タイムスタンプベースのマージ）
   const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date' | 'conflict'> => {
-    // #region agent log
-    console.log('[DEBUG][A] useCloudflare:syncBidirectional called', {hasConfig:!!config, configApiUrl:config?.apiUrl});
-    // #endregion
+    console.log('[Cloudflare Sync] syncBidirectional called', { hasConfig: !!config })
+    
     if (!config) {
-      // #region agent log
-      console.error('[DEBUG][A] config is null, throwing error');
-      // #endregion
       throw new Error('Cloudflare設定がありません')
     }
 
@@ -119,56 +180,110 @@ export function useCloudflare() {
     setError(null)
 
     try {
+      // 1. ローカルデータを読み込み
       const localData = taskService.loadData()
-      const lastSynced = localData.lastSynced
-      // #region agent log
-      console.log('[DEBUG][B] calling syncFromCloudflare', {lastSynced, apiUrl:config.apiUrl});
-      // #endregion
+      console.log('[Cloudflare Sync] Local data loaded', {
+        taskCount: localData.tasks?.length || 0,
+        projectCount: localData.projects?.length || 0,
+      })
 
-      // リモートから最新データを取得
-      const syncResponse = await cloudflareApi.syncFromCloudflare(config, lastSynced)
+      // 2. リモートから最新データを取得
+      const syncResponse = await cloudflareApi.syncFromCloudflare(config)
+      console.log('[Cloudflare Sync] Remote data fetched', {
+        taskCount: syncResponse.data?.tasks?.length || 0,
+        projectCount: syncResponse.data?.projects?.length || 0,
+      })
 
-      // #region agent log
-      console.log('[DEBUG][B,D] syncFromCloudflare returned', {hasConflict:syncResponse.conflict, lastSynced:syncResponse.lastSynced, taskCount:syncResponse.data?.tasks?.length, syncResponse});
-      // #endregion
-      // 簡易的な同期ロジック：リモートを優先
-      // より高度な競合解決が必要な場合は、ここを拡張
       if (syncResponse.conflict) {
         return 'conflict'
       }
 
-      // #region agent log
-      console.log('[DEBUG][C] calling syncToCloudflare', {localTaskCount:localData.tasks?.length});
-      // #endregion
-      // ローカルデータをリモートに送信
-      await cloudflareApi.syncToCloudflare(config, localData, lastSynced)
+      const remoteData = syncResponse.data
 
-      // リモートから最新データを再取得
-      const finalSyncResponse = await cloudflareApi.syncFromCloudflare(config)
+      // 3. タイムスタンプベースでマージ
+      const mergedTasks = mergeEntities(localData.tasks || [], remoteData.tasks || [])
+      const mergedProjects = mergeSimpleEntities(localData.projects || [], remoteData.projects || [])
+      const mergedModes = mergeSimpleEntities(localData.modes || [], remoteData.modes || [])
+      const mergedTags = mergeSimpleEntities(localData.tags || [], remoteData.tags || [])
+      const mergedRoutineExecutions = mergeEntities(localData.routineExecutions || [], remoteData.routineExecutions || [])
+      const mergedDailyRecords = mergeEntities(localData.dailyRecords || [], remoteData.dailyRecords || [])
+      const mergedGoals = mergeEntities(localData.goals || [], remoteData.goals || [])
+      const mergedMemos = mergeEntities(localData.memos || [], remoteData.memos || [])
+      const mergedMemoTemplates = mergeEntities(localData.memoTemplates || [], remoteData.memoTemplates || [])
+      const mergedWishes = mergeEntities(localData.wishes || [], remoteData.wishes || [])
+      const mergedSubTasks = mergeEntities(localData.subTasks || [], remoteData.subTasks || [])
 
-      // データをマージ
-      const mergedData: AppData = {
-        tasks: finalSyncResponse.data.tasks,
-        projects: finalSyncResponse.data.projects,
-        modes: finalSyncResponse.data.modes,
-        tags: finalSyncResponse.data.tags,
-        routineExecutions: finalSyncResponse.data.routineExecutions,
-        dailyRecords: finalSyncResponse.data.dailyRecords,
-        goals: finalSyncResponse.data.goals,
-        memos: finalSyncResponse.data.memos,
-        memoTemplates: finalSyncResponse.data.memoTemplates,
-        wishes: finalSyncResponse.data.wishes,
-        subTasks: finalSyncResponse.data.subTasks,
-        lastSynced: finalSyncResponse.lastSynced,
+      console.log('[Cloudflare Sync] Merged data', {
+        taskCount: mergedTasks.length,
+        projectCount: mergedProjects.length,
+      })
+
+      // 4. マージ結果をCloudflareに送信
+      const mergedDataForUpload: Partial<AppData> = {
+        tasks: mergedTasks,
+        projects: mergedProjects,
+        modes: mergedModes,
+        tags: mergedTags,
+        routineExecutions: mergedRoutineExecutions,
+        dailyRecords: mergedDailyRecords,
+        goals: mergedGoals,
+        memos: mergedMemos,
+        memoTemplates: mergedMemoTemplates,
+        wishes: mergedWishes,
+        subTasks: mergedSubTasks,
       }
 
-      taskService.saveData(mergedData)
+      await cloudflareApi.syncToCloudflare(config, mergedDataForUpload)
+      console.log('[Cloudflare Sync] Merged data uploaded to Cloudflare')
 
-      return 'pulled'
+      // 5. ローカルにも保存
+      const finalMergedData: AppData = {
+        tasks: mergedTasks,
+        projects: mergedProjects,
+        modes: mergedModes,
+        tags: mergedTags,
+        routineExecutions: mergedRoutineExecutions,
+        dailyRecords: mergedDailyRecords,
+        goals: mergedGoals,
+        memos: mergedMemos,
+        memoTemplates: mergedMemoTemplates,
+        wishes: mergedWishes,
+        subTasks: mergedSubTasks,
+        lastSynced: new Date().toISOString(),
+        // 既存の設定を保持
+        theme: localData.theme,
+        sidebarAlwaysVisible: localData.sidebarAlwaysVisible,
+        sidebarWidth: localData.sidebarWidth,
+        weekStartDay: localData.weekStartDay,
+        timeSectionSettings: localData.timeSectionSettings,
+        timeAxisSettings: localData.timeAxisSettings,
+        dashboardLayout: localData.dashboardLayout,
+        summaryConfig: localData.summaryConfig,
+        weatherConfig: localData.weatherConfig,
+        uiMode: localData.uiMode,
+      }
+
+      taskService.saveData(finalMergedData)
+      console.log('[Cloudflare Sync] Local data saved')
+
+      // データ変更イベントを発火
+      window.dispatchEvent(new Event('mytcc2:dataChanged'))
+
+      // ローカルとリモートのどちらが新しかったかを判定
+      const localTaskCount = localData.tasks?.length || 0
+      const remoteTaskCount = remoteData.tasks?.length || 0
+      
+      if (localTaskCount === 0 && remoteTaskCount > 0) {
+        return 'pulled' // リモートからデータを取得
+      } else if (localTaskCount > 0 && remoteTaskCount === 0) {
+        return 'pushed' // ローカルからデータをプッシュ
+      } else if (mergedTasks.length === localTaskCount && mergedTasks.length === remoteTaskCount) {
+        return 'up-to-date' // データは同じ
+      } else {
+        return 'pulled' // マージが発生
+      }
     } catch (err) {
-      // #region agent log
-      console.error('[DEBUG][B,C,D] sync error caught in hook', {errorMessage:err instanceof Error ? err.message : String(err), err});
-      // #endregion
+      console.error('[Cloudflare Sync] Error:', err)
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
       setError(errorMessage)
       throw err
