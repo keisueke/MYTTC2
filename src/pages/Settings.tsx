@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Project, Mode, Tag, GitHubConfig, ConflictResolution, AIProvider, AIConfig, AIConfigs, UIMode } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
+import { useCloudflare } from '../hooks/useCloudflare'
 import { useNotification } from '../context/NotificationContext'
 import { loadData, clearAllData } from '../services/taskService'
 import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
@@ -58,15 +59,21 @@ export default function Settings() {
   
   const {
     config: githubConfig,
-    syncing,
+    syncing: githubSyncing,
     error: githubError,
     saveConfig: saveGitHubConfig,
     removeConfig: removeGitHubConfig,
-    syncBidirectional,
+    syncBidirectional: githubSyncBidirectional,
     resolveConflict,
     conflictInfo,
     validateConfig,
   } = useGitHub()
+  
+  const {
+    syncing: cloudflareSyncing,
+    error: cloudflareError,
+    syncBidirectional: cloudflareSyncBidirectional,
+  } = useCloudflare()
   
   const { showNotification } = useNotification()
   
@@ -298,17 +305,17 @@ export default function Settings() {
     }
   }
 
-  const handleSync = async () => {
+  const handleGitHubSync = async () => {
     try {
-      const result = await syncBidirectional()
+      const result = await githubSyncBidirectional()
       refresh()
       
       switch (result) {
         case 'pulled':
-          showNotification('リモートから最新データを取得しました', 'success')
+          showNotification('GitHubからデータを取得しました', 'success')
           break
         case 'pushed':
-          showNotification('リモートにデータを保存しました', 'success')
+          showNotification('GitHubにデータを保存しました', 'success')
           break
         case 'up-to-date':
           showNotification('既に最新の状態です', 'info')
@@ -318,7 +325,31 @@ export default function Settings() {
           break
       }
     } catch (error) {
-      showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+      showNotification(`GitHub同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+    }
+  }
+
+  const handleCloudflareSync = async () => {
+    try {
+      const result = await cloudflareSyncBidirectional()
+      refresh()
+      
+      switch (result) {
+        case 'pulled':
+          showNotification('Cloudflareからデータを取得しました', 'success')
+          break
+        case 'pushed':
+          showNotification('Cloudflareにデータを保存しました', 'success')
+          break
+        case 'up-to-date':
+          showNotification('既に最新の状態です', 'info')
+          break
+        case 'conflict':
+          showNotification('データの競合が発生しました。手動で解決してください。', 'error')
+          break
+      }
+    } catch (error) {
+      showNotification(`Cloudflare同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -1494,11 +1525,11 @@ export default function Settings() {
               </div>
               
                 <button
-                onClick={handleSync}
-                  disabled={syncing}
+                onClick={handleGitHubSync}
+                  disabled={githubSyncing}
                 className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
               >
-                {syncing ? (
+                {githubSyncing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
                     <span>同期中...</span>
@@ -1653,39 +1684,69 @@ export default function Settings() {
                 </div>
               </div>
               
-              <button
-                onClick={async () => {
-                  setTestingCloudflare(true)
-                  try {
-                    const isHealthy = await checkCloudflareHealth(cloudflareConfig)
-                    if (isHealthy) {
-                      showNotification('Cloudflare APIに接続できました', 'success')
-                    } else {
-                      showNotification('Cloudflare APIに接続できませんでした', 'error')
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCloudflareSync}
+                  disabled={cloudflareSyncing}
+                  className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
+                >
+                  {cloudflareSyncing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                      <span>同期中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>同期</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setTestingCloudflare(true)
+                    try {
+                      const isHealthy = await checkCloudflareHealth(cloudflareConfig)
+                      if (isHealthy) {
+                        showNotification('Cloudflare APIに接続できました', 'success')
+                      } else {
+                        showNotification('Cloudflare APIに接続できませんでした', 'error')
+                      }
+                    } catch (error) {
+                      showNotification(`接続テストに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+                    } finally {
+                      setTestingCloudflare(false)
                     }
-                  } catch (error) {
-                    showNotification(`接続テストに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
-                  } finally {
-                    setTestingCloudflare(false)
-                  }
-                }}
-                disabled={testingCloudflare}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
-              >
-                {testingCloudflare ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
-                    <span>接続テスト中...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>接続テスト</span>
-                  </>
-                )}
-              </button>
+                  }}
+                  disabled={testingCloudflare}
+                  className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
+                >
+                  {testingCloudflare ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                      <span>テスト中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>接続テスト</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {cloudflareError && (
+                <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
+                  <p className="font-display text-xs text-[var(--color-error)]">
+                    エラー: {cloudflareError}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
