@@ -79,17 +79,31 @@ async function apiRequest<T>(
     headers['X-API-Key'] = apiKey
   }
 
+  // #region agent log
+  console.log('[DEBUG][B,C] cloudflareApi:apiRequest beforeFetch', {url, method:options.method, hasApiKey:!!apiKey});
+  // #endregion
+
   const response = await fetch(url, {
     ...options,
     headers,
   })
 
+  // #region agent log
+  console.log('[DEBUG][B,C] cloudflareApi:apiRequest afterFetch', {status:response.status, ok:response.ok, statusText:response.statusText});
+  // #endregion
+
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    // #region agent log
+    console.error('[DEBUG][B,C] cloudflareApi:apiRequest errorResponse', {status:response.status, errorMessage:error.message, error});
+    // #endregion
     throw new Error(error.message || `HTTP error! status: ${response.status}`)
   }
 
   const data = await response.json()
+  // #region agent log
+  console.log('[DEBUG][D] cloudflareApi:apiRequest parseResponse', {hasData:!!data, hasDataProperty:!!data?.data, dataKeys:Object.keys(data||{}), data});
+  // #endregion
   return data.data || data
 }
 

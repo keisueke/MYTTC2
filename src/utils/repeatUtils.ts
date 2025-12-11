@@ -87,48 +87,93 @@ export function generateNextRepeatTask(_task: Task): Task | null {
  * 繰り返しタスクが指定日付に該当するかチェック
  */
 export function isRepeatTaskForDate(task: Task, baseDate: Date): boolean {
-  if (task.repeatPattern === 'none' || !task.repeatConfig) {
+  // repeatPatternが'none'の場合は繰り返しタスクではない
+  if (task.repeatPattern === 'none') {
+    return false
+  }
+
+  // createdAtがない場合は判定不可能なのでfalseを返す
+  if (!task.createdAt) {
+    // #region agent log
+    console.log('[DEBUG] isRepeatTaskForDate: createdAt is missing', { taskId: task.id, title: task.title })
+    // #endregion
     return false
   }
 
   const targetDate = new Date(baseDate)
   targetDate.setHours(0, 0, 0, 0)
   const taskCreatedDate = new Date(task.createdAt)
+  
+  // createdAtが無効な日付の場合はfalseを返す
+  if (isNaN(taskCreatedDate.getTime())) {
+    // #region agent log
+    console.log('[DEBUG] isRepeatTaskForDate: createdAt is invalid', { taskId: task.id, title: task.title, createdAt: task.createdAt })
+    // #endregion
+    return false
+  }
   taskCreatedDate.setHours(0, 0, 0, 0)
 
+  // repeatConfigがない場合はデフォルト値を使用
+  const repeatConfig = task.repeatConfig || { interval: 1 }
+
   // 終了日のチェック
-  if (task.repeatConfig.endDate) {
-    const endDate = new Date(task.repeatConfig.endDate)
+  if (repeatConfig.endDate) {
+    const endDate = new Date(repeatConfig.endDate)
     endDate.setHours(0, 0, 0, 0)
     if (targetDate > endDate) {
       return false
     }
   }
 
+  // #region agent log
+  console.log('[DEBUG] isRepeatTaskForDate', {
+    taskId: task.id,
+    title: task.title,
+    repeatPattern: task.repeatPattern,
+    repeatConfig,
+    targetDate: targetDate.toISOString(),
+    taskCreatedDate: taskCreatedDate.toISOString(),
+  })
+  // #endregion
+
   switch (task.repeatPattern) {
     case 'daily':
-      const interval = task.repeatConfig.interval || 1
+      const interval = repeatConfig.interval || 1
       const daysSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      // #region agent log
+      console.log('[DEBUG] isRepeatTaskForDate daily check', { taskId: task.id, interval, daysSinceCreation, result: daysSinceCreation >= 0 && daysSinceCreation % interval === 0 })
+      // #endregion
       return daysSinceCreation >= 0 && daysSinceCreation % interval === 0
 
     case 'weekly':
-      if (task.repeatConfig.daysOfWeek && task.repeatConfig.daysOfWeek.length > 0) {
-        return task.repeatConfig.daysOfWeek.includes(targetDate.getDay())
+      if (repeatConfig.daysOfWeek && repeatConfig.daysOfWeek.length > 0) {
+        // 曜日指定がある場合は、対象日付の曜日が含まれているかチェック
+        // ただし、タスク作成日以降であることも確認
+        const daysSinceCreationWeekly = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+        if (daysSinceCreationWeekly < 0) {
+          return false
+        }
+        return repeatConfig.daysOfWeek.includes(targetDate.getDay())
       }
       // 曜日指定がない場合は、作成日からの週数で判定
       const weeksSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24 * 7))
-      const weekInterval = task.repeatConfig.interval || 1
+      const weekInterval = repeatConfig.interval || 1
       return weeksSinceCreation >= 0 && weeksSinceCreation % weekInterval === 0
 
     case 'monthly':
-      if (task.repeatConfig.dayOfMonth) {
-        return targetDate.getDate() === task.repeatConfig.dayOfMonth
+      // タスク作成日以降であることを確認
+      const daysSinceCreationMonthly = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (daysSinceCreationMonthly < 0) {
+        return false
+      }
+      if (repeatConfig.dayOfMonth) {
+        return targetDate.getDate() === repeatConfig.dayOfMonth
       }
       // 日付指定がない場合は、作成日と同じ日付かチェック
       return targetDate.getDate() === taskCreatedDate.getDate()
 
     case 'custom':
-      const customInterval = task.repeatConfig.interval || 1
+      const customInterval = repeatConfig.interval || 1
       const customDaysSinceCreation = Math.floor((targetDate.getTime() - taskCreatedDate.getTime()) / (1000 * 60 * 60 * 24))
       return customDaysSinceCreation >= 0 && customDaysSinceCreation % customInterval === 0
 

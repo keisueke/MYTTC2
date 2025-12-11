@@ -330,8 +330,17 @@ export default function Settings() {
   }
 
   const handleCloudflareSync = async () => {
+    // #region agent log
+    console.log('[DEBUG][E] handleCloudflareSync called', {hasCloudflareConfig:!!cloudflareConfig, cloudflareConfig});
+    // #endregion
     try {
+      // #region agent log
+      console.log('[DEBUG][A] calling cloudflareSyncBidirectional');
+      // #endregion
       const result = await cloudflareSyncBidirectional()
+      // #region agent log
+      console.log('[DEBUG][A] cloudflareSyncBidirectional returned', {result});
+      // #endregion
       refresh()
       
       switch (result) {
@@ -349,6 +358,9 @@ export default function Settings() {
           break
       }
     } catch (error) {
+      // #region agent log
+      console.error('[DEBUG][B,C] sync error caught', {errorMessage:error instanceof Error ? error.message : String(error), error});
+      // #endregion
       showNotification(`Cloudflare同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }

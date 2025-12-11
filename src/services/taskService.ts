@@ -13,7 +13,36 @@ export function loadData(): AppData {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      return JSON.parse(stored)
+      const data = JSON.parse(stored) as AppData
+      
+      // データ修復: createdAtが欠落しているタスクを修復
+      let needsSave = false
+      if (data.tasks && Array.isArray(data.tasks)) {
+        for (const task of data.tasks) {
+          if (!task.createdAt) {
+            // createdAtが欠落している場合、updatedAtを使用するか、現在時刻を設定
+            task.createdAt = task.updatedAt || toLocalISOString(new Date())
+            needsSave = true
+            console.warn(`[Data Repair] Task "${task.title}" (${task.id}) was missing createdAt, set to ${task.createdAt}`)
+          }
+          if (!task.updatedAt) {
+            task.updatedAt = task.createdAt
+            needsSave = true
+          }
+        }
+      }
+      
+      // 修復が必要な場合は保存
+      if (needsSave) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+          console.log('[Data Repair] Fixed tasks with missing createdAt/updatedAt')
+        } catch (e) {
+          console.error('[Data Repair] Failed to save repaired data:', e)
+        }
+      }
+      
+      return data
     }
   } catch (error) {
     console.error('Failed to load data from localStorage:', error)
@@ -1470,6 +1499,7 @@ export function processIncompleteTasksFromYesterday(): void {
   
   // 昨日作成されたタスクで、完了していないタスクを検出
   const incompleteTasks = data.tasks.filter(task => {
+    if (!task.createdAt) return false  // createdAtがない場合はスキップ
     const taskDateStr = task.createdAt.split('T')[0]
     return taskDateStr === yesterdayStr &&
            !task.completedAt &&

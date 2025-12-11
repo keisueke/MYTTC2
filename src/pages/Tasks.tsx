@@ -94,7 +94,7 @@ export default function Tasks() {
             onClick={() => setShowForm(true)}
             className="btn-industrial"
           >
-            ＋新規タスク
+            新規タスク
           </button>
         )}
       </div>

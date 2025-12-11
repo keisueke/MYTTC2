@@ -105,7 +105,13 @@ export function useCloudflare() {
 
   // 両方向の同期（自動的に最新の状態に合わせる）
   const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date' | 'conflict'> => {
+    // #region agent log
+    console.log('[DEBUG][A] useCloudflare:syncBidirectional called', {hasConfig:!!config, configApiUrl:config?.apiUrl});
+    // #endregion
     if (!config) {
+      // #region agent log
+      console.error('[DEBUG][A] config is null, throwing error');
+      // #endregion
       throw new Error('Cloudflare設定がありません')
     }
 
@@ -115,16 +121,25 @@ export function useCloudflare() {
     try {
       const localData = taskService.loadData()
       const lastSynced = localData.lastSynced
+      // #region agent log
+      console.log('[DEBUG][B] calling syncFromCloudflare', {lastSynced, apiUrl:config.apiUrl});
+      // #endregion
 
       // リモートから最新データを取得
       const syncResponse = await cloudflareApi.syncFromCloudflare(config, lastSynced)
 
+      // #region agent log
+      console.log('[DEBUG][B,D] syncFromCloudflare returned', {hasConflict:syncResponse.conflict, lastSynced:syncResponse.lastSynced, taskCount:syncResponse.data?.tasks?.length, syncResponse});
+      // #endregion
       // 簡易的な同期ロジック：リモートを優先
       // より高度な競合解決が必要な場合は、ここを拡張
       if (syncResponse.conflict) {
         return 'conflict'
       }
 
+      // #region agent log
+      console.log('[DEBUG][C] calling syncToCloudflare', {localTaskCount:localData.tasks?.length});
+      // #endregion
       // ローカルデータをリモートに送信
       await cloudflareApi.syncToCloudflare(config, localData, lastSynced)
 
@@ -151,6 +166,9 @@ export function useCloudflare() {
 
       return 'pulled'
     } catch (err) {
+      // #region agent log
+      console.error('[DEBUG][B,C,D] sync error caught in hook', {errorMessage:err instanceof Error ? err.message : String(err), err});
+      // #endregion
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
       setError(errorMessage)
       throw err
