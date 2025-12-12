@@ -3,10 +3,12 @@ import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
+import { useCloudflare } from '../hooks/useCloudflare'
 import { useNotification } from '../context/NotificationContext'
 import { useSelectedDate } from '../context/SelectedDateContext'
 import { generateTodaySummary } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout, getUIMode } from '../services/taskService'
+import { loadCloudflareConfig } from '../services/cloudflareApi'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import WeatherCard from '../components/dashboard/WeatherCard'
 import DailyRecordInput from '../components/dashboard/DailyRecordInput'
@@ -25,6 +27,8 @@ import { getIncompleteRoutinesFromYesterday } from '../services/taskService'
 export default function Dashboard() {
   const { tasks, projects, modes, tags, goals, loading, refresh, dailyRecords, addTask, routineExecutions, addRoutineExecution: addRoutineExecutionHook, updateRoutineExecution: updateRoutineExecutionHook, deleteTask: deleteTaskHook } = useTasks()
   const { config: githubConfig, syncing, syncBidirectional, conflictInfo, resolveConflict } = useGitHub()
+  const { syncing: cloudflareSyncing, syncBidirectional: cloudflareSyncBidirectional } = useCloudflare()
+  const cloudflareConfig = loadCloudflareConfig()
   const { showNotification } = useNotification()
   const { selectedDate, isToday } = useSelectedDate()
   const [isEditMode, setIsEditMode] = useState(false)
@@ -147,6 +151,30 @@ export default function Dashboard() {
       }
     } catch (error) {
       showNotification(`同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+    }
+  }
+
+  const handleCloudflareSync = async () => {
+    try {
+      const result = await cloudflareSyncBidirectional()
+      refresh()
+
+      switch (result) {
+        case 'pulled':
+          showNotification('Cloudflareからデータを取得しました', 'success')
+          break
+        case 'pushed':
+          showNotification('Cloudflareにデータを保存しました', 'success')
+          break
+        case 'up-to-date':
+          showNotification('既に最新の状態です', 'info')
+          break
+        case 'conflict':
+          showNotification('データの競合が発生しました', 'error')
+          break
+      }
+    } catch (error) {
+      showNotification(`Cloudflare同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
   }
 
@@ -402,6 +430,27 @@ export default function Dashboard() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span>{isMobile ? '同期' : 'github同期'}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    {cloudflareConfig && (
+                      <button
+                        onClick={handleCloudflareSync}
+                        disabled={cloudflareSyncing}
+                        className={`btn-industrial flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${isMobile ? 'text-sm py-2.5' : ''}`}
+                      >
+                        {cloudflareSyncing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                            <span>{isMobile ? '同期中' : '同期中...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                            </svg>
+                            <span>{isMobile ? 'CF同期' : 'Cloudflare同期'}</span>
                           </>
                         )}
                       </button>
