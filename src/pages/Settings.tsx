@@ -5,7 +5,7 @@ import { useGitHub } from '../hooks/useGitHub'
 import { useCloudflare } from '../hooks/useCloudflare'
 import { useNotification } from '../context/NotificationContext'
 import { loadData, clearAllData } from '../services/taskService'
-import { exportTasks, generateTodaySummary, copyToClipboard } from '../utils/export'
+import { exportTasks, generateTodaySummary } from '../utils/export'
 import { generateTestData } from '../utils/testData'
 import { applyTheme, Theme } from '../utils/theme'
 import { getTheme, saveTheme, getWeatherConfig, saveWeatherConfig, getSidebarVisibility, saveSidebarVisibility, getSidebarWidth, getWeekStartDay, saveWeekStartDay, getUIMode, saveUIMode } from '../services/taskService'
@@ -24,6 +24,7 @@ import ModeForm from '../components/modes/ModeForm'
 import TagList from '../components/tags/TagList'
 import TagForm from '../components/tags/TagForm'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
+import SummaryModal from '../components/common/SummaryModal'
 import TimeSectionSettingsComponent from '../components/settings/TimeSectionSettings'
 
 type TabType = 'project' | 'mode' | 'tag'
@@ -56,7 +57,7 @@ export default function Settings() {
     addTask,
     refresh,
   } = useTasks()
-  
+
   const {
     config: githubConfig,
     syncing: githubSyncing,
@@ -68,15 +69,15 @@ export default function Settings() {
     conflictInfo,
     validateConfig,
   } = useGitHub()
-  
+
   const {
     syncing: cloudflareSyncing,
     error: cloudflareError,
     syncBidirectional: cloudflareSyncBidirectional,
   } = useCloudflare()
-  
+
   const { showNotification } = useNotification()
-  
+
   const [activeTab, setActiveTab] = useState<TabType>('project')
   const [showForm, setShowForm] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined)
@@ -114,6 +115,9 @@ export default function Settings() {
   const [exportDate, setExportDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0]
   })
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false)
+  const [summaryText, setSummaryText] = useState('')
+  const [summaryTitle, setSummaryTitle] = useState('')
 
   // テーマ変更時に適用
   useEffect(() => {
@@ -309,7 +313,7 @@ export default function Settings() {
     try {
       const result = await githubSyncBidirectional()
       refresh()
-      
+
       switch (result) {
         case 'pulled':
           showNotification('GitHubからデータを取得しました', 'success')
@@ -331,7 +335,7 @@ export default function Settings() {
 
   const handleCloudflareSync = async () => {
     // #region agent log
-    console.log('[DEBUG][E] handleCloudflareSync called', {hasCloudflareConfig:!!cloudflareConfig, cloudflareConfig});
+    console.log('[DEBUG][E] handleCloudflareSync called', { hasCloudflareConfig: !!cloudflareConfig, cloudflareConfig });
     // #endregion
     try {
       // #region agent log
@@ -339,10 +343,10 @@ export default function Settings() {
       // #endregion
       const result = await cloudflareSyncBidirectional()
       // #region agent log
-      console.log('[DEBUG][A] cloudflareSyncBidirectional returned', {result});
+      console.log('[DEBUG][A] cloudflareSyncBidirectional returned', { result });
       // #endregion
       refresh()
-      
+
       switch (result) {
         case 'pulled':
           showNotification('Cloudflareからデータを取得しました', 'success')
@@ -359,7 +363,7 @@ export default function Settings() {
       }
     } catch (error) {
       // #region agent log
-      console.error('[DEBUG][B,C] sync error caught', {errorMessage:error instanceof Error ? error.message : String(error), error});
+      console.error('[DEBUG][B,C] sync error caught', { errorMessage: error instanceof Error ? error.message : String(error), error });
       // #endregion
       showNotification(`Cloudflare同期に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
@@ -368,12 +372,12 @@ export default function Settings() {
   const handleResolveConflict = async (resolution: ConflictResolution) => {
     try {
       if (resolution === 'cancel') {
-      return
-    }
+        return
+      }
 
       const result = await resolveConflict(resolution)
       refresh()
-      
+
       if (result === 'pushed') {
         showNotification('ローカルのデータで上書きしました', 'success')
       } else {
@@ -392,15 +396,12 @@ export default function Settings() {
   const handleCopyTodaySummary = async (selectedDate?: Date) => {
     try {
       const summary = await generateTodaySummary(tasks, projects, modes, tags, selectedDate)
-      const success = await copyToClipboard(summary)
-      if (success) {
-        const dateStr = selectedDate 
-          ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
-          : '今日'
-        showNotification(`${dateStr}のまとめをクリップボードにコピーしました`, 'success')
-      } else {
-        showNotification('クリップボードへのコピーに失敗しました', 'error')
-      }
+      const dateStr = selectedDate
+        ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+        : '今日'
+      setSummaryText(summary)
+      setSummaryTitle(`${dateStr}のまとめ`)
+      setSummaryModalOpen(true)
     } catch (error) {
       showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
@@ -444,13 +445,13 @@ export default function Settings() {
       testData.tasks.forEach((task, index) => {
         const taskWithRelations = {
           ...task,
-          projectId: createdProjects.length > 0 
-            ? createdProjects[index % createdProjects.length]?.id 
+          projectId: createdProjects.length > 0
+            ? createdProjects[index % createdProjects.length]?.id
             : undefined,
-          modeId: createdModes.length > 0 
-            ? createdModes[index % createdModes.length]?.id 
+          modeId: createdModes.length > 0
+            ? createdModes[index % createdModes.length]?.id
             : undefined,
-          tagIds: createdTags.length > 0 
+          tagIds: createdTags.length > 0
             ? [createdTags[index % createdTags.length]?.id].filter(Boolean) as string[]
             : undefined,
         }
@@ -478,16 +479,16 @@ export default function Settings() {
       // 年間目標を追加
       const createdGoals: number = testData.goals?.filter(goal => {
         // 同じ年の同じカテゴリで同じタイトルの目標が既に存在するかチェック
-        return !goals.find(g => 
-          g.year === goal.year && 
-          g.category === goal.category && 
+        return !goals.find(g =>
+          g.year === goal.year &&
+          g.category === goal.category &&
           g.title === goal.title
         )
       }).length || 0
       testData.goals?.forEach(goal => {
-        if (!goals.find(g => 
-          g.year === goal.year && 
-          g.category === goal.category && 
+        if (!goals.find(g =>
+          g.year === goal.year &&
+          g.category === goal.category &&
           g.title === goal.title
         )) {
           addGoal(goal)
@@ -519,7 +520,7 @@ export default function Settings() {
     if (!confirm('⚠️ 警告: すべてのデータを削除しますか？この操作は取り消せません。')) {
       return
     }
-    
+
     if (!confirm('本当にすべてのデータを削除しますか？')) {
       return
     }
@@ -537,7 +538,7 @@ export default function Settings() {
     <div className="space-y-8">
       {/* Page Header */}
       <div className="flex items-end justify-between border-b border-[var(--color-border)] pb-6">
-    <div>
+        <div>
           <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
             Settings
           </p>
@@ -569,7 +570,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -581,26 +582,24 @@ export default function Settings() {
               </p>
             </div>
             <div className="flex gap-2">
-        <button
+              <button
                 onClick={() => handleThemeChange('light')}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  theme === 'light'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${theme === 'light'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 ライト
               </button>
               <button
                 onClick={() => handleThemeChange('dark')}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  theme === 'dark'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${theme === 'dark'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 ダーク
-        </button>
+              </button>
             </div>
           </div>
         </div>
@@ -618,7 +617,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -636,11 +635,10 @@ export default function Settings() {
                   saveWeekStartDay('sunday')
                   showNotification('週の開始日を日曜日に設定しました', 'success')
                 }}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  weekStartDay === 'sunday'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${weekStartDay === 'sunday'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 日曜日
               </button>
@@ -650,11 +648,10 @@ export default function Settings() {
                   saveWeekStartDay('monday')
                   showNotification('週の開始日を月曜日に設定しました', 'success')
                 }}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  weekStartDay === 'monday'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${weekStartDay === 'monday'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 月曜日
               </button>
@@ -675,7 +672,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -693,11 +690,10 @@ export default function Settings() {
                   saveUIMode('desktop')
                   showNotification('UIモードをデスクトップに変更しました。ページをリロードしてください。', 'info')
                 }}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  uiMode === 'desktop'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${uiMode === 'desktop'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 デスクトップ
               </button>
@@ -707,11 +703,10 @@ export default function Settings() {
                   saveUIMode('mobile')
                   showNotification('UIモードをモバイルに変更しました。ページをリロードしてください。', 'info')
                 }}
-                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                  uiMode === 'mobile'
-                    ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                }`}
+                className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${uiMode === 'mobile'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                  }`}
               >
                 モバイル
               </button>
@@ -731,9 +726,9 @@ export default function Settings() {
               サイドバー表示設定
             </h2>
           </div>
-      </div>
-      
-      <div className="space-y-6">
+        </div>
+
+        <div className="space-y-6">
           {/* ピンどめボタン */}
           <div className="flex items-center justify-between">
             <div>
@@ -751,11 +746,10 @@ export default function Settings() {
                 saveSidebarVisibility(newValue)
                 window.dispatchEvent(new Event('mytcc2:dataChanged'))
               }}
-              className={`p-3 transition-all duration-200 ${
-                sidebarAlwaysVisible
-                  ? 'text-[var(--color-accent)] hover:text-[var(--color-accent)]/80'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-              }`}
+              className={`p-3 transition-all duration-200 ${sidebarAlwaysVisible
+                ? 'text-[var(--color-accent)] hover:text-[var(--color-accent)]/80'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
               aria-label={sidebarAlwaysVisible ? 'ピンどめを解除' : 'ピンどめ'}
             >
               <svg
@@ -803,7 +797,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div>
             <label htmlFor="weather-city" className="block font-display text-sm text-[var(--color-text-primary)] mb-2">
@@ -860,12 +854,12 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-4">
             今日のまとめに含める項目を選択してください
           </p>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
@@ -878,7 +872,7 @@ export default function Settings() {
                 体重
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -890,7 +884,7 @@ export default function Settings() {
                 就寝時間
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -902,7 +896,7 @@ export default function Settings() {
                 起床時間
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -914,7 +908,7 @@ export default function Settings() {
                 睡眠時間
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -926,7 +920,7 @@ export default function Settings() {
                 朝食
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -938,7 +932,7 @@ export default function Settings() {
                 昼食
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -950,7 +944,7 @@ export default function Settings() {
                 夕食
               </span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <input
                 type="checkbox"
@@ -963,7 +957,7 @@ export default function Settings() {
               </span>
             </label>
           </div>
-          
+
           <div className="pt-4 border-t border-[var(--color-border)]">
             <button
               onClick={() => {
@@ -990,12 +984,12 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <p className="font-display text-xs text-[var(--color-text-tertiary)] mb-4">
             メモ作成時に使用できるテンプレートを管理します
           </p>
-          
+
           {showTemplateForm ? (
             <div className="card-industrial p-6 border border-[var(--color-border)]">
               <div className="space-y-4">
@@ -1011,7 +1005,7 @@ export default function Settings() {
                     placeholder="テンプレート名を入力"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
                     テンプレート内容
@@ -1024,7 +1018,7 @@ export default function Settings() {
                     placeholder="テンプレート内容を入力"
                   />
                 </div>
-                
+
                 <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
                   <button
                     onClick={() => {
@@ -1134,7 +1128,7 @@ export default function Settings() {
                   ))}
                 </div>
               )}
-              
+
               <div className="pt-4 border-t border-[var(--color-border)]">
                 <button
                   onClick={() => {
@@ -1165,131 +1159,128 @@ export default function Settings() {
 
       {/* プロジェクト・モード・タグ管理 */}
       <div className="card-industrial p-6">
-          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-            <div>
-              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-                Management
-              </p>
-              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                プロジェクト・モード・タグ管理
-              </h2>
-            </div>
-            {!showForm && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="btn-industrial"
-              >
-                + 新規作成
-              </button>
-            )}
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Management
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              プロジェクト・モード・タグ管理
+            </h2>
           </div>
-
-          {/* タブ */}
-          <div className="flex gap-2 mb-4 border-b border-[var(--color-border)]">
+          {!showForm && (
             <button
-              onClick={() => {
-                setActiveTab('project')
-                setShowForm(false)
-                setEditingProject(undefined)
-              }}
-              className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                activeTab === 'project'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
-              }`}
+              onClick={() => setShowForm(true)}
+              className="btn-industrial"
             >
-              プロジェクト
+              + 新規作成
             </button>
-            <button
-              onClick={() => {
-                setActiveTab('mode')
-                setShowForm(false)
-                setEditingMode(undefined)
-              }}
-              className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                activeTab === 'mode'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
-              }`}
-            >
-              モード
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('tag')
-                setShowForm(false)
-                setEditingTag(undefined)
-              }}
-              className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${
-                activeTab === 'tag'
-                  ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
-              }`}
-            >
-              タグ
-            </button>
-          </div>
-
-          {showForm ? (
-            <div className="mb-4">
-              <div className="mb-4 pb-4 border-b border-[var(--color-border)]">
-                <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)] mb-1">
-                  {activeTab === 'project' ? 'Project' : activeTab === 'mode' ? 'Mode' : 'Tag'}
-                </p>
-                <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
-                  {activeTab === 'project' && (editingProject ? 'プロジェクトを編集' : '新しいプロジェクトを作成')}
-                  {activeTab === 'mode' && (editingMode ? 'モードを編集' : '新しいモードを作成')}
-                  {activeTab === 'tag' && (editingTag ? 'タグを編集' : '新しいタグを作成')}
-              </h3>
-              </div>
-              {activeTab === 'project' && (
-                <ProjectForm
-                  project={editingProject}
-                  onSubmit={editingProject ? handleUpdateProject : handleCreateProject}
-                onCancel={handleCancel}
-              />
-              )}
-              {activeTab === 'mode' && (
-                <ModeForm
-                  mode={editingMode}
-                  onSubmit={editingMode ? handleUpdateMode : handleCreateMode}
-                  onCancel={handleCancel}
-                />
-              )}
-              {activeTab === 'tag' && (
-                <TagForm
-                  tag={editingTag}
-                  onSubmit={editingTag ? handleUpdateTag : handleCreateTag}
-                onCancel={handleCancel}
-              />
-              )}
-            </div>
-          ) : (
-            <>
-              {activeTab === 'project' && (
-                <ProjectList
-                  projects={projects}
-                  onEdit={handleEditProject}
-                  onDelete={handleDeleteProject}
-                />
-              )}
-              {activeTab === 'mode' && (
-                <ModeList
-                  modes={modes}
-                  onEdit={handleEditMode}
-                  onDelete={handleDeleteMode}
-                />
-              )}
-              {activeTab === 'tag' && (
-                <TagList
-                  tags={tags}
-                  onEdit={handleEditTag}
-                  onDelete={handleDeleteTag}
-            />
-              )}
-            </>
           )}
         </div>
+
+        {/* タブ */}
+        <div className="flex gap-2 mb-4 border-b border-[var(--color-border)]">
+          <button
+            onClick={() => {
+              setActiveTab('project')
+              setShowForm(false)
+              setEditingProject(undefined)
+            }}
+            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${activeTab === 'project'
+              ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
+              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
+              }`}
+          >
+            プロジェクト
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('mode')
+              setShowForm(false)
+              setEditingMode(undefined)
+            }}
+            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${activeTab === 'mode'
+              ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
+              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
+              }`}
+          >
+            モード
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('tag')
+              setShowForm(false)
+              setEditingTag(undefined)
+            }}
+            className={`px-4 py-2 font-display text-xs tracking-[0.1em] uppercase transition-all duration-200 ${activeTab === 'tag'
+              ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)] border-b-2 border-[var(--color-accent)]'
+              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] border-b-2 border-transparent'
+              }`}
+          >
+            タグ
+          </button>
+        </div>
+
+        {showForm ? (
+          <div className="mb-4">
+            <div className="mb-4 pb-4 border-b border-[var(--color-border)]">
+              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)] mb-1">
+                {activeTab === 'project' ? 'Project' : activeTab === 'mode' ? 'Mode' : 'Tag'}
+              </p>
+              <h3 className="font-display text-lg font-semibold text-[var(--color-text-primary)]">
+                {activeTab === 'project' && (editingProject ? 'プロジェクトを編集' : '新しいプロジェクトを作成')}
+                {activeTab === 'mode' && (editingMode ? 'モードを編集' : '新しいモードを作成')}
+                {activeTab === 'tag' && (editingTag ? 'タグを編集' : '新しいタグを作成')}
+              </h3>
+            </div>
+            {activeTab === 'project' && (
+              <ProjectForm
+                project={editingProject}
+                onSubmit={editingProject ? handleUpdateProject : handleCreateProject}
+                onCancel={handleCancel}
+              />
+            )}
+            {activeTab === 'mode' && (
+              <ModeForm
+                mode={editingMode}
+                onSubmit={editingMode ? handleUpdateMode : handleCreateMode}
+                onCancel={handleCancel}
+              />
+            )}
+            {activeTab === 'tag' && (
+              <TagForm
+                tag={editingTag}
+                onSubmit={editingTag ? handleUpdateTag : handleCreateTag}
+                onCancel={handleCancel}
+              />
+            )}
+          </div>
+        ) : (
+          <>
+            {activeTab === 'project' && (
+              <ProjectList
+                projects={projects}
+                onEdit={handleEditProject}
+                onDelete={handleDeleteProject}
+              />
+            )}
+            {activeTab === 'mode' && (
+              <ModeList
+                modes={modes}
+                onEdit={handleEditMode}
+                onDelete={handleDeleteMode}
+              />
+            )}
+            {activeTab === 'tag' && (
+              <TagList
+                tags={tags}
+                onEdit={handleEditTag}
+                onDelete={handleDeleteTag}
+              />
+            )}
+          </>
+        )}
+      </div>
 
       {/* データエクスポート */}
       <div className="card-industrial p-6">
@@ -1303,7 +1294,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
@@ -1317,7 +1308,7 @@ export default function Settings() {
               max={new Date().toISOString().split('T')[0]}
             />
           </div>
-          
+
           <div className="flex gap-3">
             <button
               onClick={handleExport}
@@ -1353,7 +1344,7 @@ export default function Settings() {
             </h2>
           </div>
         </div>
-        
+
         <div className="flex gap-3">
           <button
             onClick={handleGenerateTestData}
@@ -1390,7 +1381,7 @@ export default function Settings() {
             データの保存方法
           </h2>
         </div>
-        
+
         <div className="space-y-4">
           <div className="p-4 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)]">
             <div className="flex items-start gap-3">
@@ -1418,7 +1409,7 @@ export default function Settings() {
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 flex items-center justify-center bg-[var(--color-bg-elevated)] rounded">
                   <svg className="w-4 h-4 text-[var(--color-text-secondary)]" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                   </svg>
                 </div>
                 <div className="flex-1">
@@ -1477,9 +1468,9 @@ export default function Settings() {
             </div>
             <p className="font-display text-xs text-[var(--color-text-tertiary)]">
               詳しい設定方法は
-              <a 
-                href="https://github.com/keisueke/MYTTC2/blob/main/docs/self-hosting-guide.md" 
-                target="_blank" 
+              <a
+                href="https://github.com/keisueke/MYTTC2/blob/main/docs/self-hosting-guide.md"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-[var(--color-accent)] hover:underline ml-1"
               >
@@ -1491,7 +1482,7 @@ export default function Settings() {
         </div>
       </div>
 
-        {/* GitHub設定 */}
+      {/* GitHub設定 */}
       <div className="card-industrial p-6">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
           <div>
@@ -1502,46 +1493,207 @@ export default function Settings() {
               GitHub設定
             </h2>
           </div>
-            {githubConfig && !showGitHubForm && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowGitHubForm(true)}
+          {githubConfig && !showGitHubForm && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowGitHubForm(true)}
                 className="btn-industrial"
-                >
-                  編集
-                </button>
-                <button
-                  onClick={handleRemoveGitHubConfig}
+              >
+                編集
+              </button>
+              <button
+                onClick={handleRemoveGitHubConfig}
                 className="btn-industrial"
                 style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
-                >
-                  削除
-                </button>
+              >
+                削除
+              </button>
+            </div>
+          )}
+        </div>
+
+        {githubConfig && !showGitHubForm ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
+              <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
+                ✅ GitHub設定が有効です
+              </p>
+              <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
+                <p>リポジトリ: {githubConfig.owner}/{githubConfig.repo}</p>
+                <p>データパス: {githubConfig.dataPath}</p>
+                {loadData().lastSynced && (
+                  <p>最終同期: {new Date(loadData().lastSynced!).toLocaleString('ja-JP')}</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleGitHubSync}
+              disabled={githubSyncing}
+              className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
+            >
+              {githubSyncing ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                  <span>同期中...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>同期</span>
+                </>
+              )}
+            </button>
+
+            {githubError && (
+              <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
+                <p className="font-display text-xs text-[var(--color-error)]">
+                  エラー: {githubError}
+                </p>
               </div>
             )}
           </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                GitHub Token <span className="text-[var(--color-error)]">*</span>
+              </label>
+              <input
+                type="password"
+                value={githubToken}
+                onChange={(e) => setGitHubToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxx"
+                className="input-industrial w-full"
+              />
+              <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                Personal Access Tokenが必要です。スコープ: repo
+              </p>
+            </div>
 
-          {githubConfig && !showGitHubForm ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  リポジトリ所有者 <span className="text-[var(--color-error)]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={githubOwner}
+                  onChange={(e) => setGitHubOwner(e.target.value)}
+                  placeholder="username"
+                  className="input-industrial w-full"
+                />
+              </div>
+
+              <div>
+                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                  リポジトリ名 <span className="text-[var(--color-error)]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={githubRepo}
+                  onChange={(e) => setGitHubRepo(e.target.value)}
+                  placeholder="repository-name"
+                  className="input-industrial w-full"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                データパス
+              </label>
+              <input
+                type="text"
+                value={githubDataPath}
+                onChange={(e) => setGitHubDataPath(e.target.value)}
+                placeholder="data/tasks.json"
+                className="input-industrial w-full"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+              {githubConfig && (
+                <button
+                  onClick={() => {
+                    setShowGitHubForm(false)
+                    setGitHubToken(githubConfig.token)
+                    setGitHubOwner(githubConfig.owner)
+                    setGitHubRepo(githubConfig.repo)
+                    setGitHubDataPath(githubConfig.dataPath)
+                  }}
+                  className="btn-industrial"
+                >
+                  キャンセル
+                </button>
+              )}
+              <button
+                onClick={handleSaveGitHubConfig}
+                disabled={validating}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {validating ? '検証中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Cloudflare設定 */}
+      <div className="card-industrial p-6">
+        <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
+          <div>
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Cloudflare Sync
+            </p>
+            <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+              Cloudflare設定
+            </h2>
+          </div>
+          {cloudflareConfig && !showCloudflareForm && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCloudflareForm(true)}
+                className="btn-industrial"
+              >
+                編集
+              </button>
+              <button
+                onClick={handleRemoveCloudflareConfig}
+                className="btn-industrial"
+                style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+              >
+                削除
+              </button>
+            </div>
+          )}
+        </div>
+
+        {cloudflareConfig && !showCloudflareForm ? (
+          <div className="space-y-4">
             <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
               <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
-                  ✅ GitHub設定が有効です
-                </p>
+                ✅ Cloudflare設定が有効です
+              </p>
               <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
-                  <p>リポジトリ: {githubConfig.owner}/{githubConfig.repo}</p>
-                  <p>データパス: {githubConfig.dataPath}</p>
-                  {loadData().lastSynced && (
-                    <p>最終同期: {new Date(loadData().lastSynced!).toLocaleString('ja-JP')}</p>
-                  )}
-                </div>
+                <p>API URL: {cloudflareConfig.apiUrl}</p>
+                {cloudflareConfig.apiKey ? (
+                  <p>API Key: {cloudflareConfig.apiKey.substring(0, 8)}...</p>
+                ) : (
+                  <p>API Key: 未設定（Cloudflare Access使用時は不要）</p>
+                )}
               </div>
-              
-                <button
-                onClick={handleGitHubSync}
-                  disabled={githubSyncing}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2"
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleCloudflareSync}
+                disabled={cloudflareSyncing}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
               >
-                {githubSyncing ? (
+                {cloudflareSyncing ? (
                   <>
                     <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
                     <span>同期中...</span>
@@ -1554,269 +1706,108 @@ export default function Settings() {
                     <span>同期</span>
                   </>
                 )}
-                </button>
+              </button>
 
-              {githubError && (
+              <button
+                onClick={async () => {
+                  setTestingCloudflare(true)
+                  try {
+                    const isHealthy = await checkCloudflareHealth(cloudflareConfig)
+                    if (isHealthy) {
+                      showNotification('Cloudflare APIに接続できました', 'success')
+                    } else {
+                      showNotification('Cloudflare APIに接続できませんでした', 'error')
+                    }
+                  } catch (error) {
+                    showNotification(`接続テストに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
+                  } finally {
+                    setTestingCloudflare(false)
+                  }
+                }}
+                disabled={testingCloudflare}
+                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
+              >
+                {testingCloudflare ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                    <span>テスト中...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>接続テスト</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {cloudflareError && (
               <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
                 <p className="font-display text-xs text-[var(--color-error)]">
-                    エラー: {githubError}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                GitHub Token <span className="text-[var(--color-error)]">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={githubToken}
-                  onChange={(e) => setGitHubToken(e.target.value)}
-                  placeholder="ghp_xxxxxxxxxxxx"
-                className="input-industrial w-full"
-                />
-              <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                  Personal Access Tokenが必要です。スコープ: repo
+                  エラー: {cloudflareError}
                 </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  リポジトリ所有者 <span className="text-[var(--color-error)]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={githubOwner}
-                    onChange={(e) => setGitHubOwner(e.target.value)}
-                    placeholder="username"
-                  className="input-industrial w-full"
-                  />
-                </div>
-
-                <div>
-                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  リポジトリ名 <span className="text-[var(--color-error)]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={githubRepo}
-                    onChange={(e) => setGitHubRepo(e.target.value)}
-                    placeholder="repository-name"
-                  className="input-industrial w-full"
-                  />
-                </div>
-              </div>
-
-              <div>
-              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  データパス
-                </label>
-                <input
-                  type="text"
-                  value={githubDataPath}
-                  onChange={(e) => setGitHubDataPath(e.target.value)}
-                  placeholder="data/tasks.json"
-                className="input-industrial w-full"
-                />
-              </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
-                {githubConfig && (
-                  <button
-                    onClick={() => {
-                      setShowGitHubForm(false)
-                      setGitHubToken(githubConfig.token)
-                      setGitHubOwner(githubConfig.owner)
-                      setGitHubRepo(githubConfig.repo)
-                      setGitHubDataPath(githubConfig.dataPath)
-                    }}
-                  className="btn-industrial"
-                  >
-                    キャンセル
-                  </button>
-                )}
-                <button
-                  onClick={handleSaveGitHubConfig}
-                  disabled={validating}
-                className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {validating ? '検証中...' : '保存'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Cloudflare設定 */}
-        <div className="card-industrial p-6">
-          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
-            <div>
-              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-                Cloudflare Sync
-              </p>
-              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                Cloudflare設定
-              </h2>
-            </div>
-            {cloudflareConfig && !showCloudflareForm && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCloudflareForm(true)}
-                  className="btn-industrial"
-                >
-                  編集
-                </button>
-                <button
-                  onClick={handleRemoveCloudflareConfig}
-                  className="btn-industrial"
-                  style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
-                >
-                  削除
-                </button>
               </div>
             )}
           </div>
-
-          {cloudflareConfig && !showCloudflareForm ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-[var(--color-secondary)]/10 border border-[var(--color-secondary)]/30">
-                <p className="font-display text-sm text-[var(--color-secondary)] mb-2">
-                  ✅ Cloudflare設定が有効です
-                </p>
-                <div className="font-display text-xs text-[var(--color-text-secondary)] space-y-1">
-                  <p>API URL: {cloudflareConfig.apiUrl}</p>
-                  {cloudflareConfig.apiKey ? (
-                    <p>API Key: {cloudflareConfig.apiKey.substring(0, 8)}...</p>
-                  ) : (
-                    <p>API Key: 未設定（Cloudflare Access使用時は不要）</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCloudflareSync}
-                  disabled={cloudflareSyncing}
-                  className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
-                >
-                  {cloudflareSyncing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
-                      <span>同期中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span>同期</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={async () => {
-                    setTestingCloudflare(true)
-                    try {
-                      const isHealthy = await checkCloudflareHealth(cloudflareConfig)
-                      if (isHealthy) {
-                        showNotification('Cloudflare APIに接続できました', 'success')
-                      } else {
-                        showNotification('Cloudflare APIに接続できませんでした', 'error')
-                      }
-                    } catch (error) {
-                      showNotification(`接続テストに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
-                    } finally {
-                      setTestingCloudflare(false)
-                    }
-                  }}
-                  disabled={testingCloudflare}
-                  className="btn-industrial disabled:opacity-50 disabled:cursor-not-allowed flex-1 flex items-center justify-center gap-2"
-                >
-                  {testingCloudflare ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
-                      <span>テスト中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>接続テスト</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {cloudflareError && (
-                <div className="p-3 bg-[var(--color-error)]/10 border border-[var(--color-error)]/30">
-                  <p className="font-display text-xs text-[var(--color-error)]">
-                    エラー: {cloudflareError}
-                  </p>
-                </div>
-              )}
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                API URL <span className="text-[var(--color-error)]">*</span>
+              </label>
+              <input
+                type="text"
+                value={cloudflareApiUrl}
+                onChange={(e) => setCloudflareApiUrl(e.target.value)}
+                placeholder="https://mytcc2-api.xxxxx.workers.dev"
+                className="input-industrial w-full"
+              />
+              <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                Cloudflare Workers APIのURLを入力してください（例: https://mytcc2-api.xxxxx.workers.dev）
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  API URL <span className="text-[var(--color-error)]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={cloudflareApiUrl}
-                  onChange={(e) => setCloudflareApiUrl(e.target.value)}
-                  placeholder="https://mytcc2-api.xxxxx.workers.dev"
-                  className="input-industrial w-full"
-                />
-                <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                  Cloudflare Workers APIのURLを入力してください（例: https://mytcc2-api.xxxxx.workers.dev）
-                </p>
-              </div>
 
-              <div>
-                <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
-                  API Key（オプション）
-                </label>
-                <input
-                  type="password"
-                  value={cloudflareApiKey}
-                  onChange={(e) => setCloudflareApiKey(e.target.value)}
-                  placeholder="API認証キー（Cloudflare Access使用時は不要）"
-                  className="input-industrial w-full"
-                />
-                <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
-                  Cloudflare Accessで保護している場合は空欄のままでOKです
-                </p>
-              </div>
+            <div>
+              <label className="block font-display text-[10px] tracking-[0.15em] uppercase text-[var(--color-text-tertiary)] mb-2">
+                API Key（オプション）
+              </label>
+              <input
+                type="password"
+                value={cloudflareApiKey}
+                onChange={(e) => setCloudflareApiKey(e.target.value)}
+                placeholder="API認証キー（Cloudflare Access使用時は不要）"
+                className="input-industrial w-full"
+              />
+              <p className="mt-1 font-display text-xs text-[var(--color-text-tertiary)]">
+                Cloudflare Accessで保護している場合は空欄のままでOKです
+              </p>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
-                {cloudflareConfig && (
-                  <button
-                    onClick={() => {
-                      setShowCloudflareForm(false)
-                      setCloudflareApiUrl(cloudflareConfig.apiUrl)
-                      setCloudflareApiKey(cloudflareConfig.apiKey || '')
-                    }}
-                    className="btn-industrial"
-                  >
-                    キャンセル
-                  </button>
-                )}
+            <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
+              {cloudflareConfig && (
                 <button
-                  onClick={handleSaveCloudflareConfig}
+                  onClick={() => {
+                    setShowCloudflareForm(false)
+                    setCloudflareApiUrl(cloudflareConfig.apiUrl)
+                    setCloudflareApiKey(cloudflareConfig.apiKey || '')
+                  }}
                   className="btn-industrial"
                 >
-                  保存
+                  キャンセル
                 </button>
-              </div>
+              )}
+              <button
+                onClick={handleSaveCloudflareConfig}
+                className="btn-industrial"
+              >
+                保存
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
       {/* AI API設定 */}
       <div className="card-industrial p-6">
@@ -1828,8 +1819,8 @@ export default function Settings() {
             <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
               AI API設定
             </h2>
-      </div>
-    </div>
+          </div>
+        </div>
 
         {/* プライマリAPI選択 */}
         <div className="mb-6 space-y-3">
@@ -1843,11 +1834,10 @@ export default function Settings() {
               return (
                 <label
                   key={provider}
-                  className={`flex items-center gap-2 px-4 py-2 border rounded cursor-pointer transition-all ${
-                    primaryProvider === provider
-                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                      : 'border-[var(--color-border)] hover:border-[var(--color-accent)]/50'
-                  } ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`flex items-center gap-2 px-4 py-2 border rounded cursor-pointer transition-all ${primaryProvider === provider
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-accent)]/50'
+                    } ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <input
                     type="radio"
@@ -2045,7 +2035,7 @@ export default function Settings() {
                           try {
                             let isValid = false
                             let errorMessage = ''
-                            
+
                             try {
                               if (provider === 'gemini') {
                                 isValid = await geminiApiProvider.validateApiKey(editingApiKey, editingModel)
@@ -2102,7 +2092,7 @@ export default function Settings() {
           })}
         </div>
       </div>
-      
+
       {conflictInfo && (
         <ConflictResolutionDialog
           conflictInfo={conflictInfo}
@@ -2110,6 +2100,15 @@ export default function Settings() {
           onCancel={() => handleResolveConflict('cancel')}
         />
       )}
+
+      <SummaryModal
+        isOpen={summaryModalOpen}
+        summary={summaryText}
+        title={summaryTitle}
+        onClose={() => setSummaryModalOpen(false)}
+        onCopySuccess={() => showNotification('クリップボードにコピーしました', 'success')}
+        onCopyError={() => showNotification('コピーに失敗しました。ダウンロードをお試しください', 'error')}
+      />
 
     </div>
   )

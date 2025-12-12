@@ -5,7 +5,7 @@ import { useTasks } from '../hooks/useTasks'
 import { useGitHub } from '../hooks/useGitHub'
 import { useNotification } from '../context/NotificationContext'
 import { useSelectedDate } from '../context/SelectedDateContext'
-import { generateTodaySummary, copyToClipboard } from '../utils/export'
+import { generateTodaySummary } from '../utils/export'
 import { getDashboardLayout, saveDashboardLayout, getUIMode } from '../services/taskService'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import WeatherCard from '../components/dashboard/WeatherCard'
@@ -18,6 +18,7 @@ import { isTaskForToday } from '../utils/repeatUtils'
 import ConflictResolutionDialog from '../components/common/ConflictResolutionDialog'
 import DatePickerModal from '../components/common/DatePickerModal'
 import IncompleteRoutineDialog from '../components/common/IncompleteRoutineDialog'
+import SummaryModal from '../components/common/SummaryModal'
 import TaskForm from '../components/tasks/TaskForm'
 import { getIncompleteRoutinesFromYesterday } from '../services/taskService'
 
@@ -32,7 +33,10 @@ export default function Dashboard() {
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [incompleteRoutines, setIncompleteRoutines] = useState<Task[]>([])
   const [showIncompleteDialog, setShowIncompleteDialog] = useState(false)
-  
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false)
+  const [summaryText, setSummaryText] = useState('')
+  const [summaryTitle, setSummaryTitle] = useState('')
+
   // 未完了ルーティンの検出
   useEffect(() => {
     const routines = getIncompleteRoutinesFromYesterday()
@@ -41,7 +45,7 @@ export default function Dashboard() {
       setShowIncompleteDialog(true)
     }
   }, [tasks, routineExecutions])
-  
+
   // ローカル日付文字列を取得
   const toLocalDateStr = (date: Date): string => {
     const year = date.getFullYear()
@@ -49,7 +53,7 @@ export default function Dashboard() {
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
-  
+
   // ローカルISO文字列を取得
   const toLocalISOStr = (date: Date): string => {
     const year = date.getFullYear()
@@ -65,7 +69,7 @@ export default function Dashboard() {
     const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0')
     return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`
   }
-  
+
   const handleContinueRoutine = (taskId: string) => {
     // 今日のルーティン実行記録を作成
     const today = toLocalDateStr(new Date())
@@ -80,7 +84,7 @@ export default function Dashboard() {
     }
     showNotification('今日も実行するように設定しました', 'success')
   }
-  
+
   const handleSkipRoutine = (taskId: string) => {
     // 昨日の実行記録にskippedAtを設定
     const yesterday = new Date()
@@ -89,8 +93,8 @@ export default function Dashboard() {
     }
     yesterday.setHours(0, 0, 0, 0)
     const yesterdayStr = toLocalDateStr(yesterday)
-    
-    const execution = routineExecutions.find(e => 
+
+    const execution = routineExecutions.find(e =>
       e.routineTaskId === taskId && e.date.startsWith(yesterdayStr)
     )
     if (execution) {
@@ -103,14 +107,14 @@ export default function Dashboard() {
     }
     showNotification('今日はスキップしました', 'info')
   }
-  
+
   const handleEditRoutine = (_taskId: string) => {
     // タスク編集ページに遷移（またはモーダルを表示）
     setShowIncompleteDialog(false)
     // ここでは一旦ダイアログを閉じるだけ。実際の編集は別途実装
     showNotification('ルーティンを編集してください', 'info')
   }
-  
+
   const handleDeleteRoutine = (taskId: string) => {
     if (confirm('このルーティンを削除しますか？')) {
       deleteTaskHook(taskId)
@@ -121,12 +125,12 @@ export default function Dashboard() {
       showNotification('ルーティンを削除しました', 'success')
     }
   }
-  
+
   const handleSync = async () => {
     try {
       const result = await syncBidirectional()
       refresh()
-      
+
       switch (result) {
         case 'pulled':
           showNotification('リモートから最新データを取得しました', 'success')
@@ -151,10 +155,10 @@ export default function Dashboard() {
       if (resolution === 'cancel') {
         return
       }
-      
+
       const result = await resolveConflict(resolution)
       refresh()
-      
+
       if (result === 'pushed') {
         showNotification('ローカルのデータで上書きしました', 'success')
       } else {
@@ -168,15 +172,12 @@ export default function Dashboard() {
   const handleCopyTodaySummary = async (selectedDate?: Date) => {
     try {
       const summary = await generateTodaySummary(tasks, projects, modes, tags, selectedDate)
-      const success = await copyToClipboard(summary)
-      if (success) {
-        const dateStr = selectedDate 
-          ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
-          : '今日'
-        showNotification(`${dateStr}のまとめをクリップボードにコピーしました`, 'success')
-      } else {
-        showNotification('クリップボードへのコピーに失敗しました', 'error')
-      }
+      const dateStr = selectedDate
+        ? new Date(selectedDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+        : '今日'
+      setSummaryText(summary)
+      setSummaryTitle(`${dateStr}のまとめ`)
+      setSummaryModalOpen(true)
     } catch (error) {
       showNotification(`まとめの生成に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`, 'error')
     }
@@ -265,22 +266,22 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const totalTasks = tasks.length
-    
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const todayEnd = new Date(today)
     todayEnd.setHours(23, 59, 59, 999)
-    
+
     const todayTasks = tasks.filter(task => isTaskForToday(task))
     const completedTodayTasks = todayTasks.filter(task => task.completedAt)
-    const completionRate = todayTasks.length > 0 
+    const completionRate = todayTasks.length > 0
       ? Math.round((completedTodayTasks.length / todayTasks.length) * 100)
       : 0
-    
+
     const totalEstimatedTime = todayTasks.reduce((sum, task) => {
       return sum + (task.estimatedTime || 0)
     }, 0)
-    
+
     const totalElapsedTime = todayTasks.reduce((sum, task) => {
       return sum + (task.elapsedTime || 0)
     }, 0)
@@ -331,271 +332,280 @@ export default function Dashboard() {
 
   return (
     <>
-    <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={widgetIds} strategy={verticalListSortingStrategy}>
-        <div className={`space-y-8 ${isEditMode ? 'pl-8' : ''}`}>
-      {/* Page Header */}
-      {(() => {
-        const uiMode = getUIMode()
-        const isMobile = uiMode === 'mobile'
-        
-        return (
-          <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-end justify-between'} border-b border-[var(--color-border)] pb-6`}>
-            <div>
-              <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
-                Overview
-              </p>
-              <h1 className={`font-display font-semibold tracking-tight text-[var(--color-text-primary)] ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
-                ダッシュボード
-              </h1>
-            </div>
-            <div className={`${isMobile ? 'grid grid-cols-2 gap-2 w-full' : 'flex items-center gap-2 flex-wrap'}`}>
-              {!showTaskForm && (
-                <button
-                  onClick={() => setShowTaskForm(true)}
-                  className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>{isMobile ? '新規' : '新規タスク'}</span>
-                </button>
-              )}
-              <button
-                onClick={() => setIsEditMode(!isEditMode)}
-                className={`btn-industrial flex items-center justify-center gap-1.5 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''} ${isMobile ? 'text-sm py-2.5' : ''}`}
-                title={isEditMode ? '編集モードを終了' : 'レイアウトを編集'}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span>{isMobile ? (isEditMode ? '終了' : '編集') : (isEditMode ? '編集終了' : 'レイアウト編集')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  console.log('Date picker button clicked')
-                  setShowDatePicker(true)
-                }}
-                className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
-                title="まとめをクリップボードにコピー（日付選択可）"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                <span>{isMobile ? 'コピー' : 'まとめをコピー'}</span>
-              </button>
-              {githubConfig && (
-                <button
-                  onClick={handleSync}
-                  disabled={syncing}
-                  className={`btn-industrial flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${isMobile ? 'text-sm py-2.5' : ''}`}
-                >
-                  {syncing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
-                      <span>{isMobile ? '同期中' : '同期中...'}</span>
-                    </>
-                  ) : (
-                    <>
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={widgetIds} strategy={verticalListSortingStrategy}>
+          <div className={`space-y-8 ${isEditMode ? 'pl-8' : ''}`}>
+            {/* Page Header */}
+            {(() => {
+              const uiMode = getUIMode()
+              const isMobile = uiMode === 'mobile'
+
+              return (
+                <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-end justify-between'} border-b border-[var(--color-border)] pb-6`}>
+                  <div>
+                    <p className="font-display text-[10px] tracking-[0.3em] uppercase text-[var(--color-accent)] mb-2">
+                      Overview
+                    </p>
+                    <h1 className={`font-display font-semibold tracking-tight text-[var(--color-text-primary)] ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
+                      ダッシュボード
+                    </h1>
+                  </div>
+                  <div className={`${isMobile ? 'grid grid-cols-2 gap-2 w-full' : 'flex items-center gap-2 flex-wrap'}`}>
+                    {!showTaskForm && (
+                      <button
+                        onClick={() => setShowTaskForm(true)}
+                        className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>{isMobile ? '新規' : '新規タスク'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsEditMode(!isEditMode)}
+                      className={`btn-industrial flex items-center justify-center gap-1.5 ${isEditMode ? 'bg-[var(--color-accent)] text-[var(--color-bg-primary)]' : ''} ${isMobile ? 'text-sm py-2.5' : ''}`}
+                      title={isEditMode ? '編集モードを終了' : 'レイアウトを編集'}
+                    >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      <span>{isMobile ? '同期' : 'github同期'}</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+                      <span>{isMobile ? (isEditMode ? '終了' : '編集') : (isEditMode ? '編集終了' : 'レイアウト編集')}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log('Date picker button clicked')
+                        setShowDatePicker(true)
+                      }}
+                      className={`btn-industrial flex items-center justify-center gap-1.5 ${isMobile ? 'text-sm py-2.5' : ''}`}
+                      title="まとめをクリップボードにコピー（日付選択可）"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>{isMobile ? 'コピー' : 'まとめをコピー'}</span>
+                    </button>
+                    {githubConfig && (
+                      <button
+                        onClick={handleSync}
+                        disabled={syncing}
+                        className={`btn-industrial flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${isMobile ? 'text-sm py-2.5' : ''}`}
+                      >
+                        {syncing ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                            <span>{isMobile ? '同期中' : '同期中...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>{isMobile ? '同期' : 'github同期'}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
 
-      {showTaskForm && (
-        <div className="card-industrial p-6 animate-scale-in">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
-            <div>
-              <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-                New Task
-              </p>
-              <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
-                新しいタスクを作成
-              </h2>
-            </div>
+            {showTaskForm && (
+              <div className="card-industrial p-6 animate-scale-in">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--color-border)]">
+                  <div>
+                    <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+                      New Task
+                    </p>
+                    <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
+                      新しいタスクを作成
+                    </h2>
+                  </div>
+                </div>
+                <TaskForm
+                  tasks={tasks}
+                  projects={projects}
+                  modes={modes}
+                  tags={tags}
+                  goals={goals}
+                  onSubmit={handleCreateTask}
+                  onCancel={handleCancelTaskForm}
+                />
+              </div>
+            )}
+
+            {sortedWidgets.map((widget) => {
+              const widgetData = getWidget(widget.id)
+              if (!widgetData) return null
+
+              switch (widget.id) {
+                case 'weather-card':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <WeatherCard />
+                    </DashboardWidget>
+                  )
+
+                case 'habit-tracker':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <HabitTracker tasks={tasks} routineExecutions={routineExecutions} />
+                    </DashboardWidget>
+                  )
+
+                case 'daily-record-input':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <DailyRecordInput />
+                    </DashboardWidget>
+                  )
+
+                case 'tasks-summary':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <SummaryCard
+                        title="タスク"
+                        icon="▣"
+                        value={stats.todayTasks}
+                        subtitle={`完了率: ${stats.completionRate}%`}
+                        linkTo="/tasks"
+                        linkLabel="タスク一覧を見る"
+                        color="green"
+                      />
+                    </DashboardWidget>
+                  )
+
+                case 'routine-summary':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <SummaryCard
+                        title="ルーティン"
+                        icon="◎"
+                        value={stats.routineCompletionRate}
+                        subtitle={`${stats.routineTasks}件のルーティン`}
+                        linkTo="/routine-checker"
+                        linkLabel="ルーティンチェッカーを見る"
+                        color="purple"
+                      />
+                    </DashboardWidget>
+                  )
+
+                case 'analyze-summary':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <SummaryCard
+                        title="分析"
+                        icon="◆"
+                        value="分析"
+                        subtitle="タスク分析・振り返り"
+                        linkTo="/analyze"
+                        linkLabel="詳細分析"
+                        color="blue"
+                        additionalLinks={[
+                          { to: '/analyze?tab=reflection', label: '振り返り' }
+                        ]}
+                      />
+                    </DashboardWidget>
+                  )
+
+                case 'daily-timeline':
+                  return (
+                    <DashboardWidget
+                      key={widget.id}
+                      id={widget.id}
+                      isEditMode={isEditMode}
+                      visible={widgetData.visible}
+                      onToggleVisible={() => handleToggleVisible(widget.id)}
+                    >
+                      <TimeAxisChart
+                        tasks={tasks}
+                        projects={projects}
+                        modes={modes}
+                        tags={tags}
+                        date={selectedDate}
+                      />
+                    </DashboardWidget>
+                  )
+
+                default:
+                  return null
+              }
+            })}
           </div>
-          <TaskForm
-            tasks={tasks}
-            projects={projects}
-            modes={modes}
-            tags={tags}
-            goals={goals}
-            onSubmit={handleCreateTask}
-            onCancel={handleCancelTaskForm}
+        </SortableContext>
+
+        {conflictInfo && (
+          <ConflictResolutionDialog
+            conflictInfo={conflictInfo}
+            onResolve={handleResolveConflict}
+            onCancel={() => handleResolveConflict('cancel')}
           />
-        </div>
-      )}
+        )}
+      </DndContext>
 
-          {sortedWidgets.map((widget) => {
-            const widgetData = getWidget(widget.id)
-            if (!widgetData) return null
+      <DatePickerModal
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={handleDatePickerConfirm}
+        title="まとめの日付を選択"
+      />
 
-            switch (widget.id) {
-              case 'weather-card':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <WeatherCard />
-                  </DashboardWidget>
-                )
-
-              case 'habit-tracker':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <HabitTracker tasks={tasks} routineExecutions={routineExecutions} />
-                  </DashboardWidget>
-                )
-
-              case 'daily-record-input':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <DailyRecordInput />
-                  </DashboardWidget>
-                )
-
-              case 'tasks-summary':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <SummaryCard
-                      title="タスク"
-                      icon="▣"
-                      value={stats.todayTasks}
-                      subtitle={`完了率: ${stats.completionRate}%`}
-                      linkTo="/tasks"
-                      linkLabel="タスク一覧を見る"
-                      color="green"
-                    />
-                  </DashboardWidget>
-                )
-
-              case 'routine-summary':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <SummaryCard
-                      title="ルーティン"
-                      icon="◎"
-                      value={stats.routineCompletionRate}
-                      subtitle={`${stats.routineTasks}件のルーティン`}
-                      linkTo="/routine-checker"
-                      linkLabel="ルーティンチェッカーを見る"
-                      color="purple"
-                    />
-                  </DashboardWidget>
-                )
-
-              case 'analyze-summary':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <SummaryCard
-                      title="分析"
-                      icon="◆"
-                      value="分析"
-                      subtitle="タスク分析・振り返り"
-                      linkTo="/analyze"
-                      linkLabel="詳細分析"
-                      color="blue"
-                      additionalLinks={[
-                        { to: '/analyze?tab=reflection', label: '振り返り' }
-                      ]}
-                    />
-                  </DashboardWidget>
-                )
-
-              case 'daily-timeline':
-                return (
-                  <DashboardWidget
-                    key={widget.id}
-                    id={widget.id}
-                    isEditMode={isEditMode}
-                    visible={widgetData.visible}
-                    onToggleVisible={() => handleToggleVisible(widget.id)}
-                  >
-                    <TimeAxisChart
-                      tasks={tasks}
-                      projects={projects}
-                      modes={modes}
-                      tags={tags}
-                      date={selectedDate}
-                    />
-                  </DashboardWidget>
-                )
-
-              default:
-                return null
-            }
-          })}
-        </div>
-      </SortableContext>
-      
-      {conflictInfo && (
-        <ConflictResolutionDialog
-          conflictInfo={conflictInfo}
-          onResolve={handleResolveConflict}
-          onCancel={() => handleResolveConflict('cancel')}
+      {showIncompleteDialog && (
+        <IncompleteRoutineDialog
+          incompleteRoutines={incompleteRoutines}
+          onContinue={handleContinueRoutine}
+          onSkip={handleSkipRoutine}
+          onDelete={handleDeleteRoutine}
+          onEdit={handleEditRoutine}
+          onClose={() => setShowIncompleteDialog(false)}
         />
       )}
-    </DndContext>
 
-    <DatePickerModal
-      isOpen={showDatePicker}
-      onClose={() => setShowDatePicker(false)}
-      onConfirm={handleDatePickerConfirm}
-      title="まとめの日付を選択"
-    />
-    
-    {showIncompleteDialog && (
-      <IncompleteRoutineDialog
-        incompleteRoutines={incompleteRoutines}
-        onContinue={handleContinueRoutine}
-        onSkip={handleSkipRoutine}
-        onDelete={handleDeleteRoutine}
-        onEdit={handleEditRoutine}
-        onClose={() => setShowIncompleteDialog(false)}
+      <SummaryModal
+        isOpen={summaryModalOpen}
+        summary={summaryText}
+        title={summaryTitle}
+        onClose={() => setSummaryModalOpen(false)}
+        onCopySuccess={() => showNotification('クリップボードにコピーしました', 'success')}
+        onCopyError={() => showNotification('コピーに失敗しました。ダウンロードをお試しください', 'error')}
       />
-    )}
     </>
   )
 }

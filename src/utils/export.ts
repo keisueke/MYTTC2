@@ -12,7 +12,7 @@ export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[
   const projectMap = new Map(projects.map(p => [p.id, p.name]))
   const modeMap = new Map(modes.map(m => [m.id, m.name]))
   const tagMap = new Map(tags.map(t => [t.id, t.name]))
-  
+
   // 指定日がある場合、その日のタスクをフィルタリング
   let filteredTasks = tasks
   if (targetDate) {
@@ -20,64 +20,64 @@ export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[
     date.setHours(0, 0, 0, 0)
     const dateEnd = new Date(date)
     dateEnd.setHours(23, 59, 59, 999)
-    
+
     filteredTasks = tasks.filter(task => {
       if (!task.startTime) return false
       const startDate = new Date(task.startTime)
       return startDate >= date && startDate <= dateEnd
     })
   }
-  
+
   let markdown = '# タスク一覧\n\n'
   const exportDate = targetDate || new Date()
   markdown += `エクスポート日時: ${format(exportDate, 'yyyy年MM月dd日 HH:mm', { locale: ja })}\n\n`
-  
+
   // 指定日の健康データを取得
   const summaryConfig = getSummaryConfig()
   const todayRecord = getDailyRecord(exportDate)
   if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
     markdown += `## 健康データ\n`
-    
+
     if (summaryConfig.includeWeight && todayRecord.weight !== undefined) {
       markdown += `- 体重: ${todayRecord.weight} kg\n`
     }
-    
+
     if (summaryConfig.includeBedtime && todayRecord.bedtime) {
       markdown += `- 就寝時間: ${todayRecord.bedtime}\n`
     }
-    
+
     if (summaryConfig.includeWakeTime && todayRecord.wakeTime) {
       markdown += `- 起床時間: ${todayRecord.wakeTime}\n`
     }
-    
+
     if (summaryConfig.includeSleepDuration && todayRecord.sleepDuration !== undefined) {
       const hours = Math.floor(todayRecord.sleepDuration / 60)
       const minutes = todayRecord.sleepDuration % 60
       markdown += `- 睡眠時間: ${hours}時間${minutes}分\n`
     }
-    
+
     if (summaryConfig.includeBreakfast && todayRecord.breakfast) {
       markdown += `- 朝食: ${todayRecord.breakfast}\n`
     }
-    
+
     if (summaryConfig.includeLunch && todayRecord.lunch) {
       markdown += `- 昼食: ${todayRecord.lunch}\n`
     }
-    
+
     if (summaryConfig.includeDinner && todayRecord.dinner) {
       markdown += `- 夕食: ${todayRecord.dinner}\n`
     }
-    
+
     if (summaryConfig.includeSnack && todayRecord.snack) {
       markdown += `- 間食: ${todayRecord.snack}\n`
     }
-    
+
     markdown += `\n`
   }
-  
+
   markdown += `## 統計\n\n`
   markdown += `- 全タスク数: ${filteredTasks.length}\n\n`
-  
+
   if (filteredTasks.length > 0) {
     markdown += `## タスク一覧\n\n`
     filteredTasks.forEach((task, index) => {
@@ -114,7 +114,7 @@ export function tasksToMarkdown(tasks: Task[], projects: Project[], modes: Mode[
       markdown += `- **作成日**: ${format(new Date(task.createdAt), 'yyyy年MM月dd日', { locale: ja })}\n\n`
     })
   }
-  
+
   return markdown
 }
 
@@ -138,7 +138,7 @@ export function downloadMarkdown(content: string, filename: string = 'tasks.md')
  */
 export function exportTasks(tasks: Task[], projects: Project[], modes: Mode[], tags: Tag[], targetDate?: Date): void {
   const markdown = tasksToMarkdown(tasks, projects, modes, tags, targetDate)
-  const dateStr = targetDate 
+  const dateStr = targetDate
     ? format(targetDate, 'yyyyMMdd', { locale: ja })
     : format(new Date(), 'yyyyMMdd_HHmmss', { locale: ja })
   const filename = `tasks_${dateStr}.md`
@@ -219,39 +219,39 @@ export async function generateTodaySummary(
   const summaryConfig = getSummaryConfig()
   const todayRecord = getDailyRecord(date)
   let healthInfo = ''
-  
-    if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
+
+  if (todayRecord && Object.keys(summaryConfig).some(key => summaryConfig[key as keyof typeof summaryConfig])) {
     healthInfo = `## 健康データ\n`
     if (summaryConfig.includeWeight && todayRecord.weight !== undefined) {
       healthInfo += `- 体重: ${todayRecord.weight} kg\n`
     }
-    
+
     if (summaryConfig.includeBedtime && todayRecord.bedtime) {
       healthInfo += `- 就寝時間: ${todayRecord.bedtime}\n`
     }
-    
+
     if (summaryConfig.includeWakeTime && todayRecord.wakeTime) {
       healthInfo += `- 起床時間: ${todayRecord.wakeTime}\n`
     }
-    
+
     if (summaryConfig.includeSleepDuration && todayRecord.sleepDuration !== undefined) {
       const hours = Math.floor(todayRecord.sleepDuration / 60)
       const minutes = todayRecord.sleepDuration % 60
       healthInfo += `- 睡眠時間: ${hours}時間${minutes}分\n`
     }
-    
+
     if (summaryConfig.includeBreakfast && todayRecord.breakfast) {
       healthInfo += `- 朝食: ${todayRecord.breakfast}\n`
     }
-    
+
     if (summaryConfig.includeLunch && todayRecord.lunch) {
       healthInfo += `- 昼食: ${todayRecord.lunch}\n`
     }
-    
+
     if (summaryConfig.includeDinner && todayRecord.dinner) {
       healthInfo += `- 夕食: ${todayRecord.dinner}\n`
     }
-    
+
     if (summaryConfig.includeSnack && todayRecord.snack) {
       healthInfo += `- 間食: ${todayRecord.snack}\n`
     }
@@ -264,8 +264,8 @@ export async function generateTodaySummary(
   // プロジェクト別集計
   const projectTimes = new Map<string, { time: number; count: number }>()
   todayTasks.forEach(task => {
-    const projectName = task.projectId && projectMap.has(task.projectId) 
-      ? projectMap.get(task.projectId)! 
+    const projectName = task.projectId && projectMap.has(task.projectId)
+      ? projectMap.get(task.projectId)!
       : 'プロジェクトなし'
     const elapsed = task.elapsedTime || 0
     const current = projectTimes.get(projectName) || { time: 0, count: 0 }
@@ -395,7 +395,7 @@ export async function generateTodaySummary(
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   // iOS/iPadOS検出（iPad on iOS 13+はMacIntelとして報告されるため、タッチポイントも確認）
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
   // 最初にClipboard APIを試す（iOS以外）
@@ -417,7 +417,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     // 画面中央に配置し、opacity: 0で非表示にする
     textArea.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0;z-index:-1;width:1px;height:1px;'
     document.body.appendChild(textArea)
-    
+
     if (isIOS) {
       // iOS用の選択方法
       const range = document.createRange()
@@ -432,7 +432,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       textArea.focus()
       textArea.select()
     }
-    
+
     const successful = document.execCommand('copy')
     document.body.removeChild(textArea)
     return successful
@@ -442,4 +442,19 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * テキストをファイルとしてダウンロード
+ * クリップボードコピーが失敗した場合のフォールバック
+ */
+export function downloadText(text: string, filename: string = 'summary.txt'): void {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 

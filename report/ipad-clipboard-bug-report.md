@@ -94,3 +94,39 @@ textArea.style.top = '-999999px'
 - [MDN - Clipboard API](https://developer.mozilla.org/ja/docs/Web/API/Clipboard_API)
 - [Can I Use - Clipboard](https://caniuse.com/clipboard)
 - iOS Safari では `document.execCommand('copy')` の制約が厳しく、要素が視認可能な状態でなければ動作しない
+
+---
+
+## 追加修正（2024-12-12）
+
+### 根本原因の追加分析
+
+初回の修正では解決しなかった。追加調査により、**非同期処理によるユーザージェスチャーチェーンの断絶**が真の原因と判明。
+
+iOS Safariでは、クリップボード操作はボタンクリックから**直接・同期的に**呼び出す必要がある。`await generateTodaySummary()` の時点でユーザー操作のコンテキストが失われ、その後の `copyToClipboard()` が拒否される。
+
+### 最終的な修正
+
+コピー失敗時のフォールバックとして、ファイルダウンロード機能を追加：
+
+1. `src/utils/export.ts` に `downloadText()` 関数を追加
+2. `src/pages/Dashboard.tsx` と `src/pages/Settings.tsx` で、コピー失敗時に `.txt` ファイルをダウンロード
+
+---
+
+## 最終修正（2024-12-12 追加）
+
+### 2ステップコピー方式の採用
+
+ダウンロードフォールバックでは根本的な解決にならないため、**2ステップ操作**を採用：
+
+1. 「まとめをコピー」ボタンクリック → まとめを生成してモーダルに表示
+2. モーダル内の「コピー」ボタン → 同期的にクリップボードへコピー
+
+### 変更ファイル
+
+- **[新規]** `src/components/common/SummaryModal.tsx`: まとめ表示モーダル
+- **[修正]** `src/pages/Dashboard.tsx`: SummaryModal統合
+- **[修正]** `src/pages/Settings.tsx`: SummaryModal統合
+
+これにより、iPad Safariでもユーザーの直接操作から同期的にコピーが実行され、確実にクリップボードへコピーできるようになった。
