@@ -53,15 +53,15 @@ export default function SummaryModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={onClose}
             />
 
-            {/* Modal */}
-            <div className="relative w-full max-w-2xl max-h-[80vh] mx-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg shadow-xl overflow-hidden animate-scale-in">
+            {/* Modal - centered with margin for mobile */}
+            <div className="relative w-full max-w-2xl my-8 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg shadow-xl overflow-hidden animate-scale-in">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]">
                     <div>
@@ -104,8 +104,8 @@ export default function SummaryModal({
                         onClick={handleCopy}
                         disabled={copying}
                         className={`btn-industrial flex items-center gap-2 ${copied
-                                ? 'bg-green-600 border-green-600 text-white'
-                                : 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
+                            ? 'bg-green-600 border-green-600 text-white'
+                            : 'bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-bg-primary)]'
                             }`}
                     >
                         {copied ? (
