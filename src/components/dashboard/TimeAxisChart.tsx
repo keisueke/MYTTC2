@@ -28,27 +28,27 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
   const [showSettings, setShowSettings] = useState(false)
   const [settings, setSettings] = useState(() => getTimeAxisSettings())
   const { startHour, endHour } = settings
-  
+
   const handleSaveSettings = (newStartHour: number, newEndHour: number) => {
     const newSettings = { startHour: newStartHour, endHour: newEndHour }
     setSettings(newSettings)
     saveTimeAxisSettings(newSettings)
     setShowSettings(false)
   }
-  
+
   // 表示する時間数
   const displayHours = endHour - startHour
-  
+
   // 指定日のタスクを時間軸で整理
   const timeBlocks = useMemo(() => {
     const blocks: TaskTimeBlock[] = []
-    
+
     // 指定日の開始時刻と終了時刻
     const dayStart = new Date(date)
     dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(date)
     dayEnd.setHours(23, 59, 59, 999)
-    
+
     // 完了したタスク（startTimeとendTimeがある）をフィルタリング
     const completedTasks = tasks.filter(task => {
       if (!task.startTime || !task.endTime) return false
@@ -56,25 +56,25 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
       // 指定日の範囲内に実行されたタスク
       return startTime >= dayStart && startTime <= dayEnd
     })
-    
+
     completedTasks.forEach(task => {
       if (!task.startTime || !task.endTime) return
-      
+
       const startTime = new Date(task.startTime)
       const endTime = new Date(task.endTime)
-      
+
       const startHour = startTime.getHours()
       const startMinute = startTime.getMinutes()
       const endHour = endTime.getHours()
       const endMinute = endTime.getMinutes()
-      
+
       // 継続時間（分）
       const duration = Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
-      
+
       const project = task.projectId ? projects.find(p => p.id === task.projectId) : undefined
       const mode = task.modeId ? modes.find(m => m.id === task.modeId) : undefined
       const taskTags = task.tagIds ? tags.filter(t => task.tagIds!.includes(t.id)) : []
-      
+
       blocks.push({
         task,
         startHour,
@@ -88,78 +88,86 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
         tags: taskTags,
       })
     })
-    
+
     // 開始時間順にソート
     const sortedBlocks = blocks.sort((a, b) => {
       if (a.startHour !== b.startHour) return a.startHour - b.startHour
       return a.startMinute - b.startMinute
     })
-    
+
     // 時間が重複しているタスクを検出してレイヤーを割り当て
     const assignLayers = (blocks: TaskTimeBlock[]): TaskTimeBlock[] => {
       const layers: TaskTimeBlock[][] = [] // 各レイヤーに配置されるタスク
-      
+
       blocks.forEach(block => {
         const startMinutes = block.startHour * 60 + block.startMinute
         const endMinutes = block.endHour * 60 + block.endMinute
         let assignedLayer = -1
-        
+
         // 既存のレイヤーを確認して、重複していないレイヤーを見つける
         for (let i = 0; i < layers.length; i++) {
           const canFit = layers[i].every(existingBlock => {
             const existingStart = existingBlock.startHour * 60 + existingBlock.startMinute
             const existingEnd = existingBlock.endHour * 60 + existingBlock.endMinute
-            
+
             // 時間が重複していないかチェック
             return endMinutes <= existingStart || startMinutes >= existingEnd
           })
-          
+
           if (canFit) {
             assignedLayer = i
             break
           }
         }
-        
+
         // 重複していないレイヤーが見つからなかった場合は新しいレイヤーを作成
         if (assignedLayer === -1) {
           assignedLayer = layers.length
           layers.push([])
         }
-        
+
         block.layer = assignedLayer
         layers[assignedLayer].push(block)
       })
-      
+
       return blocks
     }
-    
+
     return assignLayers(sortedBlocks)
   }, [tasks, projects, modes, tags, date])
-  
+
   // 時間軸の高さを計算（各時間帯の高さ）
   const hourHeight = 60 // 1時間あたり60px
-  
+
   // 最大レイヤー数を計算
   const maxLayers = useMemo(() => {
     if (timeBlocks.length === 0) return 1
     return Math.max(...timeBlocks.map(b => b.layer)) + 1
   }, [timeBlocks])
-  
+
+  // 表示範囲内のタスクのみをフィルタリング（早期リターン前に配置してReactフックの規則に従う）
+  const visibleBlocks = useMemo(() => {
+    return timeBlocks.filter(block => {
+      // タスクの終了時間が表示開始時間より後 かつ タスクの開始時間が表示終了時間より前
+      return block.endHour > startHour && block.startHour < endHour
+    })
+  }, [timeBlocks, startHour, endHour])
+
   // タスクブロックの位置とサイズを計算（表示範囲を考慮）
   const getBlockStyle = (block: TaskTimeBlock) => {
     const startMinutes = block.startHour * 60 + block.startMinute
     const endMinutes = block.endHour * 60 + block.endMinute
     const rangeStartMinutes = startHour * 60
-    
+
     // 表示範囲の開始時刻からの相対位置
     const top = ((startMinutes - rangeStartMinutes) / 60) * hourHeight
     const height = ((endMinutes - startMinutes) / 60) * hourHeight
-    
+
     // レイヤーごとに横にずらす（各レイヤーは幅の一部を使用）
     const layerWidth = maxLayers > 1 ? 100 / maxLayers : 100
     const left = block.layer * layerWidth
     const width = layerWidth
-    
+
     return {
       top: `${top}px`,
       height: `${Math.max(height, 20)}px`, // 最小20px
@@ -167,13 +175,13 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
       width: `${width}%`,
     }
   }
-  
+
   const getBlockColor = (block: TaskTimeBlock): string => {
     if (block.mode?.color) return block.mode.color
     if (block.project?.color) return block.project.color
     return 'var(--color-accent)'
   }
-  
+
   if (timeBlocks.length === 0) {
     return (
       <div className="text-center py-8">
@@ -183,15 +191,9 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
       </div>
     )
   }
-  
-  // 表示範囲内のタスクのみをフィルタリング
-  const visibleBlocks = useMemo(() => {
-    return timeBlocks.filter(block => {
-      // タスクの終了時間が表示開始時間より後 かつ タスクの開始時間が表示終了時間より前
-      return block.endHour > startHour && block.startHour < endHour
-    })
-  }, [timeBlocks, startHour, endHour])
-  
+
+
+
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -211,7 +213,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
           {startHour}:00 - {endHour}:00 ⚙
         </button>
       </div>
-      
+
       {/* 設定パネル */}
       {showSettings && (
         <div className="card-industrial p-4 bg-[var(--color-bg-secondary)]">
@@ -264,7 +266,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
           )}
         </div>
       )}
-      
+
       {/* 時間軸チャート */}
       <div className="relative border border-[var(--color-border)] bg-[var(--color-bg-tertiary)]">
         {/* 時間軸ラベル（左側） */}
@@ -284,7 +286,7 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
             )
           })}
         </div>
-        
+
         {/* タスクブロックエリア */}
         <div className="relative ml-16" style={{ height: `${displayHours * hourHeight}px` }}>
           {/* 時間帯の背景（交互の色） */}
@@ -299,12 +301,12 @@ export default function TimeAxisChart({ tasks, projects, modes, tags, date }: Ti
               }}
             />
           ))}
-          
+
           {/* タスクブロック */}
           {visibleBlocks.map((block) => {
             const style = getBlockStyle(block)
             const color = getBlockColor(block)
-            
+
             return (
               <div
                 key={block.task.id}
