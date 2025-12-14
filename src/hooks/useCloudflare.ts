@@ -21,12 +21,12 @@ function mergeEntities<T extends { id: string; updatedAt?: string; createdAt?: s
   remote: T[]
 ): T[] {
   const merged = new Map<string, T>()
-  
+
   // リモートのデータを先に追加
   for (const item of remote) {
     merged.set(item.id, item)
   }
-  
+
   // ローカルのデータをマージ（より新しい場合は上書き）
   for (const item of local) {
     const existing = merged.get(item.id)
@@ -42,34 +42,11 @@ function mergeEntities<T extends { id: string; updatedAt?: string; createdAt?: s
       }
     }
   }
-  
+
   return Array.from(merged.values())
 }
 
-/**
- * createdAtのみを持つエンティティをマージ（Project, Mode, Tagなど）
- * これらは基本的にリモートとローカルを統合するだけ
- */
-function mergeSimpleEntities<T extends { id: string; createdAt?: string }>(
-  local: T[],
-  remote: T[]
-): T[] {
-  const merged = new Map<string, T>()
-  
-  // リモートのデータを先に追加
-  for (const item of remote) {
-    merged.set(item.id, item)
-  }
-  
-  // ローカルのデータをマージ（リモートに無いものを追加）
-  for (const item of local) {
-    if (!merged.has(item.id)) {
-      merged.set(item.id, item)
-    }
-  }
-  
-  return Array.from(merged.values())
-}
+
 
 /**
  * Cloudflare APIを使用するためのフック
@@ -171,7 +148,7 @@ export function useCloudflare() {
   // 両方向の同期（タイムスタンプベースのマージ）
   const syncBidirectional = useCallback(async (): Promise<'pulled' | 'pushed' | 'up-to-date' | 'conflict'> => {
     console.log('[Cloudflare Sync] syncBidirectional called', { hasConfig: !!config })
-    
+
     if (!config) {
       throw new Error('Cloudflare設定がありません')
     }
@@ -202,9 +179,9 @@ export function useCloudflare() {
 
       // 3. タイムスタンプベースでマージ
       const mergedTasks = mergeEntities(localData.tasks || [], remoteData.tasks || [])
-      const mergedProjects = mergeSimpleEntities(localData.projects || [], remoteData.projects || [])
-      const mergedModes = mergeSimpleEntities(localData.modes || [], remoteData.modes || [])
-      const mergedTags = mergeSimpleEntities(localData.tags || [], remoteData.tags || [])
+      const mergedProjects = mergeEntities(localData.projects || [], remoteData.projects || [])
+      const mergedModes = mergeEntities(localData.modes || [], remoteData.modes || [])
+      const mergedTags = mergeEntities(localData.tags || [], remoteData.tags || [])
       const mergedRoutineExecutions = mergeEntities(localData.routineExecutions || [], remoteData.routineExecutions || [])
       const mergedDailyRecords = mergeEntities(localData.dailyRecords || [], remoteData.dailyRecords || [])
       const mergedGoals = mergeEntities(localData.goals || [], remoteData.goals || [])
@@ -272,7 +249,7 @@ export function useCloudflare() {
       // ローカルとリモートのどちらが新しかったかを判定
       const localTaskCount = localData.tasks?.length || 0
       const remoteTaskCount = remoteData.tasks?.length || 0
-      
+
       if (localTaskCount === 0 && remoteTaskCount > 0) {
         return 'pulled' // リモートからデータを取得
       } else if (localTaskCount > 0 && remoteTaskCount === 0) {

@@ -1,4 +1,4 @@
-export type RepeatPattern = 
+export type RepeatPattern =
   | 'none'
   | 'daily'
   | 'weekly'
@@ -41,6 +41,7 @@ export interface Task {
   showInRoutineChecker?: boolean // ルーティンチェッカーで表示するかどうか（デフォルト: true）
   // 時間セクション
   timeSectionId?: string // 時間セクションのID（自動判定または手動設定）
+  deletedAt?: string // 論理削除日時
 }
 
 export interface RepeatConfig {
@@ -62,6 +63,7 @@ export interface RoutineExecution {
   endTime?: string // ISO date string (終了時刻)
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface Project {
@@ -69,6 +71,7 @@ export interface Project {
   name: string
   color?: string
   createdAt: string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface Mode {
@@ -76,6 +79,7 @@ export interface Mode {
   name: string
   color?: string
   createdAt: string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface Tag {
@@ -83,6 +87,7 @@ export interface Tag {
   name: string
   color?: string
   createdAt: string
+  deletedAt?: string // 論理削除日時
 }
 
 // 後方互換性のため残す（削除予定）
@@ -115,9 +120,10 @@ export interface Wish {
   tagIds?: string[]
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
-export type GoalCategory = 
+export type GoalCategory =
   | 'social-contribution' // 社会貢献
   | 'family' // 家族
   | 'relationships' // 人間関係
@@ -140,6 +146,7 @@ export interface Goal {
   completedAt?: string // ISO date string（完了日時）
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface Memo {
@@ -148,6 +155,7 @@ export interface Memo {
   content: string
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface MemoTemplate {
@@ -156,6 +164,7 @@ export interface MemoTemplate {
   content: string
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface SubTask {
@@ -167,6 +176,7 @@ export interface SubTask {
   order?: number // 表示順序
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface DailyRecord {
@@ -182,6 +192,7 @@ export interface DailyRecord {
   snack?: string // 間食
   createdAt: string // ISO date string
   updatedAt: string // ISO date string
+  deletedAt?: string // 論理削除日時
 }
 
 export interface SummaryConfig {
@@ -195,7 +206,7 @@ export interface SummaryConfig {
   includeSnack: boolean
 }
 
-export type DashboardWidgetId = 
+export type DashboardWidgetId =
   | 'weather-card'
   | 'habit-tracker'
   | 'daily-record-input'

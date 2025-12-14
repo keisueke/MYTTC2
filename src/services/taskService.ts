@@ -14,7 +14,7 @@ export function loadData(): AppData {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const data = JSON.parse(stored) as AppData
-      
+
       // データ修復: createdAtが欠落しているタスクを修復
       let needsSave = false
       if (data.tasks && Array.isArray(data.tasks)) {
@@ -31,7 +31,7 @@ export function loadData(): AppData {
           }
         }
       }
-      
+
       // 修復が必要な場合は保存
       if (needsSave) {
         try {
@@ -41,13 +41,13 @@ export function loadData(): AppData {
           console.error('[Data Repair] Failed to save repaired data:', e)
         }
       }
-      
+
       return data
     }
   } catch (error) {
     console.error('Failed to load data from localStorage:', error)
   }
-  
+
   // デフォルトデータを返す
   return {
     tasks: [],
@@ -108,7 +108,7 @@ export function clearAllData(): void {
  */
 export function getTasks(): Task[] {
   const data = loadData()
-  return data.tasks
+  return data.tasks.filter(t => !t.deletedAt)
 }
 
 /**
@@ -145,7 +145,7 @@ function toLocalISOString(date: Date): string {
  */
 export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, referenceDate?: Date): Task {
   const data = loadData()
-  
+
   // 順序が指定されていない場合、最大のorder + 1を設定
   let order = task.order
   if (order === undefined) {
@@ -154,7 +154,7 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, refe
       .reduce((max, t) => Math.max(max, t.order!), -1)
     order = maxOrder + 1
   }
-  
+
   // createdAtの日付を決定
   // referenceDateが指定された場合、その日付の現在時刻を使用
   let createdAt: string
@@ -166,14 +166,14 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, refe
   } else {
     createdAt = toLocalISOString(new Date())
   }
-  
+
   // 最終防衛線: テキストフィールドをサニタイズ（制御文字を削除）
   const sanitizedTask = {
     ...task,
     title: sanitizeText(task.title),
     description: task.description ? sanitizeText(task.description) : undefined,
   }
-  
+
   const newTask: Task = {
     ...sanitizedTask,
     id: crypto.randomUUID(),
@@ -181,7 +181,7 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, refe
     updatedAt: toLocalISOString(new Date()),
     order,
   }
-  
+
   data.tasks.push(newTask)
   saveData(data)
   return newTask
@@ -193,11 +193,11 @@ export function addTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, refe
 export function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>): Task {
   const data = loadData()
   const taskIndex = data.tasks.findIndex(t => t.id === id)
-  
+
   if (taskIndex === -1) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   // 最終防衛線: テキストフィールドをサニタイズ（制御文字を削除）
   const sanitizedUpdates: Partial<Omit<Task, 'id' | 'createdAt'>> = { ...updates }
   if (updates.title !== undefined) {
@@ -206,13 +206,13 @@ export function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'creat
   if (updates.description !== undefined && updates.description !== null) {
     sanitizedUpdates.description = sanitizeText(updates.description)
   }
-  
+
   const updatedTask: Task = {
     ...data.tasks[taskIndex],
     ...sanitizedUpdates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.tasks[taskIndex] = updatedTask
   saveData(data)
   return updatedTask
@@ -224,12 +224,14 @@ export function updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'creat
 export function deleteTask(id: string): void {
   const data = loadData()
   const taskIndex = data.tasks.findIndex(t => t.id === id)
-  
+
   if (taskIndex === -1) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
-  data.tasks.splice(taskIndex, 1)
+
+  const task = data.tasks[taskIndex]
+  task.deletedAt = new Date().toISOString()
+  task.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -238,7 +240,7 @@ export function deleteTask(id: string): void {
  */
 export function reorderTasks(taskIds: string[]): void {
   const data = loadData()
-  
+
   // 指定された順序でorderを更新
   taskIds.forEach((taskId, index) => {
     const task = data.tasks.find(t => t.id === taskId)
@@ -247,7 +249,7 @@ export function reorderTasks(taskIds: string[]): void {
       task.updatedAt = new Date().toISOString()
     }
   })
-  
+
   saveData(data)
 }
 
@@ -256,19 +258,19 @@ export function reorderTasks(taskIds: string[]): void {
  */
 export function moveTaskToPosition(taskId: string, newIndex: number, filteredTaskIds: string[]): void {
   const data = loadData()
-  
+
   // フィルタリングされたタスクの順番を更新
   const reorderedIds = [...filteredTaskIds]
   const currentIndex = reorderedIds.indexOf(taskId)
-  
+
   if (currentIndex === -1 || currentIndex === newIndex) {
     return // 移動不要
   }
-  
+
   // 配列から削除して新しい位置に挿入
   reorderedIds.splice(currentIndex, 1)
   reorderedIds.splice(newIndex, 0, taskId)
-  
+
   // 新しい順番でorderを更新
   reorderedIds.forEach((id, index) => {
     const task = data.tasks.find(t => t.id === id)
@@ -277,7 +279,7 @@ export function moveTaskToPosition(taskId: string, newIndex: number, filteredTas
       task.updatedAt = new Date().toISOString()
     }
   })
-  
+
   saveData(data)
 }
 
@@ -287,35 +289,35 @@ export function moveTaskToPosition(taskId: string, newIndex: number, filteredTas
 export function moveTaskUp(id: string): Task {
   const data = loadData()
   const task = data.tasks.find(t => t.id === id)
-  
+
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   // orderでソート
   const sortedTasks = [...data.tasks].sort((a, b) => {
     const aOrder = a.order ?? Infinity
     const bOrder = b.order ?? Infinity
     return aOrder - bOrder
   })
-  
+
   const currentIndex = sortedTasks.findIndex(t => t.id === id)
-  
+
   if (currentIndex === 0) {
     // 既に最上位
     return task
   }
-  
+
   const previousTask = sortedTasks[currentIndex - 1]
-  
+
   // orderを入れ替え
   const tempOrder = task.order
   task.order = previousTask.order
   previousTask.order = tempOrder
-  
+
   task.updatedAt = new Date().toISOString()
   previousTask.updatedAt = new Date().toISOString()
-  
+
   saveData(data)
   return task
 }
@@ -326,35 +328,35 @@ export function moveTaskUp(id: string): Task {
 export function moveTaskDown(id: string): Task {
   const data = loadData()
   const task = data.tasks.find(t => t.id === id)
-  
+
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   // orderでソート
   const sortedTasks = [...data.tasks].sort((a, b) => {
     const aOrder = a.order ?? Infinity
     const bOrder = b.order ?? Infinity
     return aOrder - bOrder
   })
-  
+
   const currentIndex = sortedTasks.findIndex(t => t.id === id)
-  
+
   if (currentIndex === sortedTasks.length - 1) {
     // 既に最下位
     return task
   }
-  
+
   const nextTask = sortedTasks[currentIndex + 1]
-  
+
   // orderを入れ替え
   const tempOrder = task.order
   task.order = nextTask.order
   nextTask.order = tempOrder
-  
+
   task.updatedAt = new Date().toISOString()
   nextTask.updatedAt = new Date().toISOString()
-  
+
   saveData(data)
   return task
 }
@@ -365,11 +367,11 @@ export function moveTaskDown(id: string): Task {
 export function copyTask(id: string): Task {
   const data = loadData()
   const task = data.tasks.find(t => t.id === id)
-  
+
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   // 完了状態をリセットして新しいタスクを作成
   const newTask: Task = {
     ...task,
@@ -382,7 +384,7 @@ export function copyTask(id: string): Task {
     endTime: undefined,
     elapsedTime: 0, // 経過時間もリセット
   }
-  
+
   data.tasks.push(newTask)
   saveData(data)
   return newTask
@@ -404,32 +406,32 @@ export function toLocalDateStr(date: Date): string {
 export function startTaskTimer(id: string): Task {
   const data = loadData()
   const task = data.tasks.find(t => t.id === id)
-  
+
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   // 他の実行中のタスクを停止
   data.tasks.forEach(t => {
     if (t.isRunning && t.id !== id) {
       stopTaskTimer(t.id)
     }
   })
-  
+
   const now = new Date()
   const startTime = toLocalISOString(now)
   const today = toLocalDateStr(now)
-  
+
   // ルーティンタスクの場合は、RoutineExecutionも更新
   if (task.repeatPattern !== 'none') {
     if (!data.routineExecutions) {
       data.routineExecutions = []
     }
-    
-    let execution = data.routineExecutions.find(e => 
+
+    let execution = data.routineExecutions.find(e =>
       e.routineTaskId === task.id && e.date.startsWith(today)
     )
-    
+
     if (!execution) {
       // 実行記録が存在しない場合は作成
       execution = addRoutineExecution({
@@ -444,7 +446,7 @@ export function startTaskTimer(id: string): Task {
       })
     }
   }
-  
+
   return updateTask(id, {
     isRunning: true,
     startTime,
@@ -458,21 +460,21 @@ export function startTaskTimer(id: string): Task {
 export function stopTaskTimer(id: string): Task {
   const data = loadData()
   const task = data.tasks.find(t => t.id === id)
-  
+
   if (!task) {
     throw new Error(`Task with id ${id} not found`)
   }
-  
+
   const now = new Date()
   const endTime = toLocalISOString(now)
   const today = toLocalDateStr(now)
-  
+
   let updates: Partial<Omit<Task, 'id' | 'createdAt'>> = {
     isRunning: false,
     endTime,
     completedAt: endTime, // タイマー停止時に完了時刻を設定
   }
-  
+
   // タイマーが実行中の場合、経過時間を計算
   let elapsed = 0
   if (task.isRunning && task.startTime) {
@@ -484,17 +486,17 @@ export function stopTaskTimer(id: string): Task {
     // タイマーが開始されていない場合でも、終了時間を記録
     updates.startTime = endTime // 開始時間がない場合は終了時間を開始時間として記録
   }
-  
+
   // ルーティンタスクの場合は、RoutineExecutionも更新
   if (task.repeatPattern !== 'none') {
     if (!data.routineExecutions) {
       data.routineExecutions = []
     }
-    
-    let execution = data.routineExecutions.find(e => 
+
+    let execution = data.routineExecutions.find(e =>
       e.routineTaskId === task.id && e.date.startsWith(today)
     )
-    
+
     if (execution) {
       // 既存の実行記録を更新
       const executionElapsed = (execution.elapsedTime || 0) + elapsed
@@ -505,7 +507,7 @@ export function stopTaskTimer(id: string): Task {
       })
     }
   }
-  
+
   return updateTask(id, updates)
 }
 
@@ -526,7 +528,7 @@ export function resetTaskTimer(id: string): Task {
  */
 export function getProjects(): Project[] {
   const data = loadData()
-  return data.projects || []
+  return (data.projects || []).filter(p => !p.deletedAt)
 }
 
 /**
@@ -544,7 +546,7 @@ export function addProject(project: Omit<Project, 'id' | 'createdAt'>): Project 
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
-  
+
   if (!data.projects) {
     data.projects = []
   }
@@ -562,22 +564,22 @@ export function updateProject(id: string, updates: Partial<Omit<Project, 'id' | 
     data.projects = []
   }
   const projectIndex = data.projects.findIndex(p => p.id === id)
-  
+
   if (projectIndex === -1) {
     throw new Error(`Project with id ${id} not found`)
   }
-  
+
   // 最終防衛線: プロジェクト名をサニタイズ
   const sanitizedUpdates: Partial<Omit<Project, 'id' | 'createdAt'>> = { ...updates }
   if (updates.name !== undefined) {
     sanitizedUpdates.name = sanitizeText(updates.name)
   }
-  
+
   const updatedProject: Project = {
     ...data.projects[projectIndex],
     ...sanitizedUpdates,
   }
-  
+
   data.projects[projectIndex] = updatedProject
   saveData(data)
   return updatedProject
@@ -592,19 +594,21 @@ export function deleteProject(id: string): void {
     return
   }
   const projectIndex = data.projects.findIndex(p => p.id === id)
-  
+
   if (projectIndex === -1) {
     throw new Error(`Project with id ${id} not found`)
   }
-  
+
   // プロジェクトを使用しているタスクのprojectIdをクリア
   data.tasks.forEach(task => {
     if (task.projectId === id) {
       task.projectId = undefined
     }
   })
-  
-  data.projects.splice(projectIndex, 1)
+
+  const project = data.projects[projectIndex]
+  project.deletedAt = new Date().toISOString()
+  // プロジェクト名は更新しない（履歴のため）
   saveData(data)
 }
 
@@ -613,7 +617,7 @@ export function deleteProject(id: string): void {
  */
 export function getModes(): Mode[] {
   const data = loadData()
-  return data.modes || []
+  return (data.modes || []).filter(m => !m.deletedAt)
 }
 
 /**
@@ -631,7 +635,7 @@ export function addMode(mode: Omit<Mode, 'id' | 'createdAt'>): Mode {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
-  
+
   if (!data.modes) {
     data.modes = []
   }
@@ -649,22 +653,22 @@ export function updateMode(id: string, updates: Partial<Omit<Mode, 'id' | 'creat
     data.modes = []
   }
   const modeIndex = data.modes.findIndex(m => m.id === id)
-  
+
   if (modeIndex === -1) {
     throw new Error(`Mode with id ${id} not found`)
   }
-  
+
   // 最終防衛線: モード名をサニタイズ
   const sanitizedUpdates: Partial<Omit<Mode, 'id' | 'createdAt'>> = { ...updates }
   if (updates.name !== undefined) {
     sanitizedUpdates.name = sanitizeText(updates.name)
   }
-  
+
   const updatedMode: Mode = {
     ...data.modes[modeIndex],
     ...sanitizedUpdates,
   }
-  
+
   data.modes[modeIndex] = updatedMode
   saveData(data)
   return updatedMode
@@ -679,19 +683,20 @@ export function deleteMode(id: string): void {
     return
   }
   const modeIndex = data.modes.findIndex(m => m.id === id)
-  
+
   if (modeIndex === -1) {
     throw new Error(`Mode with id ${id} not found`)
   }
-  
+
   // モードを使用しているタスクのmodeIdをクリア
   data.tasks.forEach(task => {
     if (task.modeId === id) {
       task.modeId = undefined
     }
   })
-  
-  data.modes.splice(modeIndex, 1)
+
+  const mode = data.modes[modeIndex]
+  mode.deletedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -700,7 +705,7 @@ export function deleteMode(id: string): void {
  */
 export function getTags(): Tag[] {
   const data = loadData()
-  return data.tags || []
+  return (data.tags || []).filter(t => !t.deletedAt)
 }
 
 /**
@@ -718,7 +723,7 @@ export function addTag(tag: Omit<Tag, 'id' | 'createdAt'>): Tag {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
-  
+
   if (!data.tags) {
     data.tags = []
   }
@@ -736,22 +741,22 @@ export function updateTag(id: string, updates: Partial<Omit<Tag, 'id' | 'created
     data.tags = []
   }
   const tagIndex = data.tags.findIndex(t => t.id === id)
-  
+
   if (tagIndex === -1) {
     throw new Error(`Tag with id ${id} not found`)
   }
-  
+
   // 最終防衛線: タグ名をサニタイズ
   const sanitizedUpdates: Partial<Omit<Tag, 'id' | 'createdAt'>> = { ...updates }
   if (updates.name !== undefined) {
     sanitizedUpdates.name = sanitizeText(updates.name)
   }
-  
+
   const updatedTag: Tag = {
     ...data.tags[tagIndex],
     ...sanitizedUpdates,
   }
-  
+
   data.tags[tagIndex] = updatedTag
   saveData(data)
   return updatedTag
@@ -766,11 +771,11 @@ export function deleteTag(id: string): void {
     return
   }
   const tagIndex = data.tags.findIndex(t => t.id === id)
-  
+
   if (tagIndex === -1) {
     throw new Error(`Tag with id ${id} not found`)
   }
-  
+
   // タグを使用しているタスクのtagIdsから削除
   data.tasks.forEach(task => {
     if (task.tagIds && task.tagIds.includes(id)) {
@@ -780,8 +785,9 @@ export function deleteTag(id: string): void {
       }
     }
   })
-  
-  data.tags.splice(tagIndex, 1)
+
+  const tag = data.tags[tagIndex]
+  tag.deletedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -790,7 +796,7 @@ export function deleteTag(id: string): void {
  */
 export function getWishes(): Wish[] {
   const data = loadData()
-  return data.wishes || []
+  return (data.wishes || []).filter(w => !w.deletedAt)
 }
 
 /**
@@ -804,7 +810,7 @@ export function addWish(wish: Omit<Wish, 'id' | 'createdAt' | 'updatedAt'>): Wis
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   if (!data.wishes) {
     data.wishes = []
   }
@@ -822,17 +828,17 @@ export function updateWish(id: string, updates: Partial<Omit<Wish, 'id' | 'creat
     data.wishes = []
   }
   const wishIndex = data.wishes.findIndex(w => w.id === id)
-  
+
   if (wishIndex === -1) {
     throw new Error(`Wish with id ${id} not found`)
   }
-  
+
   const updatedWish: Wish = {
     ...data.wishes[wishIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.wishes[wishIndex] = updatedWish
   saveData(data)
   return updatedWish
@@ -847,12 +853,14 @@ export function deleteWish(id: string): void {
     return
   }
   const wishIndex = data.wishes.findIndex(w => w.id === id)
-  
+
   if (wishIndex === -1) {
     throw new Error(`Wish with id ${id} not found`)
   }
-  
-  data.wishes.splice(wishIndex, 1)
+
+  const wish = data.wishes[wishIndex]
+  wish.deletedAt = new Date().toISOString()
+  wish.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -861,7 +869,7 @@ export function deleteWish(id: string): void {
  */
 export function getGoals(): Goal[] {
   const data = loadData()
-  return data.goals || []
+  return (data.goals || []).filter(g => !g.deletedAt)
 }
 
 /**
@@ -875,7 +883,7 @@ export function addGoal(goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>): Goa
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   if (!data.goals) {
     data.goals = []
   }
@@ -893,17 +901,17 @@ export function updateGoal(id: string, updates: Partial<Omit<Goal, 'id' | 'creat
     data.goals = []
   }
   const goalIndex = data.goals.findIndex(g => g.id === id)
-  
+
   if (goalIndex === -1) {
     throw new Error(`Goal with id ${id} not found`)
   }
-  
+
   const updatedGoal: Goal = {
     ...data.goals[goalIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.goals[goalIndex] = updatedGoal
   saveData(data)
   return updatedGoal
@@ -918,12 +926,14 @@ export function deleteGoal(id: string): void {
     return
   }
   const goalIndex = data.goals.findIndex(g => g.id === id)
-  
+
   if (goalIndex === -1) {
     throw new Error(`Goal with id ${id} not found`)
   }
-  
-  data.goals.splice(goalIndex, 1)
+
+  const goal = data.goals[goalIndex]
+  goal.deletedAt = new Date().toISOString()
+  goal.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -932,7 +942,7 @@ export function deleteGoal(id: string): void {
  */
 export function getMemos(): Memo[] {
   const data = loadData()
-  return data.memos || []
+  return (data.memos || []).filter(m => !m.deletedAt)
 }
 
 /**
@@ -946,7 +956,7 @@ export function addMemo(memo: Omit<Memo, 'id' | 'createdAt' | 'updatedAt'>): Mem
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   if (!data.memos) {
     data.memos = []
   }
@@ -964,17 +974,17 @@ export function updateMemo(id: string, updates: Partial<Omit<Memo, 'id' | 'creat
     data.memos = []
   }
   const memoIndex = data.memos.findIndex(m => m.id === id)
-  
+
   if (memoIndex === -1) {
     throw new Error(`Memo with id ${id} not found`)
   }
-  
+
   const updatedMemo: Memo = {
     ...data.memos[memoIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.memos[memoIndex] = updatedMemo
   saveData(data)
   return updatedMemo
@@ -989,12 +999,14 @@ export function deleteMemo(id: string): void {
     return
   }
   const memoIndex = data.memos.findIndex(m => m.id === id)
-  
+
   if (memoIndex === -1) {
     throw new Error(`Memo with id ${id} not found`)
   }
-  
-  data.memos.splice(memoIndex, 1)
+
+  const memo = data.memos[memoIndex]
+  memo.deletedAt = new Date().toISOString()
+  memo.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -1003,7 +1015,7 @@ export function deleteMemo(id: string): void {
  */
 export function getMemoTemplates(): MemoTemplate[] {
   const data = loadData()
-  return data.memoTemplates || []
+  return (data.memoTemplates || []).filter(t => !t.deletedAt)
 }
 
 /**
@@ -1017,7 +1029,7 @@ export function addMemoTemplate(template: Omit<MemoTemplate, 'id' | 'createdAt' 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   if (!data.memoTemplates) {
     data.memoTemplates = []
   }
@@ -1035,17 +1047,17 @@ export function updateMemoTemplate(id: string, updates: Partial<Omit<MemoTemplat
     data.memoTemplates = []
   }
   const templateIndex = data.memoTemplates.findIndex(t => t.id === id)
-  
+
   if (templateIndex === -1) {
     throw new Error(`MemoTemplate with id ${id} not found`)
   }
-  
+
   const updatedTemplate: MemoTemplate = {
     ...data.memoTemplates[templateIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.memoTemplates[templateIndex] = updatedTemplate
   saveData(data)
   return updatedTemplate
@@ -1060,12 +1072,14 @@ export function deleteMemoTemplate(id: string): void {
     return
   }
   const templateIndex = data.memoTemplates.findIndex(t => t.id === id)
-  
+
   if (templateIndex === -1) {
     throw new Error(`MemoTemplate with id ${id} not found`)
   }
-  
-  data.memoTemplates.splice(templateIndex, 1)
+
+  const template = data.memoTemplates[templateIndex]
+  template.deletedAt = new Date().toISOString()
+  template.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -1074,7 +1088,7 @@ export function deleteMemoTemplate(id: string): void {
  */
 export function getDailyRecords(): DailyRecord[] {
   const data = loadData()
-  return data.dailyRecords || []
+  return (data.dailyRecords || []).filter(r => !r.deletedAt)
 }
 
 /**
@@ -1085,7 +1099,7 @@ export function getDailyRecord(date: Date): DailyRecord | undefined {
   if (!data.dailyRecords) {
     return undefined
   }
-  
+
   const dateStr = toLocalDateStr(date) // YYYY-MM-DD形式
   return data.dailyRecords.find(record => record.date === dateStr)
 }
@@ -1098,10 +1112,10 @@ export function getDailyRecordsByPeriod(startDate: Date, endDate: Date): DailyRe
   if (!data.dailyRecords) {
     return []
   }
-  
+
   const startStr = toLocalDateStr(startDate)
   const endStr = toLocalDateStr(endDate)
-  
+
   return data.dailyRecords.filter(record => {
     return record.date >= startStr && record.date <= endStr
   }).sort((a, b) => a.date.localeCompare(b.date))
@@ -1112,11 +1126,11 @@ export function getDailyRecordsByPeriod(startDate: Date, endDate: Date): DailyRe
  */
 export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | 'updatedAt'>): DailyRecord {
   const data = loadData()
-  
+
   if (!data.dailyRecords) {
     data.dailyRecords = []
   }
-  
+
   // 最終防衛線: テキストフィールドをサニタイズ
   const sanitizedRecord: Omit<DailyRecord, 'id' | 'createdAt' | 'updatedAt'> = {
     ...record,
@@ -1125,10 +1139,10 @@ export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | '
     dinner: record.dinner ? sanitizeText(record.dinner) : undefined,
     snack: record.snack ? sanitizeText(record.snack) : undefined,
   }
-  
+
   // 既存の記録を検索
   const existingIndex = data.dailyRecords.findIndex(r => r.date === sanitizedRecord.date)
-  
+
   if (existingIndex !== -1) {
     // 既存の記録を更新
     const updatedRecord: DailyRecord = {
@@ -1158,11 +1172,11 @@ export function saveDailyRecord(record: Omit<DailyRecord, 'id' | 'createdAt' | '
  */
 export function getSummaryConfig(): SummaryConfig {
   const data = loadData()
-  
+
   if (data.summaryConfig) {
     return data.summaryConfig
   }
-  
+
   // デフォルト値（すべてtrue）
   return {
     includeWeight: true,
@@ -1270,7 +1284,7 @@ export function saveSidebarWidth(width: number): void {
  */
 export function getSubTasks(taskId?: string): SubTask[] {
   const data = loadData()
-  const subTasks = data.subTasks || []
+  const subTasks = (data.subTasks || []).filter(st => !st.deletedAt)
   if (taskId) {
     return subTasks.filter(st => st.taskId === taskId)
   }
@@ -1285,7 +1299,7 @@ export function addSubTask(subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedA
   if (!data.subTasks) {
     data.subTasks = []
   }
-  
+
   // 順序が指定されていない場合、最大のorder + 1を設定
   let order = subTask.order
   if (order === undefined) {
@@ -1295,7 +1309,7 @@ export function addSubTask(subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedA
       .reduce((max, st) => Math.max(max, st.order!), -1)
     order = maxOrder + 1
   }
-  
+
   const newSubTask: SubTask = {
     ...subTask,
     order,
@@ -1303,7 +1317,7 @@ export function addSubTask(subTask: Omit<SubTask, 'id' | 'createdAt' | 'updatedA
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.subTasks.push(newSubTask)
   saveData(data)
   return newSubTask
@@ -1317,18 +1331,18 @@ export function updateSubTask(id: string, updates: Partial<Omit<SubTask, 'id' | 
   if (!data.subTasks) {
     data.subTasks = []
   }
-  
+
   const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
   if (subTaskIndex === -1) {
     throw new Error(`SubTask with id ${id} not found`)
   }
-  
+
   const updatedSubTask: SubTask = {
     ...data.subTasks[subTaskIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.subTasks[subTaskIndex] = updatedSubTask
   saveData(data)
   return updatedSubTask
@@ -1342,13 +1356,15 @@ export function deleteSubTask(id: string): void {
   if (!data.subTasks) {
     return
   }
-  
+
   const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
   if (subTaskIndex === -1) {
     throw new Error(`SubTask with id ${id} not found`)
   }
-  
-  data.subTasks.splice(subTaskIndex, 1)
+
+  const subTask = data.subTasks[subTaskIndex]
+  subTask.deletedAt = new Date().toISOString()
+  subTask.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -1360,12 +1376,12 @@ export function toggleSubTaskComplete(id: string, completed: boolean): void {
   if (!data.subTasks) {
     return
   }
-  
+
   const subTaskIndex = data.subTasks.findIndex(st => st.id === id)
   if (subTaskIndex === -1) {
     throw new Error(`SubTask with id ${id} not found`)
   }
-  
+
   data.subTasks[subTaskIndex].completedAt = completed ? new Date().toISOString() : undefined
   data.subTasks[subTaskIndex].updatedAt = new Date().toISOString()
   saveData(data)
@@ -1397,7 +1413,7 @@ export function getDashboardLayout(): DashboardLayoutConfig {
 
   // 削除対象のウィジェット（完全に削除）
   const removedWidgets = ['stats-grid', 'time-summary', 'time-axis-chart', 'daily-review', 'daily-reflection', 'recent-tasks', 'daily-records-summary']
-  
+
   // 新しいデフォルトウィジェット
   const defaultWidgets = getDefaultDashboardLayout().widgets
   const validWidgetIds = new Set(defaultWidgets.map(w => w.id))
@@ -1456,7 +1472,7 @@ export function saveDashboardLayout(layout: DashboardLayoutConfig): void {
 export function getIncompleteRoutinesFromYesterday(): Task[] {
   const data = loadData()
   const now = new Date()
-  
+
   // 朝5時時点での「昨日」を計算
   // 現在時刻が5時未満の場合は、さらに1日前を「昨日」とする
   const yesterday = new Date(now)
@@ -1465,17 +1481,17 @@ export function getIncompleteRoutinesFromYesterday(): Task[] {
   }
   yesterday.setHours(0, 0, 0, 0)
   const yesterdayStr = toLocalDateStr(yesterday)
-  
+
   // 昨日のルーティン実行記録を取得
   const yesterdayExecutions = data.routineExecutions?.filter(execution => {
     return execution.date.startsWith(yesterdayStr) && !execution.completedAt && !execution.skippedAt
   }) || []
-  
+
   // 未完了のルーティンタスク（テンプレート）を取得
   const incompleteRoutines = yesterdayExecutions
     .map(execution => data.tasks.find(task => task.id === execution.routineTaskId))
     .filter((task): task is Task => task !== undefined && task.repeatPattern !== 'none')
-  
+
   return incompleteRoutines
 }
 
@@ -1487,7 +1503,7 @@ export function getIncompleteRoutinesFromYesterday(): Task[] {
 export function processIncompleteTasksFromYesterday(): void {
   const data = loadData()
   const now = new Date()
-  
+
   // 朝5時時点での「昨日」を計算
   // 現在時刻が5時未満の場合は、さらに1日前を「昨日」とする
   const yesterday = new Date(now)
@@ -1496,16 +1512,16 @@ export function processIncompleteTasksFromYesterday(): void {
   }
   yesterday.setHours(0, 0, 0, 0)
   const yesterdayStr = toLocalDateStr(yesterday)
-  
+
   // 昨日作成されたタスクで、完了していないタスクを検出
   const incompleteTasks = data.tasks.filter(task => {
     if (!task.createdAt) return false  // createdAtがない場合はスキップ
     const taskDateStr = task.createdAt.split('T')[0]
     return taskDateStr === yesterdayStr &&
-           !task.completedAt &&
-           !task.skippedAt
+      !task.completedAt &&
+      !task.skippedAt
   })
-  
+
   // 未完了タスクに`skippedAt`を設定
   let hasUpdates = false
   for (const task of incompleteTasks) {
@@ -1513,11 +1529,11 @@ export function processIncompleteTasksFromYesterday(): void {
     task.updatedAt = toLocalISOString(new Date())
     hasUpdates = true
   }
-  
+
   if (hasUpdates) {
     saveData(data)
   }
-  
+
   // 今日のルーティン実行記録を生成
   ensureTodayRoutineExecutions()
 }
@@ -1528,31 +1544,31 @@ export function processIncompleteTasksFromYesterday(): void {
 export function ensureTodayRepeatTasks(): void {
   const data = loadData()
   const today = toLocalDateStr(new Date())
-  
+
   // 繰り返しタスクを取得（元のタスクのみ、今日作成されたタスクは除外）
   // 元のタスクは、createdAtが今日の日付でない繰り返しタスク
-  const originalRepeatTasks = data.tasks.filter(task => 
-    task.repeatPattern !== 'none' && 
-    task.createdAt && 
+  const originalRepeatTasks = data.tasks.filter(task =>
+    task.repeatPattern !== 'none' &&
+    task.createdAt &&
     !task.createdAt.startsWith(today)
   )
-  
+
   let hasNewTasks = false
-  
+
   for (const repeatTask of originalRepeatTasks) {
     // 今日の日付に該当するかチェック
     if (!isRepeatTaskForToday(repeatTask)) {
       continue
     }
-    
+
     // 今日の日付に該当するタスクが既に存在するかチェック
     // 同じタイトル、同じ繰り返しパターン、今日作成されたタスク
     const todayTask = data.tasks.find(task => {
       return task.title === repeatTask.title &&
-             task.repeatPattern === repeatTask.repeatPattern &&
-             task.createdAt.startsWith(today)
+        task.repeatPattern === repeatTask.repeatPattern &&
+        task.createdAt.startsWith(today)
     })
-    
+
     // 存在しない場合、新しいタスクを生成
     if (!todayTask) {
       const newTask = generateTodayRepeatTask(repeatTask)
@@ -1562,7 +1578,7 @@ export function ensureTodayRepeatTasks(): void {
       }
     }
   }
-  
+
   if (hasNewTasks) {
     saveData(data)
   }
@@ -1576,19 +1592,19 @@ export function getRoutineExecutions(routineTaskId?: string, date?: string): Rou
   if (!data.routineExecutions) {
     return []
   }
-  
+
   let executions = data.routineExecutions
-  
+
   if (routineTaskId) {
     executions = executions.filter(e => e.routineTaskId === routineTaskId)
   }
-  
+
   if (date) {
     const dateStr = date.split('T')[0]
     executions = executions.filter(e => e.date.startsWith(dateStr))
   }
-  
-  return executions.sort((a, b) => a.date.localeCompare(b.date))
+
+  return executions.filter(e => !e.deletedAt).sort((a, b) => a.date.localeCompare(b.date))
 }
 
 /**
@@ -1599,14 +1615,14 @@ export function addRoutineExecution(execution: Omit<RoutineExecution, 'id' | 'cr
   if (!data.routineExecutions) {
     data.routineExecutions = []
   }
-  
+
   const newExecution: RoutineExecution = {
     ...execution,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.routineExecutions.push(newExecution)
   saveData(data)
   return newExecution
@@ -1620,18 +1636,18 @@ export function updateRoutineExecution(id: string, updates: Partial<Omit<Routine
   if (!data.routineExecutions) {
     throw new Error(`RoutineExecution with id ${id} not found`)
   }
-  
+
   const executionIndex = data.routineExecutions.findIndex(e => e.id === id)
   if (executionIndex === -1) {
     throw new Error(`RoutineExecution with id ${id} not found`)
   }
-  
+
   const updatedExecution: RoutineExecution = {
     ...data.routineExecutions[executionIndex],
     ...updates,
     updatedAt: new Date().toISOString(),
   }
-  
+
   data.routineExecutions[executionIndex] = updatedExecution
   saveData(data)
   return updatedExecution
@@ -1645,13 +1661,15 @@ export function deleteRoutineExecution(id: string): void {
   if (!data.routineExecutions) {
     return
   }
-  
+
   const executionIndex = data.routineExecutions.findIndex(e => e.id === id)
   if (executionIndex === -1) {
     return
   }
-  
-  data.routineExecutions.splice(executionIndex, 1)
+
+  const execution = data.routineExecutions[executionIndex]
+  execution.deletedAt = new Date().toISOString()
+  execution.updatedAt = new Date().toISOString()
   saveData(data)
 }
 
@@ -1661,22 +1679,22 @@ export function deleteRoutineExecution(id: string): void {
 export function ensureTodayRoutineExecutions(): void {
   const data = loadData()
   const today = toLocalDateStr(new Date())
-  
+
   // 繰り返しタスク（テンプレート）を取得
   const routineTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
-  
+
   if (!data.routineExecutions) {
     data.routineExecutions = []
   }
-  
+
   let hasNewExecutions = false
-  
+
   for (const routineTask of routineTasks) {
     // 今日の実行記録が既に存在するかチェック
-    const todayExecution = data.routineExecutions.find(e => 
+    const todayExecution = data.routineExecutions.find(e =>
       e.routineTaskId === routineTask.id && e.date.startsWith(today)
     )
-    
+
     // 存在しない場合、新しい実行記録を生成
     if (!todayExecution) {
       // 今日に該当するかチェック
@@ -1689,7 +1707,7 @@ export function ensureTodayRoutineExecutions(): void {
       }
     }
   }
-  
+
   if (hasNewExecutions) {
     // saveDataはaddRoutineExecution内で既に呼ばれているが、念のため
     saveData(data)
@@ -1743,10 +1761,10 @@ export function getTimeSectionSettings(): TimeSectionSettings {
  */
 export function saveTimeSectionSettings(settings: TimeSectionSettings): void {
   const data = loadData()
-  
+
   // バリデーション
   validateTimeSectionSettings(settings)
-  
+
   data.timeSectionSettings = settings
   saveData(data)
 }
@@ -1757,37 +1775,37 @@ export function saveTimeSectionSettings(settings: TimeSectionSettings): void {
 function validateTimeSectionSettings(settings: TimeSectionSettings): void {
   for (const dayConfig of settings.dayConfigs) {
     const sections = dayConfig.sections
-    
+
     // セクション数は2〜5
     if (sections.length < 2 || sections.length > 5) {
       throw new Error(`曜日 ${dayConfig.weekday} のセクション数は2〜5である必要があります（現在: ${sections.length}）`)
     }
-    
+
     // 各セクションのバリデーション
     for (const section of sections) {
       // 名前が空でないこと
       if (!section.name.trim()) {
         throw new Error('セクション名は空にできません')
       }
-      
+
       // 開始時刻 < 終了時刻（24:00は特別扱い）
       const startMinutes = timeToMinutes(section.start)
       const endMinutes = section.end === '24:00' ? 24 * 60 : timeToMinutes(section.end)
-      
+
       if (startMinutes >= endMinutes) {
         throw new Error(`セクション「${section.name}」の開始時刻は終了時刻より前である必要があります`)
       }
     }
-    
+
     // セクション間の重なりチェック（orderでソートして隣接チェック）
     const sortedSections = [...sections].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start))
     for (let i = 0; i < sortedSections.length - 1; i++) {
       const current = sortedSections[i]
       const next = sortedSections[i + 1]
-      
+
       const currentEnd = current.end === '24:00' ? 24 * 60 : timeToMinutes(current.end)
       const nextStart = timeToMinutes(next.start)
-      
+
       if (currentEnd > nextStart) {
         throw new Error(`セクション「${current.name}」と「${next.name}」の時間帯が重なっています`)
       }
@@ -1811,7 +1829,7 @@ export function getTimeSectionsForWeekday(weekday: Weekday): TimeSection[] {
   if (!settings.enabled) {
     return []
   }
-  
+
   const dayConfig = settings.dayConfigs.find(dc => dc.weekday === weekday)
   return dayConfig?.sections || []
 }
@@ -1824,27 +1842,27 @@ export function findTimeSectionForDateTime(date: Date): TimeSection | undefined 
   if (!settings.enabled) {
     return undefined
   }
-  
+
   const weekday = date.getDay() as Weekday
   const sections = getTimeSectionsForWeekday(weekday)
-  
+
   if (sections.length === 0) {
     return undefined
   }
-  
+
   const hours = date.getHours()
   const minutes = date.getMinutes()
   const currentMinutes = hours * 60 + minutes
-  
+
   for (const section of sections) {
     const startMinutes = timeToMinutes(section.start)
     const endMinutes = section.end === '24:00' ? 24 * 60 : timeToMinutes(section.end)
-    
+
     if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
       return section
     }
   }
-  
+
   return undefined
 }
 
@@ -1859,7 +1877,7 @@ export function findTimeSectionForTask(task: Task, baseDate?: Date): TimeSection
     if (!settings.enabled) {
       return undefined
     }
-    
+
     // 全曜日から該当するセクションを探す
     for (const dayConfig of settings.dayConfigs) {
       const section = dayConfig.sections.find(s => s.id === task.timeSectionId)
@@ -1869,24 +1887,24 @@ export function findTimeSectionForTask(task: Task, baseDate?: Date): TimeSection
     }
     return undefined
   }
-  
+
   // startTimeがあればその時刻で判定
   if (task.startTime) {
     return findTimeSectionForDateTime(new Date(task.startTime))
   }
-  
+
   // dueDateがあればその時刻で判定
   if (task.dueDate) {
     return findTimeSectionForDateTime(new Date(task.dueDate))
   }
-  
+
   // baseDateが指定されていればその日の最初のセクションを返す
   if (baseDate) {
     const weekday = baseDate.getDay() as Weekday
     const sections = getTimeSectionsForWeekday(weekday)
     return sections[0]
   }
-  
+
   return undefined
 }
 
