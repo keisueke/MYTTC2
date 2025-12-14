@@ -178,17 +178,23 @@ export function useCloudflare() {
       const remoteData = syncResponse.data
 
       // 3. タイムスタンプベースでマージ
-      const mergedTasks = mergeEntities(localData.tasks || [], remoteData.tasks || [])
-      const mergedProjects = mergeEntities(localData.projects || [], remoteData.projects || [])
-      const mergedModes = mergeEntities(localData.modes || [], remoteData.modes || [])
-      const mergedTags = mergeEntities(localData.tags || [], remoteData.tags || [])
-      const mergedRoutineExecutions = mergeEntities(localData.routineExecutions || [], remoteData.routineExecutions || [])
-      const mergedDailyRecords = mergeEntities(localData.dailyRecords || [], remoteData.dailyRecords || [])
-      const mergedGoals = mergeEntities(localData.goals || [], remoteData.goals || [])
-      const mergedMemos = mergeEntities(localData.memos || [], remoteData.memos || [])
-      const mergedMemoTemplates = mergeEntities(localData.memoTemplates || [], remoteData.memoTemplates || [])
-      const mergedWishes = mergeEntities(localData.wishes || [], remoteData.wishes || [])
-      const mergedSubTasks = mergeEntities(localData.subTasks || [], remoteData.subTasks || [])
+      // 最新のローカルデータを再取得（同期中に変更があった場合に対応）
+      const latestLocalData = taskService.loadData()
+      console.log('[Cloudflare Sync] Reloaded local data before merge', {
+        taskCount: latestLocalData.tasks?.length || 0
+      })
+
+      const mergedTasks = mergeEntities(latestLocalData.tasks || [], remoteData.tasks || [])
+      const mergedProjects = mergeEntities(latestLocalData.projects || [], remoteData.projects || [])
+      const mergedModes = mergeEntities(latestLocalData.modes || [], remoteData.modes || [])
+      const mergedTags = mergeEntities(latestLocalData.tags || [], remoteData.tags || [])
+      const mergedRoutineExecutions = mergeEntities(latestLocalData.routineExecutions || [], remoteData.routineExecutions || [])
+      const mergedDailyRecords = mergeEntities(latestLocalData.dailyRecords || [], remoteData.dailyRecords || [])
+      const mergedGoals = mergeEntities(latestLocalData.goals || [], remoteData.goals || [])
+      const mergedMemos = mergeEntities(latestLocalData.memos || [], remoteData.memos || [])
+      const mergedMemoTemplates = mergeEntities(latestLocalData.memoTemplates || [], remoteData.memoTemplates || [])
+      const mergedWishes = mergeEntities(latestLocalData.wishes || [], remoteData.wishes || [])
+      const mergedSubTasks = mergeEntities(latestLocalData.subTasks || [], remoteData.subTasks || [])
 
       console.log('[Cloudflare Sync] Merged data', {
         taskCount: mergedTasks.length,
@@ -228,16 +234,16 @@ export function useCloudflare() {
         subTasks: mergedSubTasks,
         lastSynced: new Date().toISOString(),
         // 既存の設定を保持
-        theme: localData.theme,
-        sidebarAlwaysVisible: localData.sidebarAlwaysVisible,
-        sidebarWidth: localData.sidebarWidth,
-        weekStartDay: localData.weekStartDay,
-        timeSectionSettings: localData.timeSectionSettings,
-        timeAxisSettings: localData.timeAxisSettings,
-        dashboardLayout: localData.dashboardLayout,
-        summaryConfig: localData.summaryConfig,
-        weatherConfig: localData.weatherConfig,
-        uiMode: localData.uiMode,
+        theme: latestLocalData.theme,
+        sidebarAlwaysVisible: latestLocalData.sidebarAlwaysVisible,
+        sidebarWidth: latestLocalData.sidebarWidth,
+        weekStartDay: latestLocalData.weekStartDay,
+        timeSectionSettings: latestLocalData.timeSectionSettings,
+        timeAxisSettings: latestLocalData.timeAxisSettings,
+        dashboardLayout: latestLocalData.dashboardLayout,
+        summaryConfig: latestLocalData.summaryConfig,
+        weatherConfig: latestLocalData.weatherConfig,
+        uiMode: latestLocalData.uiMode,
       }
 
       taskService.saveData(finalMergedData)

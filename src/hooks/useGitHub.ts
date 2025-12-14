@@ -83,7 +83,7 @@ export function useGitHub() {
       const data = await migrationService.loadDataAutoDetect(config)
       // ローカルストレージに保存
       taskService.saveData(data)
-      
+
       return data
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '同期に失敗しました'
@@ -110,7 +110,7 @@ export function useGitHub() {
       // ローカルのデータの最新の更新時刻を計算
       const getLocalLatestUpdate = (data: AppData): Date | null => {
         const allDates: Date[] = []
-        
+
         // updatedAtがある項目のみを収集
         if (data.tasks) {
           data.tasks.forEach(task => {
@@ -119,7 +119,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.wishes) {
           data.wishes.forEach(wish => {
             if (wish.updatedAt) {
@@ -127,7 +127,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.goals) {
           data.goals.forEach(goal => {
             if (goal.updatedAt) {
@@ -135,7 +135,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.memos) {
           data.memos.forEach(memo => {
             if (memo.updatedAt) {
@@ -143,7 +143,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.memoTemplates) {
           data.memoTemplates.forEach(template => {
             if (template.updatedAt) {
@@ -151,7 +151,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.subTasks) {
           data.subTasks.forEach(subTask => {
             if (subTask.updatedAt) {
@@ -159,7 +159,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         // createdAtも考慮（Project、Mode、Tagなど）
         if (data.projects) {
           data.projects.forEach(project => {
@@ -168,7 +168,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.modes) {
           data.modes.forEach(mode => {
             if (mode.createdAt) {
@@ -176,7 +176,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         if (data.tags) {
           data.tags.forEach(tag => {
             if (tag.createdAt) {
@@ -184,7 +184,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         // dailyRecordsのdateも考慮
         if (data.dailyRecords) {
           data.dailyRecords.forEach(record => {
@@ -193,7 +193,7 @@ export function useGitHub() {
             }
           })
         }
-        
+
         return allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : null
       }
 
@@ -231,16 +231,19 @@ export function useGitHub() {
       // ローカルに未同期の変更がある場合は、まずローカルをプッシュ
       if (hasLocalChanges) {
         try {
+          // 最新のローカルデータを再取得（同期中に変更があった場合に対応）
+          const latestLocalData = taskService.loadData()
+
           // 分割形式で保存
-          await dataSplitService.saveDataToGitHubSplit(config, localData)
-          
+          await dataSplitService.saveDataToGitHubSplit(config, latestLocalData)
+
           // 最終同期時刻を更新
           const updatedData: AppData = {
-            ...localData,
+            ...latestLocalData,
             lastSynced: new Date().toISOString(),
           }
           taskService.saveData(updatedData)
-          
+
           return 'pushed'
         } catch (err) {
           // 競合エラー（409）を検出（分割形式では複数ファイルのため、個別に処理）
@@ -248,7 +251,7 @@ export function useGitHub() {
             // リモートから最新データを取得
             const remoteData = await migrationService.loadDataAutoDetect(config)
             const remoteLastModified = await githubApi.getFileLastModified(config, `${basePath}tasks.json`).catch(() => null)
-            
+
             // 競合情報を保存
             setConflictInfo({
               localData,
@@ -256,7 +259,7 @@ export function useGitHub() {
               localLastModified: localLatestUpdate,
               remoteLastModified,
             })
-            
+
             return 'conflict'
           }
           throw err
@@ -266,9 +269,12 @@ export function useGitHub() {
       // ローカルに未同期の変更がない場合
       if (!remoteLastModified) {
         // リモートファイルが存在しない場合は、ローカルをプッシュ
-        await dataSplitService.saveDataToGitHubSplit(config, localData)
+        // 最新のローカルデータを再取得
+        const latestLocalData = taskService.loadData()
+
+        await dataSplitService.saveDataToGitHubSplit(config, latestLocalData)
         const updatedData: AppData = {
-          ...localData,
+          ...latestLocalData,
           lastSynced: new Date().toISOString(),
         }
         taskService.saveData(updatedData)
@@ -289,9 +295,12 @@ export function useGitHub() {
 
       // 上記の条件に該当しない場合は、ローカルをプッシュ
       try {
-        await dataSplitService.saveDataToGitHubSplit(config, localData)
+        // 最新のローカルデータを再取得
+        const latestLocalData = taskService.loadData()
+
+        await dataSplitService.saveDataToGitHubSplit(config, latestLocalData)
         const updatedData: AppData = {
-          ...localData,
+          ...latestLocalData,
           lastSynced: new Date().toISOString(),
         }
         taskService.saveData(updatedData)
@@ -302,7 +311,7 @@ export function useGitHub() {
           // リモートから最新データを取得
           const remoteData = await migrationService.loadDataAutoDetect(config)
           const remoteLastModified = await githubApi.getFileLastModified(config, `${basePath}tasks.json`).catch(() => null)
-          
+
           // 競合情報を保存
           setConflictInfo({
             localData,
@@ -310,7 +319,7 @@ export function useGitHub() {
             localLastModified: localLatestUpdate,
             remoteLastModified,
           })
-          
+
           return 'conflict'
         }
         throw err
@@ -336,7 +345,7 @@ export function useGitHub() {
     try {
       // 現在のローカルデータを取得
       const localData = taskService.loadData()
-      
+
       // SHAハッシュを取得（競合回避）
       // ファイルが存在しない場合はundefinedが返される（新規作成）
       let sha: string | undefined
@@ -353,7 +362,7 @@ export function useGitHub() {
 
       // GitHubに保存（ファイルが存在しない場合は新規作成）
       await githubApi.saveDataToGitHub(config, localData, sha)
-      
+
       // 最終同期時刻を更新
       const updatedData: AppData = {
         ...localData,
@@ -391,7 +400,7 @@ export function useGitHub() {
       if (resolution === 'local') {
         // ローカルを優先：リモートを上書き
         await dataSplitService.saveDataToGitHubSplit(config, conflictInfo.localData)
-        
+
         // 最終同期時刻を更新
         const updatedData: AppData = {
           ...conflictInfo.localData,
