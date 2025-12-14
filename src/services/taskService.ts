@@ -1519,7 +1519,8 @@ export function processIncompleteTasksFromYesterday(): void {
     const taskDateStr = task.createdAt.split('T')[0]
     return taskDateStr === yesterdayStr &&
       !task.completedAt &&
-      !task.skippedAt
+      !task.skippedAt &&
+      !task.deletedAt
   })
 
   // 未完了タスクに`skippedAt`を設定
@@ -1545,12 +1546,13 @@ export function ensureTodayRepeatTasks(): void {
   const data = loadData()
   const today = toLocalDateStr(new Date())
 
-  // 繰り返しタスクを取得（元のタスクのみ、今日作成されたタスクは除外）
+  // 繰り返しタスクを取得（元のタスクのみ、今日作成されたタスクは除外、削除済みは除外）
   // 元のタスクは、createdAtが今日の日付でない繰り返しタスク
   const originalRepeatTasks = data.tasks.filter(task =>
     task.repeatPattern !== 'none' &&
     task.createdAt &&
-    !task.createdAt.startsWith(today)
+    !task.createdAt.startsWith(today) &&
+    !task.deletedAt
   )
 
   let hasNewTasks = false
@@ -1680,8 +1682,8 @@ export function ensureTodayRoutineExecutions(): void {
   const data = loadData()
   const today = toLocalDateStr(new Date())
 
-  // 繰り返しタスク（テンプレート）を取得
-  const routineTasks = data.tasks.filter(task => task.repeatPattern !== 'none')
+  // 繰り返しタスク（テンプレート）を取得（削除済みを除く）
+  const routineTasks = data.tasks.filter(task => task.repeatPattern !== 'none' && !task.deletedAt)
 
   if (!data.routineExecutions) {
     data.routineExecutions = []
