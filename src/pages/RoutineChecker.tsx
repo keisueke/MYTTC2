@@ -16,6 +16,7 @@ export default function RoutineCheckerPage() {
     deleteSubTask,
     toggleSubTaskComplete,
     updateTask,
+    deleteTask,
   } = useTasks()
   
   const [editingSubTask, setEditingSubTask] = useState<SubTask | undefined>(undefined)
@@ -24,7 +25,7 @@ export default function RoutineCheckerPage() {
 
   // 繰り返しパターンが設定されているタスク（親タスク）をフィルタリング
   const allParentTasks = useMemo(() => {
-    return tasks.filter(task => task.repeatPattern !== 'none')
+    return tasks.filter(task => task.repeatPattern !== 'none' && !task.deletedAt)
   }, [tasks])
 
   // 表示するタスク（showInRoutineCheckerがfalseでないもの）
@@ -64,6 +65,10 @@ export default function RoutineCheckerPage() {
 
   const handleDeleteSubTask = (subTaskId: string) => {
     deleteSubTask(subTaskId)
+  }
+
+  const handleDeleteParentTask = (taskId: string) => {
+    deleteTask(taskId)
   }
 
   const handleCancel = () => {
@@ -168,6 +173,7 @@ export default function RoutineCheckerPage() {
                               onAddSubTask={handleNewSubTask}
                               onEditSubTask={handleEditSubTask}
                               onDeleteSubTask={handleDeleteSubTask}
+                              onDeleteParentTask={handleDeleteParentTask}
                             />
                           </div>
                         )

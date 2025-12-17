@@ -8,6 +8,7 @@ interface RoutineCheckerProps {
   onAddSubTask: (parentTaskId: string) => void
   onEditSubTask: (subTask: SubTask) => void
   onDeleteSubTask: (subTaskId: string) => void
+  onDeleteParentTask: (taskId: string) => void
 }
 
 // スワイプ可能なタスクアイテム
@@ -174,6 +175,7 @@ export default function RoutineChecker({
   onAddSubTask,
   onEditSubTask,
   onDeleteSubTask,
+  onDeleteParentTask,
 }: RoutineCheckerProps) {
   // 日次チェック（今日完了したかどうか）
   const isCompletedToday = (subTask: SubTask): boolean => {
@@ -212,13 +214,25 @@ export default function RoutineChecker({
             </p>
           )}
         </div>
-        <div className="text-right">
-          <p className="font-display text-2xl font-bold text-[var(--color-accent)]">
-            {completedCount}/{totalCount}
-          </p>
-          <p className="font-display text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider">
-            Completed
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <p className="font-display text-2xl font-bold text-[var(--color-accent)]">
+              {completedCount}/{totalCount}
+            </p>
+            <p className="font-display text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider">
+              Completed
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              if (confirm('このルーティンを削除しますか？')) {
+                onDeleteParentTask(parentTask.id)
+              }
+            }}
+            className="px-3 py-1.5 font-display text-[10px] tracking-wider uppercase bg-[var(--color-error)] text-white hover:bg-[var(--color-error)]/80 transition-colors rounded"
+          >
+            削除
+          </button>
         </div>
       </div>
 
