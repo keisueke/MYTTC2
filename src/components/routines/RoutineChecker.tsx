@@ -1,5 +1,6 @@
 import { useState, useRef, TouchEvent } from 'react'
 import { SubTask, Task } from '../../types'
+import * as taskService from '../../services/taskService'
 
 interface RoutineCheckerProps {
   parentTask: Task
@@ -9,6 +10,79 @@ interface RoutineCheckerProps {
   onEditSubTask: (subTask: SubTask) => void
   onDeleteSubTask: (subTaskId: string) => void
   onDeleteParentTask: (taskId: string) => void
+  onRefresh?: () => void // 日付修正後に再読み込みするためのコールバック
+}
+
+// 日付選択モーダルコンポーネント
+function DateCompletionModal({
+  subTask,
+  onConfirm,
+  onCancel,
+}: {
+  subTask: SubTask
+  onConfirm: (date: string, completed: boolean) => void
+  onCancel: () => void
+}) {
+  const today = new Date()
+  const todayStr = taskService.toLocalDateStr(today)
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [completed, setCompleted] = useState(true)
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onCancel}>
+      <div 
+        className="bg-[var(--color-bg-primary)] p-6 rounded-lg border border-[var(--color-border)] max-w-md w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] mb-4">
+          「{subTask.title}」の完了状態を修正
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <label className="font-display text-xs text-[var(--color-text-secondary)] mb-1 block">
+              日付
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              max={todayStr}
+              className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-secondary)] rounded font-display text-sm text-[var(--color-text-primary)]"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={completed}
+                onChange={(e) => setCompleted(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="font-display text-sm text-[var(--color-text-primary)]">完了にする</span>
+            </label>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 font-display text-xs border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded hover:border-[var(--color-accent)] transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={() => {
+                if (selectedDate) {
+                  onConfirm(selectedDate, completed)
+                }
+              }}
+              className="px-4 py-2 font-display text-xs bg-[var(--color-accent)] text-white rounded hover:bg-[var(--color-accent-hover)] transition-colors"
+            >
+              確定
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // スワイプ可能なタスクアイテム
@@ -18,12 +92,14 @@ function SwipeableTaskItem({
   onToggleComplete,
   onEditSubTask,
   onDeleteSubTask,
+  onDateEdit,
 }: {
   subTask: SubTask
   completed: boolean
   onToggleComplete: (completed: boolean) => void
   onEditSubTask: () => void
   onDeleteSubTask: () => void
+  onDateEdit: () => void
 }) {
   const [swipeX, setSwipeX] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
@@ -147,6 +223,12 @@ function SwipeableTaskItem({
         {/* アクションボタン */}
         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
+            onClick={onDateEdit}
+            className="px-3 py-1.5 font-display text-[10px] tracking-wider uppercase bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] transition-colors rounded"
+          >
+            日付修正
+          </button>
+          <button
             onClick={onEditSubTask}
             className="px-3 py-1.5 font-display text-[10px] tracking-wider uppercase bg-[var(--color-accent)] text-[var(--color-bg-primary)] hover:bg-[var(--color-accent-hover)] transition-colors rounded"
           >
@@ -176,7 +258,10 @@ export default function RoutineChecker({
   onEditSubTask,
   onDeleteSubTask,
   onDeleteParentTask,
+  onRefresh,
 }: RoutineCheckerProps) {
+  const [dateEditingSubTask, setDateEditingSubTask] = useState<SubTask | null>(null)
+
   // 日次チェック（今日完了したかどうか）
   const isCompletedToday = (subTask: SubTask): boolean => {
     if (!subTask.completedAt) return false
@@ -197,9 +282,28 @@ export default function RoutineChecker({
   const totalCount = sortedSubTasks.length
   const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
+  // 日付修正の確定
+  const handleDateEditConfirm = (date: string, completed: boolean) => {
+    if (dateEditingSubTask) {
+      taskService.updateSubTaskCompletionForDate(dateEditingSubTask.id, date, completed)
+      setDateEditingSubTask(null)
+      onRefresh?.()
+    }
+  }
+
   return (
-    <div className="card-industrial p-6">
-      {/* 親タスクヘッダー */}
+    <>
+      {/* 日付修正モーダル */}
+      {dateEditingSubTask && (
+        <DateCompletionModal
+          subTask={dateEditingSubTask}
+          onConfirm={handleDateEditConfirm}
+          onCancel={() => setDateEditingSubTask(null)}
+        />
+      )}
+
+      <div className="card-industrial p-6">
+        {/* 親タスクヘッダー */}
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
         <div>
           <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
@@ -267,6 +371,7 @@ export default function RoutineChecker({
                 onToggleComplete={(newCompleted) => onToggleComplete(subTask.id, newCompleted)}
                 onEditSubTask={() => onEditSubTask(subTask)}
                 onDeleteSubTask={() => onDeleteSubTask(subTask.id)}
+                onDateEdit={() => setDateEditingSubTask(subTask)}
               />
             )
           })
@@ -274,15 +379,16 @@ export default function RoutineChecker({
       </div>
 
       {/* 詳細タスク追加ボタン */}
-      <div className="mt-6 pt-4 border-t border-[var(--color-border)]">
-        <button
-          onClick={() => onAddSubTask(parentTask.id)}
-          className="btn-industrial w-full"
-        >
-          + 詳細タスクを追加
-        </button>
+        <div className="mt-6 pt-4 border-t border-[var(--color-border)]">
+          <button
+            onClick={() => onAddSubTask(parentTask.id)}
+            className="btn-industrial w-full"
+          >
+            + 詳細タスクを追加
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

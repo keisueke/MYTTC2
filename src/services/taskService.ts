@@ -1498,7 +1498,6 @@ export function getIncompleteRoutinesFromYesterday(): Task[] {
 /**
  * 昨日の未完了タスクを処理し、今日の繰り返しタスクを生成
  * 朝5時時点で前日の未完了タスクを「やらなかったこと」として記録
- * @deprecated この関数は後方互換性のため残しています。新しい実装ではgetIncompleteRoutinesFromYesterdayを使用してください。
  */
 export function processIncompleteTasksFromYesterday(): void {
   const data = loadData()
@@ -1513,9 +1512,10 @@ export function processIncompleteTasksFromYesterday(): void {
   yesterday.setHours(0, 0, 0, 0)
   const yesterdayStr = toLocalDateStr(yesterday)
 
-  // 昨日作成されたタスクで、完了していないタスクを検出
+  // 昨日作成されたタスクで、完了していないタスクを検出（非ルーティンタスク）
   const incompleteTasks = data.tasks.filter(task => {
     if (!task.createdAt) return false  // createdAtがない場合はスキップ
+    if (task.repeatPattern !== 'none') return false // ルーティンタスクは別処理
     const taskDateStr = task.createdAt.split('T')[0]
     return taskDateStr === yesterdayStr &&
       !task.completedAt &&
@@ -1529,6 +1529,54 @@ export function processIncompleteTasksFromYesterday(): void {
     task.skippedAt = toLocalISOString(new Date())
     task.updatedAt = toLocalISOString(new Date())
     hasUpdates = true
+  }
+
+  // ルーティンタスクのスキップ処理
+  const routineTasks = data.tasks.filter(task => 
+    task.repeatPattern !== 'none' && !task.deletedAt
+  )
+
+  if (!data.routineExecutions) {
+    data.routineExecutions = []
+  }
+
+  for (const routineTask of routineTasks) {
+    // 昨日の実行記録を取得
+    const yesterdayExecution = data.routineExecutions.find(e =>
+      e.routineTaskId === routineTask.id && e.date.startsWith(yesterdayStr) && !e.deletedAt
+    )
+
+    // 昨日の実行記録が存在し、完了もスキップもされていない場合
+    if (yesterdayExecution && !yesterdayExecution.completedAt && !yesterdayExecution.skippedAt) {
+      // SubTaskの完了状況をチェック
+      const subTasks = data.subTasks?.filter(st => 
+        st.taskId === routineTask.id && !st.deletedAt
+      ) || []
+
+      // SubTaskがある場合：すべてのSubTaskが昨日完了しているかチェック
+      // SubTaskがない場合：ルーティン自体が完了していないのでスキップ
+      let shouldSkip = false
+      
+      if (subTasks.length > 0) {
+        // すべてのSubTaskが昨日完了していない場合、スキップとして記録
+        const allSubTasksCompletedYesterday = subTasks.every(st => {
+          if (!st.completedAt) return false
+          const completedDateStr = toLocalDateStr(new Date(st.completedAt))
+          return completedDateStr === yesterdayStr
+        })
+        shouldSkip = !allSubTasksCompletedYesterday
+      } else {
+        // SubTaskがない場合は、親タスク自体が未完了ならスキップ
+        shouldSkip = true
+      }
+
+      if (shouldSkip) {
+        // スキップ記録を設定
+        yesterdayExecution.skippedAt = toLocalISOString(new Date())
+        yesterdayExecution.updatedAt = toLocalISOString(new Date())
+        hasUpdates = true
+      }
+    }
   }
 
   if (hasUpdates) {
@@ -1673,6 +1721,151 @@ export function deleteRoutineExecution(id: string): void {
   execution.deletedAt = new Date().toISOString()
   execution.updatedAt = new Date().toISOString()
   saveData(data)
+}
+
+// =====================================
+// 昨日判定とSubTask完了判定のユーティリティ関数
+// =====================================
+
+/**
+ * 昨日の日付文字列を取得（朝5時基準）
+ */
+export function getYesterdayDateStr(): string {
+  const now = new Date()
+  const yesterday = new Date(now)
+  if (now.getHours() < 5) {
+    yesterday.setDate(yesterday.getDate() - 1)
+  }
+  yesterday.setHours(0, 0, 0, 0)
+  return toLocalDateStr(yesterday)
+}
+
+/**
+ * SubTaskが昨日完了したかどうかを判定
+ */
+export function isSubTaskCompletedYesterday(subTask: SubTask): boolean {
+  if (!subTask.completedAt) return false
+  const completedDate = new Date(subTask.completedAt)
+  const yesterdayStr = getYesterdayDateStr()
+  const completedDateStr = toLocalDateStr(completedDate)
+  return completedDateStr === yesterdayStr
+}
+
+/**
+ * 昨日のRoutineExecutionを取得
+ */
+export function getYesterdayRoutineExecution(routineTaskId: string): RoutineExecution | undefined {
+  const data = loadData()
+  if (!data.routineExecutions) return undefined
+  const yesterdayStr = getYesterdayDateStr()
+  return data.routineExecutions.find(e => 
+    e.routineTaskId === routineTaskId && e.date.startsWith(yesterdayStr) && !e.deletedAt
+  )
+}
+
+/**
+ * 指定した日付のRoutineExecutionを取得
+ */
+export function getRoutineExecutionForDate(routineTaskId: string, date: string): RoutineExecution | undefined {
+  const data = loadData()
+  if (!data.routineExecutions) return undefined
+  return data.routineExecutions.find(e => 
+    e.routineTaskId === routineTaskId && e.date.startsWith(date) && !e.deletedAt
+  )
+}
+
+/**
+ * 指定した日付のRoutineExecutionの完了状態を修正
+ */
+export function updateRoutineExecutionForDate(
+  routineTaskId: string,
+  date: string, // YYYY-MM-DD形式
+  updates: {
+    completedAt?: string | null // nullの場合は完了を取り消し
+    skippedAt?: string | null // nullの場合はスキップを取り消し
+  }
+): RoutineExecution | null {
+  const data = loadData()
+  if (!data.routineExecutions) {
+    data.routineExecutions = []
+  }
+
+  let execution = data.routineExecutions.find(e =>
+    e.routineTaskId === routineTaskId && e.date.startsWith(date) && !e.deletedAt
+  )
+
+  if (!execution) {
+    // 実行記録が存在しない場合は作成
+    const newExecution: RoutineExecution = {
+      id: crypto.randomUUID(),
+      routineTaskId,
+      date,
+      completedAt: updates.completedAt || undefined,
+      skippedAt: updates.skippedAt || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    data.routineExecutions.push(newExecution)
+    saveData(data)
+    return newExecution
+  }
+
+  // 既存の実行記録を更新
+  if (updates.completedAt !== undefined) {
+    execution.completedAt = updates.completedAt || undefined
+    // 完了した場合はスキップを解除
+    if (updates.completedAt) {
+      execution.skippedAt = undefined
+    }
+  }
+  
+  if (updates.skippedAt !== undefined) {
+    execution.skippedAt = updates.skippedAt || undefined
+    // スキップした場合は完了を解除
+    if (updates.skippedAt) {
+      execution.completedAt = undefined
+    }
+  }
+
+  execution.updatedAt = new Date().toISOString()
+  saveData(data)
+  return execution
+}
+
+/**
+ * 指定した日付のSubTaskの完了状態を修正
+ */
+export function updateSubTaskCompletionForDate(
+  subTaskId: string,
+  date: string, // YYYY-MM-DD形式
+  completed: boolean
+): SubTask | null {
+  const data = loadData()
+  const subTask = data.subTasks?.find(st => st.id === subTaskId && !st.deletedAt)
+  
+  if (!subTask) {
+    return null
+  }
+
+  if (completed) {
+    // 完了にする場合、指定した日付の時刻を設定
+    const dateObj = new Date(date)
+    dateObj.setHours(12, 0, 0, 0) // 正午に設定
+    subTask.completedAt = toLocalISOString(dateObj)
+  } else {
+    // 完了を取り消す場合
+    const currentCompletedDate = subTask.completedAt 
+      ? toLocalDateStr(new Date(subTask.completedAt))
+      : null
+    
+    if (currentCompletedDate === date) {
+      subTask.completedAt = undefined
+    }
+  }
+
+  subTask.updatedAt = toLocalISOString(new Date())
+  saveData(data)
+  return subTask
 }
 
 /**

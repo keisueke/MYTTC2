@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
-import { SubTask } from '../types'
+import { useState, useMemo, useCallback } from 'react'
+import { SubTask, RoutineExecution } from '../types'
 import { useTasks } from '../hooks/useTasks'
 import RoutineChecker from '../components/routines/RoutineChecker'
 import SubTaskForm from '../components/routines/SubTaskForm'
+import * as taskService from '../services/taskService'
 
-type RoutineCheckerTab = 'checker' | 'settings'
+type RoutineCheckerTab = 'checker' | 'settings' | 'history'
 
 export default function RoutineCheckerPage() {
   const {
@@ -17,23 +18,62 @@ export default function RoutineCheckerPage() {
     toggleSubTaskComplete,
     updateTask,
     deleteTask,
+    routineExecutions,
   } = useTasks()
   
   const [editingSubTask, setEditingSubTask] = useState<SubTask | undefined>(undefined)
   const [editingParentTaskId, setEditingParentTaskId] = useState<string | undefined>(undefined)
   const [activeTab, setActiveTab] = useState<RoutineCheckerTab>('checker')
+  const [refreshKey, setRefreshKey] = useState(0) // 再レンダリング用
 
   // 繰り返しパターンが設定されているタスク（親タスク）をフィルタリング
   const allParentTasks = useMemo(() => {
     return tasks.filter(task => task.repeatPattern !== 'none' && !task.deletedAt)
   }, [tasks])
 
-  // 表示するタスク（showInRoutineCheckerがfalseでないもの）
+  // 表示するタスク（showInRoutineCheckerがfalseでないもの、かつ昨日スキップされていないもの）
   const visibleParentTasks = useMemo(() => {
-    return allParentTasks.filter(task => 
-      (task.showInRoutineChecker !== false) // undefinedの場合はtrueとして扱う
-    )
-  }, [allParentTasks])
+    return allParentTasks.filter(task => {
+      // showInRoutineCheckerがfalseの場合は非表示
+      if (task.showInRoutineChecker === false) {
+        return false
+      }
+
+      // 昨日の実行記録を取得
+      const yesterdayExecution = taskService.getYesterdayRoutineExecution(task.id)
+      
+      // 昨日の実行記録がスキップされている場合、非表示
+      if (yesterdayExecution?.skippedAt) {
+        return false
+      }
+
+      return true
+    })
+  }, [allParentTasks, refreshKey])
+
+  // スキップされたタスクと実行記録を取得（過去30日以内）
+  const skippedExecutions = useMemo(() => {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const thirtyDaysAgoStr = taskService.toLocalDateStr(thirtyDaysAgo)
+
+    const result: { task: typeof allParentTasks[0], executions: RoutineExecution[] }[] = []
+
+    for (const task of allParentTasks) {
+      const taskExecutions = routineExecutions.filter(e => 
+        e.routineTaskId === task.id && 
+        e.skippedAt && 
+        !e.deletedAt &&
+        e.date >= thirtyDaysAgoStr
+      )
+
+      if (taskExecutions.length > 0) {
+        result.push({ task, executions: taskExecutions })
+      }
+    }
+
+    return result
+  }, [allParentTasks, routineExecutions, refreshKey])
 
   // 表示/非表示を切り替える
   const handleToggleVisibility = (taskId: string, currentVisibility: boolean) => {
@@ -80,6 +120,28 @@ export default function RoutineCheckerPage() {
     setEditingSubTask(undefined)
     setEditingParentTaskId(parentTaskId)
   }
+
+  // スキップされたタスクを完了に変更
+  const handleMarkAsCompleted = useCallback((taskId: string, date: string) => {
+    if (confirm(`${date}のタスクを完了に変更しますか？`)) {
+      const completedAt = `${date}T12:00:00`
+      taskService.updateRoutineExecutionForDate(taskId, date, {
+        completedAt,
+        skippedAt: null
+      })
+      setRefreshKey(prev => prev + 1)
+    }
+  }, [])
+
+  // スキップされたタスクをスキップ解除（再表示）
+  const handleUndoSkip = useCallback((taskId: string, date: string) => {
+    if (confirm(`${date}のスキップを取り消しますか？`)) {
+      taskService.updateRoutineExecutionForDate(taskId, date, {
+        skippedAt: null
+      })
+      setRefreshKey(prev => prev + 1)
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -131,6 +193,22 @@ export default function RoutineCheckerPage() {
               <span>チェッカー</span>
             </button>
             <button
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 px-4 py-3 font-display text-sm transition-all duration-200 border-b-2 -mb-[2px] ${
+                activeTab === 'history'
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                  : 'border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span>📋</span>
+              <span>履歴</span>
+              {skippedExecutions.length > 0 && (
+                <span className="bg-[var(--color-accent)] text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                  {skippedExecutions.reduce((sum, item) => sum + item.executions.length, 0)}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`flex items-center gap-2 px-4 py-3 font-display text-sm transition-all duration-200 border-b-2 -mb-[2px] ${
                 activeTab === 'settings'
@@ -174,6 +252,7 @@ export default function RoutineCheckerPage() {
                               onEditSubTask={handleEditSubTask}
                               onDeleteSubTask={handleDeleteSubTask}
                               onDeleteParentTask={handleDeleteParentTask}
+                              onRefresh={() => setRefreshKey(prev => prev + 1)}
                             />
                           </div>
                         )
@@ -183,6 +262,67 @@ export default function RoutineCheckerPage() {
                 </>
               )}
             </>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="mt-6">
+              {skippedExecutions.length === 0 ? (
+                <div className="card-industrial p-8 text-center">
+                  <p className="font-display text-sm text-[var(--color-text-tertiary)]">
+                    スキップされたタスクはありません
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="card-industrial p-4">
+                    <h2 className="font-display text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                      スキップされたタスク
+                    </h2>
+                    <p className="font-display text-xs text-[var(--color-text-tertiary)]">
+                      過去30日以内にスキップされたタスクを表示します。完了していた場合は修正できます。
+                    </p>
+                  </div>
+                  {skippedExecutions.map(({ task, executions }) => (
+                    <div key={task.id} className="card-industrial p-4">
+                      <h3 className="font-display text-sm font-medium text-[var(--color-text-primary)] mb-3">
+                        {task.title}
+                      </h3>
+                      <div className="space-y-2">
+                        {executions.sort((a, b) => b.date.localeCompare(a.date)).map(execution => (
+                          <div 
+                            key={execution.id} 
+                            className="flex items-center justify-between p-3 border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] rounded"
+                          >
+                            <div>
+                              <span className="font-display text-sm text-[var(--color-text-primary)]">
+                                {execution.date}
+                              </span>
+                              <span className="ml-2 font-display text-xs text-[var(--color-text-tertiary)]">
+                                スキップ
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleUndoSkip(task.id, execution.date)}
+                                className="px-3 py-1.5 font-display text-[10px] tracking-wider uppercase bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] transition-colors rounded"
+                              >
+                                スキップ解除
+                              </button>
+                              <button
+                                onClick={() => handleMarkAsCompleted(task.id, execution.date)}
+                                className="px-3 py-1.5 font-display text-[10px] tracking-wider uppercase bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors rounded"
+                              >
+                                完了に変更
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'settings' && (
