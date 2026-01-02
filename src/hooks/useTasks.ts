@@ -208,14 +208,6 @@ export function useTasks() {
   }, [loadData])
 
 
-  // ローカル日付文字列を取得
-  const toLocalDateStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-  
   // タスクのタイマーを開始
   const startTaskTimer = useCallback((id: string) => {
     try {
@@ -224,7 +216,7 @@ export function useTasks() {
       // ルーティンタスクの場合は、routineExecutionsも更新
       // taskServiceで更新された最新の状態を取得
       if (updatedTask.repeatPattern !== 'none') {
-        const today = toLocalDateStr(new Date())
+        const today = taskService.toLocalDateStr(new Date())
         const latestExecutions = taskService.getRoutineExecutions(id, today)
         if (latestExecutions.length > 0) {
           const updatedExecution = latestExecutions[0]
@@ -254,7 +246,7 @@ export function useTasks() {
       // ルーティンタスクの場合は、routineExecutionsも更新
       // taskServiceで更新された最新の状態を取得
       if (updatedTask.repeatPattern !== 'none') {
-        const today = toLocalDateStr(new Date())
+        const today = taskService.toLocalDateStr(new Date())
         const latestExecutions = taskService.getRoutineExecutions(id, today)
         if (latestExecutions.length > 0) {
           const updatedExecution = latestExecutions[0]

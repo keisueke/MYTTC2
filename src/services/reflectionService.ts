@@ -4,6 +4,7 @@ import { geminiApiProvider } from './aiApi/geminiApi'
 import { openaiApiProvider } from './aiApi/openaiApi'
 import { claudeApiProvider } from './aiApi/claudeApi'
 import { AIApiProvider } from './aiApi/base'
+import { toLocalDateStr, toLocalISOString } from './dataStorage'
 
 const REFLECTIONS_STORAGE_KEY = 'mytcc2_reflections'
 
@@ -66,30 +67,6 @@ export async function generateReflection(
     throw new Error('プライマリAI APIが設定されていません。設定画面でAPIキーを設定してください。')
   }
 
-  // ローカル日付文字列を取得
-  const toLocalDateStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-  
-  // ローカルISO文字列を取得
-  const toLocalISOStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    const ms = String(date.getMilliseconds()).padStart(3, '0')
-    const tzOffset = -date.getTimezoneOffset()
-    const tzSign = tzOffset >= 0 ? '+' : '-'
-    const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0')
-    const tzMinutes = String(Math.abs(tzOffset) % 60).padStart(2, '0')
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}${tzSign}${tzHours}:${tzMinutes}`
-  }
-
   const today = toLocalDateStr(new Date())
   
   // 既存の振り返りをチェック
@@ -138,7 +115,7 @@ export async function generateReflection(
     insights: result.insights,
     suggestions: result.suggestions,
     provider: config.provider,
-    createdAt: toLocalISOStr(new Date()),
+    createdAt: toLocalISOString(new Date()),
   }
 
   // 保存

@@ -1,4 +1,4 @@
-import { Task, DailyRecord, Project, Mode, Tag } from '../../types'
+import { Task, DailyRecord, Project, Mode, Tag, ApiErrorResponse } from '../../types'
 import { AIApiProvider, buildReflectionPrompt } from './base'
 
 /**
@@ -8,7 +8,7 @@ export class OpenAIApiError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public response?: any
+    public response?: ApiErrorResponse
   ) {
     super(message)
     this.name = 'OpenAIApiError'

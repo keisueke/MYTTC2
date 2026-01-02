@@ -4,6 +4,7 @@ import { useNotification } from '../../context/NotificationContext'
 import * as aiConfig from '../../services/aiConfig'
 import * as reflectionService from '../../services/reflectionService'
 import { DailyReflection as DailyReflectionType } from '../../types'
+import { toLocalDateStr } from '../../services/dataStorage'
 
 interface DailyReflectionProps {
   tasks: Task[]
@@ -11,14 +12,6 @@ interface DailyReflectionProps {
   projects?: Project[]
   modes?: Mode[]
   tags?: Tag[]
-}
-
-// ローカル日付文字列を取得
-const toLocalDateStr = (date: Date): string => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export default function DailyReflection({ tasks, dailyRecords, projects, modes, tags }: DailyReflectionProps) {

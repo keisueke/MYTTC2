@@ -7,7 +7,7 @@ import { useCloudflare } from '../hooks/useCloudflare'
 import { useNotification } from '../context/NotificationContext'
 import { useSelectedDate } from '../context/SelectedDateContext'
 import { generateTodaySummary } from '../utils/export'
-import { getDashboardLayout, saveDashboardLayout, getUIMode } from '../services/taskService'
+import { getDashboardLayout, saveDashboardLayout, getUIMode, toLocalDateStr } from '../services/taskService'
 import { loadCloudflareConfig } from '../services/cloudflareApi'
 import { DashboardLayoutConfig, DashboardWidgetId, ConflictResolution, Task } from '../types'
 import WeatherCard from '../components/dashboard/WeatherCard'
@@ -49,14 +49,6 @@ export default function Dashboard() {
       setShowIncompleteDialog(true)
     }
   }, [tasks, routineExecutions])
-
-  // ローカル日付文字列を取得
-  const toLocalDateStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
 
   // ローカルISO文字列を取得
   const toLocalISOStr = (date: Date): string => {
@@ -233,6 +225,8 @@ export default function Dashboard() {
   }, [])
 
   // 編集モード終了時にレイアウトを保存
+  // 注意: layoutを依存配列に含めると編集中に毎回保存されるため、
+  // isEditModeの変更時のみ実行する意図的な設計
   useEffect(() => {
     if (!isEditMode && layout.widgets.length > 0) {
       saveDashboardLayout(layout)

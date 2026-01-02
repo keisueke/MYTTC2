@@ -8,6 +8,7 @@ import { useNotification } from '../../context/NotificationContext'
 import { useSelectedDate } from '../../context/SelectedDateContext'
 import { validateTextInput } from '../../utils/validation'
 import { notifyDataChanged } from '../../hooks/useSyncBackend'
+import { toLocalDateStr } from '../../services/dataStorage'
 
 export default function DailyRecordInput() {
   const { showNotification } = useNotification()
@@ -16,14 +17,6 @@ export default function DailyRecordInput() {
   const [config, setConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-
-  // ローカル日付文字列を取得
-  const toLocalDateStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
   
   // 選択日付が変わった時にデータを再読み込み
   useEffect(() => {

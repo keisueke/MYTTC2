@@ -339,3 +339,21 @@ export interface TimeSectionSettings {
   dayConfigs: TimeSectionDayConfig[] // 曜日ごとの設定（7日分）
 }
 
+// API エラーレスポンス型
+export interface ApiErrorResponse {
+  message?: string
+  error?: {
+    message?: string
+    code?: string
+    type?: string
+  }
+  [key: string]: unknown
+}
+
+// GitHub API用のリクエストボディ型
+export interface GitHubFileUpdateBody {
+  message: string
+  content: string
+  sha?: string
+}
+

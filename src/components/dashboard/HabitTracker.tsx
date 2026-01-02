@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Task, RoutineExecution } from '../../types'
 import { getWeekStartDay } from '../../services/taskService'
+import { toLocalDateStr } from '../../services/dataStorage'
 
 interface HabitTrackerProps {
   tasks: Task[]
@@ -67,16 +68,6 @@ const getMonthDays = () => {
   }
   
   return days
-}
-
-/**
- * ローカル日付文字列を取得（YYYY-MM-DD形式）
- */
-const toLocalDateStr = (date: Date): string => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 /**

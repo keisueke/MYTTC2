@@ -1,4 +1,5 @@
-import { Task, DailyRecord } from '../types'
+import { Task, DailyRecord, ApiErrorResponse } from '../types'
+import { toLocalDateStr } from './dataStorage'
 
 /**
  * Gemini APIエラークラス
@@ -7,7 +8,7 @@ export class GeminiApiError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public response?: any
+    public response?: ApiErrorResponse
   ) {
     super(message)
     this.name = 'GeminiApiError'
@@ -85,14 +86,6 @@ export async function generateDailyReflection(
   insights: string[]
   suggestions: string[]
 }> {
-  // ローカル日付文字列を取得
-  const toLocalDateStr = (date: Date): string => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-  
   const today = toLocalDateStr(new Date())
   
   // 今日のタスクをフィルタ

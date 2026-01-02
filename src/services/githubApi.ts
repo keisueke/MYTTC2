@@ -1,4 +1,4 @@
-import { AppData, GitHubConfig } from '../types'
+import { AppData, GitHubConfig, ApiErrorResponse, GitHubFileUpdateBody } from '../types'
 
 const GITHUB_API_BASE = 'https://api.github.com'
 
@@ -9,7 +9,7 @@ export class GitHubApiError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public response?: any
+    public response?: ApiErrorResponse
   ) {
     super(message)
     this.name = 'GitHubApiError'
@@ -94,7 +94,7 @@ export async function saveFileContent(
     const endpoint = `/repos/${config.owner}/${config.repo}/contents/${path}`
     const encodedContent = btoa(unescape(encodeURIComponent(content)))
     
-    const body: any = {
+    const body: GitHubFileUpdateBody = {
       message,
       content: encodedContent,
     }
