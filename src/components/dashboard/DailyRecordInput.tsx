@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -15,8 +15,9 @@ export default function DailyRecordInput() {
   const { selectedDate, isToday } = useSelectedDate()
   const [record, setRecord] = useState<Partial<DailyRecord>>({})
   const [config, setConfig] = useState<SummaryConfig>(getSummaryConfig())
-  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // 選択日付が変わった時にデータを再読み込み
   useEffect(() => {
@@ -37,49 +38,48 @@ export default function DailyRecordInput() {
     loadRecord()
   }, [selectedDate])
 
-  const handleSave = () => {
+  // フィールド名と日本語ラベルのマッピング
+  const fieldLabels: Record<string, string> = {
+    breakfast: '朝食',
+    lunch: '昼食',
+    dinner: '夕食',
+    snack: '間食',
+  }
+
+  // 自動保存関数（フォーカスが外れたときに呼ばれる）
+  const handleAutoSave = (fieldName?: string) => {
     if (!record.date) return
     
-    // バリデーション
-    const newErrors: Record<string, string> = {}
+    // バリデーション（テキストフィールドのみ）
+    const newErrors: Record<string, string> = { ...errors }
     
-    if (record.breakfast) {
-      const breakfastValidation = validateTextInput(record.breakfast, '朝食')
-      if (!breakfastValidation.valid && breakfastValidation.errorMessage) {
-        newErrors.breakfast = breakfastValidation.errorMessage
-      }
-    }
-    
-    if (record.lunch) {
-      const lunchValidation = validateTextInput(record.lunch, '昼食')
-      if (!lunchValidation.valid && lunchValidation.errorMessage) {
-        newErrors.lunch = lunchValidation.errorMessage
-      }
-    }
-    
-    if (record.dinner) {
-      const dinnerValidation = validateTextInput(record.dinner, '夕食')
-      if (!dinnerValidation.valid && dinnerValidation.errorMessage) {
-        newErrors.dinner = dinnerValidation.errorMessage
-      }
-    }
-    
-    if (record.snack) {
-      const snackValidation = validateTextInput(record.snack, '間食')
-      if (!snackValidation.valid && snackValidation.errorMessage) {
-        newErrors.snack = snackValidation.errorMessage
+    // 特定フィールドのみバリデーションする場合
+    if (fieldName && fieldLabels[fieldName]) {
+      const fieldValue = record[fieldName as keyof DailyRecord]
+      if (fieldValue && typeof fieldValue === 'string') {
+        const validation = validateTextInput(fieldValue, fieldLabels[fieldName])
+        if (!validation.valid && validation.errorMessage) {
+          newErrors[fieldName] = validation.errorMessage
+          setErrors(newErrors)
+          return // バリデーションエラーがある場合は保存しない
+        } else {
+          delete newErrors[fieldName]
+        }
+      } else {
+        delete newErrors[fieldName]
       }
     }
     
     setErrors(newErrors)
     
-    // エラーがある場合は保存しない
-    if (Object.keys(newErrors).length > 0) {
-      showNotification('入力内容に問題があります', 'error')
-      return
+    // 保存処理
+    setSaveStatus('saving')
+    
+    // 既存のタイムアウトをクリア
+    if (saveStatusTimeoutRef.current) {
+      clearTimeout(saveStatusTimeoutRef.current)
     }
     
-    setSaving(true)
     try {
       saveDailyRecord({
         date: record.date,
@@ -92,25 +92,70 @@ export default function DailyRecordInput() {
         dinner: record.dinner,
         snack: record.snack,
       })
-      showNotification('記録を保存しました', 'success')
-      setErrors({}) // エラーをクリア
+      setSaveStatus('saved')
       notifyDataChanged()
+      
+      // 2秒後にステータスをリセット
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle')
+      }, 2000)
     } catch (error) {
       console.error('Failed to save daily record:', error)
+      setSaveStatus('error')
       showNotification('記録の保存に失敗しました', 'error')
-    } finally {
-      setSaving(false)
+      
+      // 3秒後にステータスをリセット
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        setSaveStatus('idle')
+      }, 3000)
     }
   }
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current)
+      }
+    }
+  }, [])
 
 
   return (
     <div className="card-industrial p-6">
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--color-border)]">
         <div>
-          <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
-            Daily Record
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-display text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-tertiary)]">
+              Daily Record
+            </p>
+            {/* 保存状態インジケーター */}
+            {saveStatus === 'saving' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+                <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                保存中
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-success)]">
+                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                保存済み
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-error)]">
+                <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                エラー
+              </span>
+            )}
+          </div>
           <h2 className="font-display text-xl font-semibold text-[var(--color-text-primary)]">
             {format(selectedDate, 'M/d(E)', { locale: ja })} の記録
             {isToday && (
@@ -139,6 +184,7 @@ export default function DailyRecordInput() {
               step="0.1"
               value={record.weight || ''}
               onChange={(e) => setRecord({ ...record, weight: e.target.value ? parseFloat(e.target.value) : undefined })}
+              onBlur={() => handleAutoSave()}
               placeholder="例: 65.5"
               className="input-industrial w-full"
             />
@@ -155,6 +201,7 @@ export default function DailyRecordInput() {
                 type="time"
                 value={record.bedtime || ''}
                 onChange={(e) => setRecord({ ...record, bedtime: e.target.value || undefined })}
+                onBlur={() => handleAutoSave()}
                 className="input-industrial w-full"
               />
             </div>
@@ -169,6 +216,7 @@ export default function DailyRecordInput() {
                 type="time"
                 value={record.wakeTime || ''}
                 onChange={(e) => setRecord({ ...record, wakeTime: e.target.value || undefined })}
+                onBlur={() => handleAutoSave()}
                 className="input-industrial w-full"
               />
             </div>
@@ -200,6 +248,7 @@ export default function DailyRecordInput() {
                     const totalMinutes = hours * 60 + currentMinutes
                     setRecord({ ...record, sleepDuration: totalMinutes > 0 ? totalMinutes : undefined })
                   }}
+                  onBlur={() => handleAutoSave()}
                   placeholder="7"
                   className="input-industrial w-full"
                 />
@@ -223,6 +272,7 @@ export default function DailyRecordInput() {
                     const totalMinutes = currentHours * 60 + minutes
                     setRecord({ ...record, sleepDuration: totalMinutes > 0 ? totalMinutes : undefined })
                   }}
+                  onBlur={() => handleAutoSave()}
                   placeholder="30"
                   className="input-industrial w-full"
                 />
@@ -246,6 +296,7 @@ export default function DailyRecordInput() {
                   setErrors({ ...errors, breakfast: '' })
                 }
               }}
+              onBlur={() => handleAutoSave('breakfast')}
               placeholder="例: パン、コーヒー"
               className={`input-industrial w-full ${
                 errors.breakfast ? 'border-[var(--color-error)]' : ''
@@ -271,6 +322,7 @@ export default function DailyRecordInput() {
                   setErrors({ ...errors, lunch: '' })
                 }
               }}
+              onBlur={() => handleAutoSave('lunch')}
               placeholder="例: サラダ、スープ"
               className={`input-industrial w-full ${
                 errors.lunch ? 'border-[var(--color-error)]' : ''
@@ -296,6 +348,7 @@ export default function DailyRecordInput() {
                   setErrors({ ...errors, dinner: '' })
                 }
               }}
+              onBlur={() => handleAutoSave('dinner')}
               placeholder="例: ご飯、味噌汁、魚"
               className={`input-industrial w-full ${
                 errors.dinner ? 'border-[var(--color-error)]' : ''
@@ -321,6 +374,7 @@ export default function DailyRecordInput() {
                   setErrors({ ...errors, snack: '' })
                 }
               }}
+              onBlur={() => handleAutoSave('snack')}
               placeholder="例: チョコレート"
               className={`input-industrial w-full ${
                 errors.snack ? 'border-[var(--color-error)]' : ''
@@ -332,15 +386,6 @@ export default function DailyRecordInput() {
           </div>
         )}
 
-        <div className="pt-4 border-t border-[var(--color-border)]">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-industrial w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? '保存中...' : '保存'}
-          </button>
-        </div>
       </div>
     </div>
   )
