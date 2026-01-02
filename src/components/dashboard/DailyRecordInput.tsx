@@ -17,7 +17,7 @@ export default function DailyRecordInput() {
   const [config, setConfig] = useState<SummaryConfig>(getSummaryConfig())
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const saveStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   // 選択日付が変わった時にデータを再読み込み
   useEffect(() => {
